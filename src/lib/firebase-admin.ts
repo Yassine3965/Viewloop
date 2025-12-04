@@ -24,6 +24,7 @@ if (process.env.FIREBASE_ADMIN_KEY && !admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
+    console.log("Firebase Admin initialized successfully.");
   } catch (error) {
       console.error("Firebase admin initialization error:", error);
       // Don't throw during build, but log the error.
