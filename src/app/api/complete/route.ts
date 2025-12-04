@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
-    const { sessionToken, finalWatchedSeconds: finalDelta = 0, adWatched = false } = body;
+    const { sessionToken, videoDuration: finalDelta = 0, adWatched = false } = body;
     
     if (!sessionToken) {
       return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION" }, { status: 400 }), req);
