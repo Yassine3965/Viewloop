@@ -5,41 +5,41 @@ import { firestore, auth } from "@/lib/firebase-admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 
 export async function OPTIONS(req: Request) {
-  return handleOptions();
+  return handleOptions(req);
 }
 
 export async function POST(req: Request) {
 
   if (!firestore || !auth) {
     console.error("Firebase Admin not initialized - check FIREBASE_ADMIN_KEY");
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_NOT_READY" }, { status: 503 }));
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_NOT_READY" }, { status: 503 }), req);
   }
 
   if (req.headers.get("content-type") !== "application/json") {
-    return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }));
+    return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }), req);
   }
 
   try {
     const rawBody = await req.text();
     if (!rawBody || rawBody.trim() === "") {
-      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }));
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
     }
     const body = JSON.parse(rawBody);
 
     if (body.secret !== process.env.EXTENSION_SECRET) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }));
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
     const { videoID, userAuthToken } = body;
     if (!videoID || !userAuthToken) {
-      return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }));
+      return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }), req);
     }
 
     let decoded;
     try {
       decoded = await auth.verifyIdToken(userAuthToken);
     } catch (err) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_USER_TOKEN" }, { status: 401 }));
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_USER_TOKEN" }, { status: 401 }), req);
     }
 
     const userId = decoded.uid;
@@ -63,12 +63,11 @@ export async function POST(req: Request) {
       success: true,
       sessionToken,
       expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
-    }));
+    }), req);
   } catch (err: any) {
     if (err.name === 'SyntaxError') {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }));
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
     }
-    // console.error("start-session error:", err);
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }));
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
 }

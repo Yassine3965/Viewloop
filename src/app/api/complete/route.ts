@@ -5,59 +5,48 @@ import { firestore } from "@/lib/firebase-admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 
 export async function OPTIONS(req: Request) {
-  return handleOptions();
+  return handleOptions(req);
 }
 
 export async function POST(req: Request) {
-  // console.log("Request headers:", Object.fromEntries(req.headers.entries()));
-
   if (!firestore) {
     console.error("Firestore not initialized - check FIREBASE_ADMIN_KEY");
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_NOT_READY" }, { status: 503 }));
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_NOT_READY" }, { status: 503 }), req);
   }
 
   if (req.headers.get("content-type") !== "application/json") {
-    // console.log("Invalid content-type:", req.headers.get("content-type"));
-    return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }));
+    return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }), req);
   }
 
   try {
     const rawBody = await req.text();
-    // console.log("Raw request body:", rawBody);
     
     if (!rawBody || rawBody.trim() === "") {
-      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }));
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
     }
     
     const body = JSON.parse(rawBody);
-    // console.log("Parsed body:", body);
 
     if (body.secret !== process.env.EXTENSION_SECRET) {
-      // console.log("Invalid secret. Received:", body.secret);
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }));
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
     const { sessionToken, finalWatchedSeconds: finalDelta = 0, adWatched = false } = body;
     
     if (!sessionToken) {
-      // console.log("Missing sessionToken in body:", body);
-      return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION" }, { status: 400 }));
+      return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION" }, { status: 400 }), req);
     }
-
-    // console.log("Processing session:", sessionToken, "finalDelta:", finalDelta, "adWatched:", adWatched);
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const snap = await sessionRef.get();
     
     if (!snap.exists) {
-      // console.log("Session not found:", sessionToken);
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }));
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }), req);
     }
 
     const session = snap.data();
     if (!session) {
-      // console.log("Session data is null for:", sessionToken);
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }));
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
 
     // اجمع ساعات المشاهدة النهائية
@@ -70,8 +59,6 @@ export async function POST(req: Request) {
     if (totalWatched >= 60) points += 10;
     if (totalWatched >= 120) points += 15;
     if (adWatched === true) points += 20;
-
-    // console.log("Calculated points:", points, "totalWatched:", totalWatched);
 
     // تحديث watchHistory
     await firestore.collection("watchHistory").add({
@@ -113,14 +100,12 @@ export async function POST(req: Request) {
       points
     });
 
-    // console.log("Session completed successfully for:", sessionToken);
-    return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }));
+    return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
     
   } catch (err: any) {
     if (err.name === 'SyntaxError') {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }));
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
     }
-    // console.error("complete error:", err);
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }));
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
 }
