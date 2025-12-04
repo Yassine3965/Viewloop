@@ -9,6 +9,10 @@ export async function OPTIONS(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (req.headers.get("content-type") !== "application/json") {
+    return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }));
+  }
+
   try {
     const body = await req.json();
 
@@ -78,7 +82,10 @@ export async function POST(req: Request) {
     });
 
     return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }));
-  } catch (err) {
+  } catch (err: any) {
+    if (err.name === 'SyntaxError') {
+        return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }));
+    }
     console.error("complete error:", err);
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 }));
   }
