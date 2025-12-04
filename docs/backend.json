@@ -1,0 +1,219 @@
+
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the ViewLoop application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity (matches Firebase Auth UID)."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time the user registered.",
+          "format": "date-time"
+        },
+        "lastLogin": {
+          "type": "string",
+          "description": "The date and time of the user's last login.",
+          "format": "date-time"
+        },
+        "lastUpdated": {
+          "type": "number",
+          "description": "The timestamp of the last update from the extension."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user (e.g., 'user', 'admin').",
+          "enum": ["user", "admin"]
+        },
+        "avatar": {
+            "type": "string",
+            "description": "URL for the user's avatar image.",
+            "format": "uri"
+        },
+        "gender": {
+          "type": "string",
+          "description": "The gender of the user.",
+          "enum": ["male", "female", "other"]
+        },
+        "country": {
+            "type": "string",
+            "description": "The country of the user, determined by IP address on signup."
+        },
+        "country_code": {
+            "type": "string",
+            "description": "The country code of the user (e.g., 'US', 'MA')."
+        },
+        "city": {
+            "type": "string",
+            "description": "The city of the user, determined by IP address on signup."
+        },
+        "points": {
+            "type": "number",
+            "description": "The total points the user has accumulated."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "createdAt",
+        "lastLogin",
+        "role",
+        "avatar",
+        "points"
+      ]
+    },
+    "Video": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Video",
+      "type": "object",
+      "description": "Represents a video in the ViewLoop application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Video entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the video."
+        },
+        "url": {
+          "type": "string",
+          "description": "The YouTube URL of the video.",
+          "format": "uri"
+        },
+        "duration": {
+            "type": "number",
+            "description": "The required watch duration for the video in seconds."
+        },
+        "submissionDate": {
+          "type": "string",
+          "description": "The date and time the video was submitted.",
+          "format": "date-time"
+        },
+        "submitterId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Video) The ID of the user who submitted the video."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "url",
+        "duration",
+        "submissionDate",
+        "submitterId"
+      ]
+    },
+    "WatchHistory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WatchHistory",
+      "type": "object",
+      "description": "Represents a record of a user watching a video via the extension.",
+      "properties": {
+        "userId": { "type": "string" },
+        "videoId": { "type": "string" },
+        "totalWatchedSeconds": { "type": "number" },
+        "adWatched": { "type": "boolean" },
+        "pointsEarned": { "type": "number" },
+        "completedAt": { "type": "number" },
+        "sessionToken": { "type": "string" }
+      },
+      "required": ["userId", "videoId", "totalWatchedSeconds", "pointsEarned", "completedAt"]
+    },
+    "Session": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Session",
+        "type": "object",
+        "description": "Represents a user's video watching session.",
+        "properties": {
+            "sessionToken": { "type": "string", "description": "Unique token for this session." },
+            "userId": { "type": "string", "description": "The ID of the user watching." },
+            "videoID": { "type": "string", "description": "The ID of the video being watched." },
+            "createdAt": { "type": "number", "description": "Timestamp when the session was created." },
+            "lastHeartbeatAt": { "type": "number", "description": "Timestamp of the last heartbeat received." },
+            "totalWatchedSeconds": { "type": "number", "description": "Total accumulated watch time in seconds." },
+            "adWatched": { "type": "boolean", "description": "Whether an ad was watched during the session." },
+            "status": { "type": "string", "enum": ["active", "completed", "suspicious", "expired"], "description": "The current status of the session." },
+            "points": { "type": "number", "description": "Points awarded for this session upon completion." }
+        },
+        "required": ["sessionToken", "userId", "videoID", "createdAt", "lastHeartbeatAt", "status"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "google.com",
+      "password"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Access is restricted to the user themselves.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/videos/{videoId}",
+        "definition": {
+          "entityName": "Video",
+          "schema": {
+            "$ref": "#/backend/entities/Video"
+          },
+          "description": "Stores general video metadata. Publicly readable, but only writable by the submitter.",
+          "params": [
+            {
+              "name": "videoId",
+              "description": "The unique ID of the video."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/watchHistory/{historyId}",
+        "definition": {
+            "entityName": "WatchHistory",
+            "schema": { "$ref": "#/backend/entities/WatchHistory" },
+            "description": "Stores logs of video watching activity from the browser extension. Should only be writable by a trusted server process.",
+            "params": [{ "name": "historyId", "description": "The unique ID of the history entry." }]
+        }
+      },
+      {
+        "path": "/sessions/{sessionId}",
+        "definition": {
+            "entityName": "Session",
+            "schema": { "$ref": "#/backend/entities/Session" },
+            "description": "Stores active watch sessions from the browser extension. Should only be writable by a trusted server process.",
+            "params": [{ "name": "sessionId", "description": "The unique ID of the session (sessionToken)." }]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is simplified to support the new activity-based system. The primary collections are `/users` and `/videos`. The user's activity state (progress, level, bonus) is stored directly on their user document. This avoids complex transaction histories and makes activity updates atomic. Subcollections for user-specific data have been removed to simplify the model for this MVP. A new `watchHistory` collection is added to log events from the extension."
+  }
+}
+    
