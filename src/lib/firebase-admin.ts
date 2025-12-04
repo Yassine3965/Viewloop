@@ -7,40 +7,31 @@ let authInstance: admin.auth.Auth | null = null;
 if (typeof window === 'undefined') {
   // Check if the app is already initialized to prevent errors.
   if (!admin.apps.length) {
-    const serviceAccountKey = process.env.FIREBASE_ADMIN_KEY;
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-    if (serviceAccountKey) {
+    if (projectId && clientEmail && privateKey) {
       try {
-        let serviceAccount;
-        // First attempt to parse directly
-        try {
-            serviceAccount = JSON.parse(serviceAccountKey);
-        } catch (e) {
-            console.warn("Could not parse FIREBASE_ADMIN_KEY directly, attempting to clean it...");
-            // This handles cases where the key might be double-escaped in the environment variable.
-            const cleanedKey = serviceAccountKey.replace(/\\n/g, '\n').replace(/\\"/g, '"');
-            serviceAccount = JSON.parse(cleanedKey);
-        }
-        
-        // Normalize newlines in private_key, as they often get escaped.
-        if (serviceAccount.private_key) {
-            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-        }
-
         admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount)
+          credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            // Replace the literal `\n` characters with actual newlines
+            privateKey: privateKey.replace(/\\n/g, '\n'),
+          }),
         });
-        
+
         console.log("Firebase Admin initialized successfully.");
         firestoreInstance = admin.firestore();
         authInstance = admin.auth();
 
       } catch (error: any) {
         console.error("Firebase Admin initialization error:", error.message);
-        // Don't throw during build, but log the error. This helps debug Vercel deployments.
       }
     } else {
-      console.warn("FIREBASE_ADMIN_KEY environment variable is not set. Firebase Admin SDK not initialized.");
+      console.warn("One or more Firebase Admin environment variables are not set. Firebase Admin SDK not initialized.");
+      console.warn("Required: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY");
     }
   } else {
     // If already initialized, just get the instances.
