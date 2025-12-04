@@ -1,36 +1,54 @@
 import * as admin from "firebase-admin";
 
-// Check if the key exists to avoid errors during build on platforms like Vercel
-if (process.env.FIREBASE_ADMIN_KEY && !admin.apps.length) {
-  try {
-    const serviceAccountString = process.env.FIREBASE_ADMIN_KEY;
-    
-    // Attempt to parse the service account key
-    let serviceAccount;
-    try {
-        serviceAccount = JSON.parse(serviceAccountString);
-    } catch (parseError) {
-        console.warn("Could not parse FIREBASE_ADMIN_KEY directly, attempting to clean it...");
-        // This handles cases where the key might be double-escaped in the environment variable.
-        const cleanedKey = serviceAccountString.replace(/\\n/g, '\n').replace(/\\"/g, '"');
-        serviceAccount = JSON.parse(cleanedKey);
+let firestoreInstance: admin.firestore.Firestore | null = null;
+let authInstance: admin.auth.Auth | null = null;
+
+// This function is designed to run only on the server.
+if (typeof window === 'undefined') {
+  // Check if the app is already initialized to prevent errors.
+  if (!admin.apps.length) {
+    const serviceAccountKey = process.env.FIREBASE_ADMIN_KEY;
+
+    if (serviceAccountKey) {
+      try {
+        let serviceAccount;
+        // First attempt to parse directly
+        try {
+            serviceAccount = JSON.parse(serviceAccountKey);
+        } catch (e) {
+            console.warn("Could not parse FIREBASE_ADMIN_KEY directly, attempting to clean it...");
+            // This handles cases where the key might be double-escaped in the environment variable.
+            const cleanedKey = serviceAccountKey.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+            serviceAccount = JSON.parse(cleanedKey);
+        }
+        
+        // Normalize newlines in private_key, as they often get escaped.
+        if (serviceAccount.private_key) {
+            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+        }
+
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount)
+        });
+        
+        console.log("Firebase Admin initialized successfully.");
+        firestoreInstance = admin.firestore();
+        authInstance = admin.auth();
+
+      } catch (error: any) {
+        console.error("Firebase Admin initialization error:", error.message);
+        // Don't throw during build, but log the error. This helps debug Vercel deployments.
+      }
+    } else {
+      console.warn("FIREBASE_ADMIN_KEY environment variable is not set. Firebase Admin SDK not initialized.");
     }
-    
-    // Normalize newlines in private_key, as they often get escaped.
-    if (serviceAccount.private_key) {
-      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-    }
-    
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log("Firebase Admin initialized successfully.");
-  } catch (error) {
-      console.error("Firebase admin initialization error:", error);
-      // Don't throw during build, but log the error.
+  } else {
+    // If already initialized, just get the instances.
+    firestoreInstance = admin.firestore();
+    authInstance = admin.auth();
   }
 }
 
-// Export null if admin is not initialized, allowing for runtime checks.
-export const firestore = admin.apps.length ? admin.firestore() : null;
-export const auth = admin.apps.length ? admin.auth() : null;
+// Export the initialized instances (or null if initialization failed).
+export const firestore = firestoreInstance;
+export const auth = authInstance;

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
     const body = JSON.parse(rawBody);
 
-    if (body.secret !== process.env.EXTENSION_SECRET) {
+    if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
