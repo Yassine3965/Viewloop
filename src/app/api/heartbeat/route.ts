@@ -15,7 +15,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    if (!rawBody || rawBody.trim() === "") {
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }));
+    }
+    const body = JSON.parse(rawBody);
 
     if (body.secret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }));
@@ -38,18 +42,14 @@ export async function POST(req: Request) {
     const diffSec = Math.floor((now - lastHb) / 1000);
 
     const allowedInterval = Number(process.env.HEARTBEAT_ALLOWED_INTERVAL || 30);
-    // إذا لم يصل الهارتبيت بالوقت المتوقع (أكبر من المسموح) اعتبر محاولة مشكوك بها
     if (diffSec > allowedInterval * 6) {
-      // يمكن إما إيقاف الجلسة أو وضع علامة تحقق لاحق
       await sessionRef.update({ status: "suspicious", lastHeartbeatAt: now });
       return addCorsHeaders(NextResponse.json({ error: "HEARTBEAT_DELAYED", suspicious: true }, { status: 400 }));
     }
 
-    // تجنب قيم مضخمة لwatchedSinceLastHeartbeat
-    const safeDelta = Math.max(0, Math.min( watchedSinceLastHeartbeat, 120 )); // لا تزيد عن دقيقتين
+    const safeDelta = Math.max(0, Math.min( watchedSinceLastHeartbeat, 120 ));
     const newTotal = (session.totalWatchedSeconds || 0) + safeDelta;
 
-    // تحديث السجلات
     await sessionRef.update({
       lastHeartbeatAt: now,
       totalWatchedSeconds: newTotal,
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     if (err.name === 'SyntaxError') {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }));
     }
-    console.error("heartbeat error:", err);
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 }));
+    // console.error("heartbeat error:", err);
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }));
   }
 }

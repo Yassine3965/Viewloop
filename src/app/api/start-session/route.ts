@@ -14,9 +14,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    if (!rawBody || rawBody.trim() === "") {
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }));
+    }
+    const body = JSON.parse(rawBody);
 
-    // 1) تحقق من secret للطلب (من الإضافة)
     if (body.secret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }));
     }
@@ -26,7 +29,6 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }));
     }
 
-    // 2) تحقق من توكن Firebase ID (فك التوكن للحصول على uid)
     let decoded;
     try {
       decoded = await auth.verifyIdToken(userAuthToken);
@@ -36,7 +38,6 @@ export async function POST(req: Request) {
 
     const userId = decoded.uid;
     const now = Date.now();
-    // 3) توليد session token آمن بسيط
     const sessionToken = `${now.toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 
     const sessionDoc = {
@@ -50,7 +51,6 @@ export async function POST(req: Request) {
       status: "active"
     };
 
-    // 4) حفظ الجلسة في Firestore
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
 
     return addCorsHeaders(NextResponse.json({
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     if (err.name === 'SyntaxError') {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }));
     }
-    console.error("start-session error:", err);
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 }));
+    // console.error("start-session error:", err);
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }));
   }
 }
