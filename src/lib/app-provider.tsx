@@ -100,6 +100,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       if (authUser) { 
         setIsUserLoading(true);
+        
+        // Store auth token in local storage
+        authUser.getIdToken().then(token => {
+            localStorage.setItem('authToken', token);
+        });
+
         const userRef = doc(db, 'users', authUser.uid);
         
         if (authUser.emailVerified) {
@@ -138,6 +144,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         );
       } else {
+        localStorage.removeItem('authToken');
         setUser(null);
         setIsUserLoading(false);
       }
@@ -268,17 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             await signOut(auth);
             return false;
         }
-        const userDocRef = doc(db, 'users', userCredential.user.uid);
-        const updateData = { lastLogin: serverTimestamp() };
-        updateDoc(userDocRef, updateData)
-          .catch(async (serverError: FirestoreError) => {
-            const permissionError = new FirestorePermissionError({
-              path: userDocRef.path,
-              operation: 'update',
-              requestResourceData: updateData
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
+        // The onAuthStateChanged listener will handle token storage
         return true;
     } catch (error) {
         return false;
@@ -403,6 +400,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 throw serverError;
               });
         }
+        // The onAuthStateChanged listener will handle token storage
         return true;
     } catch (error) {
         console.error("Google login error:", error);
@@ -413,6 +411,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     if (!auth) return;
     await signOut(auth);
+    // The onAuthStateChanged listener will handle removing the token
   }, [auth]);
 
   const contextValue = useMemo(() => ({
@@ -443,5 +442,3 @@ export const useApp = (): AppContextState => {
   }
   return context;
 };
-
-    
