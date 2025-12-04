@@ -9,6 +9,12 @@ export async function OPTIONS(req: Request) {
 }
 
 export async function POST(req: Request) {
+
+  if (!firestore || !auth) {
+    console.error("Firebase Admin not initialized - check FIREBASE_ADMIN_KEY");
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_NOT_READY" }, { status: 503 }));
+  }
+
   if (req.headers.get("content-type") !== "application/json") {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }));
   }

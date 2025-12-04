@@ -11,6 +11,11 @@ export async function OPTIONS(req: Request) {
 export async function POST(req: Request) {
   // console.log("Request headers:", Object.fromEntries(req.headers.entries()));
 
+  if (!firestore) {
+    console.error("Firestore not initialized - check FIREBASE_ADMIN_KEY");
+    return addCorsHeaders(NextResponse.json({ error: "SERVER_NOT_READY" }, { status: 503 }));
+  }
+
   if (req.headers.get("content-type") !== "application/json") {
     // console.log("Invalid content-type:", req.headers.get("content-type"));
     return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }));
