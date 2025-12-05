@@ -1,5 +1,6 @@
 // src/lib/firebase/admin.ts
 import admin from 'firebase-admin';
+import { serverConfig } from '@/lib/config';
 
 // This is a flag to ensure we only initialize the app once.
 let isInitialized = false;
@@ -12,9 +13,7 @@ export function initializeFirebaseAdmin() {
   if (!isInitialized) {
     console.log("🔧 [Firebase Admin] Attempting to initialize...");
     
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const { projectId, clientEmail, privateKey } = serverConfig.firebase;
 
     if (!projectId || !clientEmail || !privateKey) {
         const missingVars = [];
