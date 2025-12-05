@@ -12,8 +12,14 @@ export async function OPTIONS(req: Request) {
 export async function POST(req: Request) {
 
   if (!firestore) {
-    console.error("Firestore not initialized - check FIREBASE_ADMIN_KEY");
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_NOT_READY" }, { status: 503 }), req);
+    console.error("❌ [API /api/heartbeat] Firebase Admin NOT READY", {
+      firestoreExists: !!firestore,
+      timestamp: new Date().toISOString()
+    });
+    return addCorsHeaders(NextResponse.json({ 
+      error: "SERVER_NOT_READY",
+      message: "Firebase Admin initialization failed. Check server logs."
+    }, { status: 503 }), req);
   }
 
   if (req.headers.get("content-type") !== "application/json") {
