@@ -119,7 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   timestamp: Date.now(),
                   userId: authUser.uid
                 }, (response: any) => {
-                  if (window.chrome.runtime.lastError) {
+                  if (window.chrome?.runtime?.lastError) {
                     // This error means the extension is not listening, which is fine.
                   } else {
                     console.log('📬 [ViewLoop] Successfully sent token update to extension.');
