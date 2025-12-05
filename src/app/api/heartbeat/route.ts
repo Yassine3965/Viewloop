@@ -1,7 +1,7 @@
 // /app/api/heartbeat/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { firestore } from "@/lib/firebase-admin";
+import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 
 
@@ -10,17 +10,19 @@ export async function OPTIONS(req: Request) {
 }
 
 export async function POST(req: Request) {
+  let firestore: admin.firestore.Firestore;
 
-  if (!firestore) {
-    console.error("❌ [API /api/heartbeat] Firebase Admin NOT READY", {
-      firestoreExists: !!firestore,
-      timestamp: new Date().toISOString()
-    });
+  try {
+    const admin = initializeFirebaseAdmin();
+    firestore = admin.firestore;
+  } catch (error: any) {
+    console.error("❌ [API /api/heartbeat] Firebase Admin Init Failed", { message: error.message });
     return addCorsHeaders(NextResponse.json({ 
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs."
     }, { status: 503 }), req);
   }
+
 
   if (req.headers.get("content-type") !== "application/json") {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }), req);
@@ -73,6 +75,7 @@ export async function POST(req: Request) {
     if (err.name === 'SyntaxError') {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
     }
+    console.error("❌ [API /api/heartbeat] Server Error", err);
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
 }
