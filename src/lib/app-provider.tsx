@@ -118,7 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   token: token,
                   timestamp: Date.now(),
                   userId: authUser.uid
-                }, (response) => {
+                }, (response: any) => {
                   if (window.chrome.runtime.lastError) {
                     // This error means the extension is not listening, which is fine.
                   } else {
@@ -480,5 +480,3 @@ export const useApp = (): AppContextState => {
   }
   return context;
 };
-
-    
