@@ -12,7 +12,7 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
 
   if (origin && allowedOriginPattern.test(origin)) {
     // Dynamically set the origin if it matches the expected pattern
-    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-control-allow-origin'] = origin;
   } else {
     // Fallback or deny if it's not a chrome extension
     // For development, you might want a more permissive fallback,
