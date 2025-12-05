@@ -30,11 +30,7 @@ import {
 
 const deleteSchema = z.object({
   reason: z.string().min(1, { message: 'الرجاء ذكر سبب الحذف.' }),
-  confirmation: z
-    .string()
-    .refine((val) => val === 'delete', {
-      message: 'الرجاء كتابة "delete" للتأكيد.',
-    }),
+  confirmation: z.string().min(1, { message: 'الرجاء كتابة "delete" للتأكيد.' }),
 });
 
 interface DeleteAccountDialogProps {
@@ -68,6 +64,14 @@ export function DeleteAccountDialog({ children, open, onOpenChange }: DeleteAcco
   }
 
   const onSubmit = async (data: z.infer<typeof deleteSchema>) => {
+    if (data.confirmation !== 'delete') {
+      form.setError('confirmation', {
+        type: 'manual',
+        message: 'الرجاء كتابة "delete" للتأكيد.',
+      });
+      return;
+    }
+
     setIsDeleting(true);
     const result = await deleteCurrentUserAccount(data.reason);
 
