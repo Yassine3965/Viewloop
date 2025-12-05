@@ -112,19 +112,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
             
             if (window.chrome && chrome.runtime && chrome.runtime.id) {
-              chrome.runtime.sendMessage(chrome.runtime.id, {
-                type: 'AUTH_TOKEN_UPDATE',
-                token: token,
-                timestamp: Date.now(),
-                userId: authUser.uid
-              }, (response) => {
-                if (chrome.runtime.lastError) {
-                  // This error means the extension is not listening, which is fine.
-                } else {
-                  console.log('📬 [ViewLoop] Successfully sent token update to extension.');
-                }
-              });
+              try {
+                chrome.runtime.sendMessage(chrome.runtime.id, {
+                  type: 'AUTH_TOKEN_UPDATE',
+                  token: token,
+                  timestamp: Date.now(),
+                  userId: authUser.uid
+                }, (response) => {
+                  if (chrome.runtime.lastError) {
+                    // This error means the extension is not listening, which is fine.
+                  } else {
+                    console.log('📬 [ViewLoop] Successfully sent token update to extension.');
+                  }
+                });
+              } catch (error) {
+                // Ignore if browser doesn't support it or other errors occur
+              }
             }
+
           } catch (error) {
             console.error('[ViewLoop] Failed to store token:', error);
           }
