@@ -1,9 +1,10 @@
+
 // /app/api/heartbeat/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
-
+import admin from 'firebase-admin';
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
