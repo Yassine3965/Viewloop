@@ -17,10 +17,10 @@ export async function POST(req: Request) {
     firestore = admin.firestore;
     auth = admin.auth;
   } catch (error: any) {
-    console.error("❌ [API /api/start-session] Firebase Admin Init Failed", { message: error.message });
+    console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ 
       error: "SERVER_NOT_READY",
-      message: "Firebase Admin initialization failed. Check server logs."
+      message: "Firebase Admin initialization failed. Check server logs for details."
     }, { status: 503 }), req);
   }
 
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     if (err.name === 'SyntaxError') {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
     }
-    console.error("❌ [API /api/start-session] Server Error", err);
+    console.error("API Error: /api/start-session failed.", { error: err.message, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
 }
