@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
-import { serverConfig } from "@/lib/config";
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -38,7 +37,7 @@ export async function POST(req: Request) {
     
     const body = JSON.parse(rawBody);
 
-    if (body.extensionSecret !== serverConfig.extensionSecret) {
+    if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 

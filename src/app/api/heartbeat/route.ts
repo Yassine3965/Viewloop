@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
-import { serverConfig } from "@/lib/config";
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
     }
     const body = JSON.parse(rawBody);
 
-    if (body.extensionSecret !== serverConfig.extensionSecret) {
+    if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
@@ -57,7 +56,7 @@ export async function POST(req: Request) {
     const lastHb = session.lastHeartbeatAt || session.createdAt || now;
     const diffSec = Math.floor((now - lastHb) / 1000);
 
-    const allowedInterval = Number(serverConfig.heartbeatAllowedInterval || 30);
+    const allowedInterval = Number(process.env.HEARTBEAT_ALLOWED_INTERVAL || 30);
     if (diffSec > allowedInterval * 6) {
       await sessionRef.update({ status: "suspicious", lastHeartbeatAt: now });
       return addCorsHeaders(NextResponse.json({ error: "HEARTBEAT_DELAYED", suspicious: true }, { status: 400 }), req);
