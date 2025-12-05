@@ -83,7 +83,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [db]);
 
 
-  // Auth state listener
+  // Auth state listener and extension token bridge
   useEffect(() => {
     if (!auth || !db) {
         setIsUserLoading(false);
@@ -101,9 +101,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (authUser) { 
         setIsUserLoading(true);
         
-        // Store auth token in local storage
+        // Store auth token for the extension
         authUser.getIdToken().then(token => {
-            localStorage.setItem('authToken', token);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('authToken', token);
+                localStorage.setItem('userAuthToken', token); // For compatibility
+                localStorage.setItem('firebaseToken', token); // For compatibility
+                console.log('🔐 [ViewLoop] Auth token stored for extension.');
+
+                // Send a message directly to the extension if it's installed
+                // @ts-ignore
+                if (window.chrome && chrome.runtime && chrome.runtime.id) {
+                    // @ts-ignore
+                    chrome.runtime.sendMessage(chrome.runtime.id, {
+                        type: 'AUTH_TOKEN_UPDATE',
+                        token: token,
+                        timestamp: Date.now(),
+                        userId: authUser.uid
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            // This error means the extension is not listening, which is fine.
+                            // console.log('Could not send message to extension:', chrome.runtime.lastError.message);
+                        } else {
+                            console.log('📬 [ViewLoop] Successfully sent token update to extension.');
+                        }
+                    });
+                }
+            }
         });
 
         const userRef = doc(db, 'users', authUser.uid);
@@ -144,7 +168,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         );
       } else {
-        localStorage.removeItem('authToken');
+        // On logout, clear user and tokens
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userAuthToken');
+            localStorage.removeItem('firebaseToken');
+        }
         setUser(null);
         setIsUserLoading(false);
       }
