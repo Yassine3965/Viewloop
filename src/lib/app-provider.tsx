@@ -50,11 +50,9 @@ interface AppContextState {
 
 const AppContext = createContext<AppContextState | undefined>(undefined);
 
-const getInitialAvatar = (name: string, gender: 'male' | 'female' | 'other' = 'male'): string => {
-    if (gender === 'female') {
-        return 'https://avatar.iran.liara.run/public/girl';
-    }
-    return 'https://avatar.iran.liara.run/public/boy';
+const getInitialAvatar = (name: string): string => {
+    const sanitizedName = encodeURIComponent(name);
+    return `https://source.boringavatars.com/beam/120/${sanitizedName}?colors=264653,2a9d8f,e9c46a,f4a261,e76f51`;
 };
 
 
@@ -334,7 +332,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const newUserProfile: Omit<UserProfile, 'id'> = {
             name: name,
             email: email,
-            avatar: getInitialAvatar(name, gender),
+            avatar: getInitialAvatar(name),
             role: 'user',
             gender: gender,
             country: locationData.country || 'Unknown',
@@ -407,7 +405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const newUserProfile: Omit<UserProfile, 'id'> = {
                 name: authUser.displayName || 'Anonymous User',
                 email: authUser.email!,
-                avatar: getInitialAvatar(authUser.displayName || 'A', gender),
+                avatar: getInitialAvatar(authUser.displayName || 'A'),
                 role: 'user',
                 gender: gender,
                 country: locationData.country || 'Unknown',

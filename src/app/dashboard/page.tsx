@@ -110,7 +110,7 @@ export default function DashboardPage() {
         
         <Card className="overflow-hidden shadow-lg">
           <CardHeader className="bg-card p-0 relative h-32">
-            <Image src="https://picsum.photos/seed/header-profile/1200/200" alt="Header" fill style={{ objectFit: 'cover' }} />
+            <Image src="https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1200&h=200&fit=crop" alt="Header" fill style={{ objectFit: 'cover' }} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
           </CardHeader>
           <CardContent className="p-6 pt-0 text-center -mt-16 relative">
