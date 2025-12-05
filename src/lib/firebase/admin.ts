@@ -17,8 +17,13 @@ export function initializeFirebaseAdmin() {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
     if (!projectId || !clientEmail || !privateKey) {
-      console.error('❌ [Firebase Admin] Missing required environment variables.');
-      throw new Error('Firebase Admin SDK environment variables are not set.');
+        const missingVars = [];
+        if (!projectId) missingVars.push('FIREBASE_PROJECT_ID');
+        if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
+        if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
+        const errorMessage = `Firebase Admin initialization failed. Missing required environment variables: ${missingVars.join(', ')}.`;
+        console.error(`❌ [Firebase Admin] ${errorMessage}`);
+        throw new Error(errorMessage);
     }
 
     try {
