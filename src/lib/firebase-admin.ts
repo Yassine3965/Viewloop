@@ -22,16 +22,19 @@ if (typeof window === 'undefined') {
           }),
         });
 
-        console.log("Firebase Admin initialized successfully.");
+        console.log("✅ Firebase Admin initialized successfully.");
         firestoreInstance = admin.firestore();
         authInstance = admin.auth();
 
       } catch (error: any) {
-        console.error("Firebase Admin initialization error:", error.message);
+        console.error("❌ Firebase Admin initialization error:", error.message);
       }
     } else {
-      console.warn("One or more Firebase Admin environment variables are not set. Firebase Admin SDK not initialized.");
-      console.warn("Required: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY");
+        console.error('❌ Firebase Admin variables missing:', {
+            hasProjectId: !!projectId,
+            hasClientEmail: !!clientEmail,
+            hasPrivateKey: !!privateKey?.length
+          });
     }
   } else {
     // If already initialized, just get the instances.
