@@ -101,34 +101,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (authUser) { 
         setIsUserLoading(true);
         
-        // Store auth token for the extension
-        authUser.getIdToken().then(token => {
+        const storeTokenImmediately = async () => {
+          try {
+            const token = await authUser.getIdToken();
             if (typeof window !== 'undefined') {
-                localStorage.setItem('authToken', token);
-                localStorage.setItem('userAuthToken', token); // For compatibility
-                localStorage.setItem('firebaseToken', token); // For compatibility
-                console.log('🔐 [ViewLoop] Auth token stored for extension.');
-
-                // Send a message directly to the extension if it's installed
-                // @ts-ignore
-                if (window.chrome && chrome.runtime && chrome.runtime.id) {
-                    // @ts-ignore
-                    chrome.runtime.sendMessage(chrome.runtime.id, {
-                        type: 'AUTH_TOKEN_UPDATE',
-                        token: token,
-                        timestamp: Date.now(),
-                        userId: authUser.uid
-                    }, (response) => {
-                        if (chrome.runtime.lastError) {
-                            // This error means the extension is not listening, which is fine.
-                            // console.log('Could not send message to extension:', chrome.runtime.lastError.message);
-                        } else {
-                            console.log('📬 [ViewLoop] Successfully sent token update to extension.');
-                        }
-                    });
-                }
+              localStorage.setItem('authToken', token);
+              localStorage.setItem('userAuthToken', token);
+              localStorage.setItem('firebaseToken', token);
+              console.log('🔐 [ViewLoop] Auth token stored immediately for extension.');
             }
-        });
+            
+            if (window.chrome && chrome.runtime && chrome.runtime.id) {
+              chrome.runtime.sendMessage(chrome.runtime.id, {
+                type: 'AUTH_TOKEN_UPDATE',
+                token: token,
+                timestamp: Date.now(),
+                userId: authUser.uid
+              }, (response) => {
+                if (chrome.runtime.lastError) {
+                  // This error means the extension is not listening, which is fine.
+                } else {
+                  console.log('📬 [ViewLoop] Successfully sent token update to extension.');
+                }
+              });
+            }
+          } catch (error) {
+            console.error('[ViewLoop] Failed to store token:', error);
+          }
+        };
+        
+        storeTokenImmediately();
 
         const userRef = doc(db, 'users', authUser.uid);
         
@@ -149,7 +151,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
               } as AppContextState['user'];
               setUser(userProfile);
             } else {
-              // This case can happen briefly after a user is deleted.
               setUser(null);
             }
             setIsUserLoading(false);
@@ -168,7 +169,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         );
       } else {
-        // On logout, clear user and tokens
         if (typeof window !== 'undefined') {
             localStorage.removeItem('authToken');
             localStorage.removeItem('userAuthToken');
@@ -257,7 +257,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const userDocRef = doc(db, 'users', authUser.uid);
 
         try {
-            // Step 1: Delete Firestore user document
             await deleteDoc(userDocRef)
               .catch(async (serverError: FirestoreError) => {
                   const permissionError = new FirestorePermissionError({
@@ -265,11 +264,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     operation: 'delete',
                   });
                   errorEmitter.emit('permission-error', permissionError);
-                  // Throw an error to be caught by the outer try...catch block
                   throw new Error("Firestore deletion failed");
               });
 
-            // Step 2: Delete user from Firebase Auth
             await deleteUser(authUser);
             
             return { success: true, message: "تم حذف الحساب بنجاح." };
@@ -286,7 +283,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
                  message = "ليس لديك الإذن الكافي لحذف هذا الحساب.";
             }
 
-            // Attempt to re-create user doc if it was deleted but auth deletion failed
             const userDocSnap = await getDoc(userDocRef);
             if (!userDocSnap.exists() && user) {
                 const { getIdToken, emailVerified, ...profileData } = user;
@@ -304,7 +300,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             await signOut(auth);
             return false;
         }
-        // The onAuthStateChanged listener will handle token storage
+        
+        const token = await userCredential.user.getIdToken();
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('authToken', token);
+            localStorage.setItem('userAuthToken', token);
+            localStorage.setItem('firebaseToken', token);
+            console.log('🔐 [ViewLoop] Token stored immediately after login');
+        }
+        
         return true;
     } catch (error) {
         return false;
@@ -316,11 +320,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!auth || !db) return { success: false, message: "خدمات المصادقة غير متاحة."};
     
     try {
-        // Step 1: Create user in Auth
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const authUser = userCredential.user;
         
-        // Step 2: Create user profile in Firestore
         const locationRes = await fetch('/api/user-location');
         const locationData = await locationRes.json();
         
@@ -348,10 +350,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             errorEmitter.emit('permission-error', permissionError);
         });
 
-        // Step 3: Send verification email
         await sendEmailVerification(authUser);
 
-        // Step 4: Sign out the user until they verify
         if (auth.currentUser) {
             await signOut(auth);
         }
@@ -373,8 +373,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [auth, db]);
 
   const verifyRegistrationCodeAndCreateUser = useCallback(async (userId: string, oobCode: string, details: any): Promise<{ success: boolean; message: string; }> => {
-    // This function is now deprecated as verification is handled by link.
-    // Kept for type compatibility, but should not be called.
     return { success: false, message: "This function is deprecated." };
   }, []);
 
@@ -387,6 +385,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const userRef = doc(db, 'users', authUser.uid);
         const userSnap = await getDoc(userRef);
+
+        const token = await authUser.getIdToken();
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('authToken', token);
+            localStorage.setItem('userAuthToken', token);
+            localStorage.setItem('firebaseToken', token);
+            console.log('🔐 [ViewLoop] Token stored immediately after Google login');
+        }
 
         if (!userSnap.exists()) {
             const locationRes = await fetch('/api/user-location');
@@ -404,7 +410,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 city: locationData.city || '',
                 createdAt: serverTimestamp() as any,
                 lastLogin: serverTimestamp() as any,
-                points: 100, // Starting points
+                points: 100,
             };
             await setDoc(userRef, newUserProfile)
               .catch(async (serverError: FirestoreError) => {
@@ -429,7 +435,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 throw serverError;
               });
         }
-        // The onAuthStateChanged listener will handle token storage
         return true;
     } catch (error) {
         console.error("Google login error:", error);
@@ -440,7 +445,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     if (!auth) return;
     await signOut(auth);
-    // The onAuthStateChanged listener will handle removing the token
   }, [auth]);
 
   const contextValue = useMemo(() => ({
