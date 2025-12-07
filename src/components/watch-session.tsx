@@ -29,7 +29,6 @@ export function WatchSession() {
   const [sessionState, setSessionState] = useState<SessionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [awardedPoints, setAwardedPoints] = useState(0);
 
   const watchIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -76,8 +75,12 @@ export function WatchSession() {
       });
       const data = await response.json();
       if (data.success) {
-        setAwardedPoints(data.pointsAdded || 0);
         setSessionState('done');
+        // The main app provider will handle the notification.
+        // We can close this window after a short delay.
+        setTimeout(() => {
+          window.close();
+        }, 500);
       } else {
         throw new Error(data.error || 'Failed to complete session');
       }
@@ -176,10 +179,6 @@ export function WatchSession() {
     };
   }, [sessionState, sessionToken, cleanup]);
 
-  const handleModalConfirm = () => {
-      setAwardedPoints(0); // Hide modal
-      window.close();
-  }
 
   if (sessionState === 'idle' || sessionState === 'starting') {
     return (
@@ -206,30 +205,18 @@ export function WatchSession() {
   }
 
   if (sessionState === 'done') {
-    if (awardedPoints > 0) {
+      // The window will be closed automatically by the completeSession function
       return (
-          <PointsAwardedModal 
-              open={true} 
-              points={awardedPoints} 
-              onConfirm={handleModalConfirm}
-          />
-      )
-    }
-    // Handle case where session is done but no points were awarded
-    return (
-      <div className="container py-8 text-center">
-          <Alert className="max-w-md mx-auto">
-              <CheckCircle className="h-4 w-4" />
-              <AlertTitle>اكتملت الجلسة</AlertTitle>
-              <AlertDescription>
-                  انتهت جلسة المشاهدة. لم يتم كسب أي نقاط هذه المرة.
-              </AlertDescription>
-          </Alert>
-          <Button onClick={() => window.close()} className="mt-4">
-              إغلاق
-          </Button>
-      </div>
-    );
+        <div className="container py-8 text-center">
+            <Alert className="max-w-md mx-auto">
+                <CheckCircle className="h-4 w-4" />
+                <AlertTitle>اكتملت الجلسة</AlertTitle>
+                <AlertDescription>
+                    سيتم إغلاق هذه النافذة تلقائيًا.
+                </AlertDescription>
+            </Alert>
+        </div>
+      );
   }
 
   if (!currentVideo) {

@@ -33,6 +33,7 @@ import {
 } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { PointsAwardedModal } from '@/components/points-awarded-modal';
 
 interface AppContextState {
     user: (UserProfile & { getIdToken: () => Promise<string>, emailVerified: boolean }) | null;
@@ -61,6 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppContextState['user']>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
+  const [awardedPoints, setAwardedPoints] = useState(0);
   
   // Videos listener
   useEffect(() => {
@@ -89,6 +91,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     let unsubscribeProfile: (() => void) | undefined;
+    let previousPoints: number | null = null;
+
 
     const handleUserChange = (authUser: FirebaseUser | null) => {
       if (unsubscribeProfile) {
@@ -106,28 +110,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               localStorage.setItem('authToken', token);
               localStorage.setItem('userAuthToken', token);
               localStorage.setItem('firebaseToken', token);
-              console.log('🔐 [ViewLoop] Auth token stored immediately for extension.');
             }
-            
-            if (window.chrome && window.chrome.runtime && window.chrome.runtime.id) {
-              try {
-                window.chrome.runtime.sendMessage(window.chrome.runtime.id, {
-                  type: 'AUTH_TOKEN_UPDATE',
-                  token: token,
-                  timestamp: Date.now(),
-                  userId: authUser.uid
-                }, (response: any) => {
-                  if (window.chrome?.runtime?.lastError) {
-                    // This error means the extension is not listening, which is fine.
-                  } else {
-                    console.log('📬 [ViewLoop] Successfully sent token update to extension.');
-                  }
-                });
-              } catch (error) {
-                // Ignore if browser doesn't support it or other errors occur
-              }
-            }
-
           } catch (error) {
             console.error('[ViewLoop] Failed to store token:', error);
           }
@@ -138,23 +121,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const userRef = doc(db, 'users', authUser.uid);
         
         if (authUser.emailVerified) {
-            updateDoc(userRef, { lastLogin: serverTimestamp() }).catch(err => console.log("Failed to update last login on auth change"));
+            updateDoc(userRef, { lastLogin: serverTimestamp() }).catch(err => {});
         }
-
 
         unsubscribeProfile = onSnapshot(
           userRef,
           (userSnap) => {
             if (userSnap.exists()) {
-              const userProfile = {
-                id: userSnap.id,
-                ...userSnap.data(),
-                getIdToken: () => authUser.getIdToken(),
-                emailVerified: authUser.emailVerified,
-              } as AppContextState['user'];
-              setUser(userProfile);
+                const userProfileData = userSnap.data() as UserProfile;
+                const userProfile = {
+                    ...userProfileData,
+                    id: userSnap.id,
+                    getIdToken: () => authUser.getIdToken(),
+                    emailVerified: authUser.emailVerified,
+                };
+                setUser(userProfile);
+                
+                if (previousPoints !== null && userProfile.points > previousPoints) {
+                    const pointsGained = userProfile.points - previousPoints;
+                    if (pointsGained > 0) {
+                        setAwardedPoints(pointsGained);
+                    }
+                }
+                previousPoints = userProfile.points;
+
             } else {
               setUser(null);
+              previousPoints = null;
             }
             setIsUserLoading(false);
           },
@@ -166,8 +159,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               });
               errorEmitter.emit('permission-error', permissionError);
             }
-            console.error("Error fetching user profile:", err);
             setUser(null);
+            previousPoints = null;
             setIsUserLoading(false);
           }
         );
@@ -178,6 +171,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem('firebaseToken');
         }
         setUser(null);
+        previousPoints = null;
         setIsUserLoading(false);
       }
     };
@@ -223,7 +217,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       return { success: true, message: "تمت إضافة الفيديو بنجاح." };
     } catch (error: any) {
-      console.error("Add video failed: ", error);
       return { success: false, message: error.message || "فشل إنشاء الحملة." };
     }
   }, [user, db]);
@@ -245,7 +238,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
         return { success: true, message: `تم حذف الفيديو بنجاح.` };
     } catch (error: any) {
-        console.error("Delete video transaction failed:", error);
         return { success: false, message: "فشل حذف الفيديو." };
     }
   }, [user, db]);
@@ -256,7 +248,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return { success: false, message: "المستخدم غير مسجل دخوله حاليًا." };
         }
 
-        console.log(`Deletion reason for user ${authUser.uid}: ${reason}`);
         const userDocRef = doc(db, 'users', authUser.uid);
 
         try {
@@ -275,7 +266,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return { success: true, message: "تم حذف الحساب بنجاح." };
 
         } catch (error: any) {
-            console.error("Account deletion failed:", error);
             let message = "حدث خطأ غير متوقع.";
 
             if (error.message === "Firestore deletion failed") {
@@ -300,19 +290,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const userRef = doc(db, 'users', userCredential.user.uid);
-        await updateDoc(userRef, { lastLogin: serverTimestamp() });
         
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
             return false;
         }
         
+        await updateDoc(userRef, { lastLogin: serverTimestamp() });
         const token = await userCredential.user.getIdToken();
         if (typeof window !== 'undefined') {
             localStorage.setItem('authToken', token);
             localStorage.setItem('userAuthToken', token);
             localStorage.setItem('firebaseToken', token);
-            console.log('🔐 [ViewLoop] Token stored immediately after login');
         }
         
         return true;
@@ -348,7 +337,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
 
         const userDocRef = doc(db, 'users', authUser.uid);
-        setDoc(userDocRef, newUserProfile).catch(async (serverError) => {
+        await setDoc(userDocRef, newUserProfile).catch(async (serverError) => {
             const permissionError = new FirestorePermissionError({
               path: userDocRef.path,
               operation: 'create',
@@ -374,7 +363,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (error.code === 'auth/email-already-in-use') {
             message = "هذا البريد الإلكتروني مستخدم بالفعل.";
         }
-        console.error("Registration error:", error);
         return { success: false, message };
     }
   }, [auth, db]);
@@ -398,7 +386,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             localStorage.setItem('authToken', token);
             localStorage.setItem('userAuthToken', token);
             localStorage.setItem('firebaseToken', token);
-            console.log('🔐 [ViewLoop] Token stored immediately after Google login');
         }
 
         if (!userSnap.exists()) {
@@ -445,7 +432,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return true;
     } catch (error) {
-        console.error("Google login error:", error);
         return false;
     }
   }, [auth, db]);
@@ -472,6 +458,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={contextValue}>
       {children}
+      <PointsAwardedModal 
+        open={awardedPoints > 0}
+        points={awardedPoints}
+        onConfirm={() => setAwardedPoints(0)}
+      />
     </AppContext.Provider>
   );
 }
