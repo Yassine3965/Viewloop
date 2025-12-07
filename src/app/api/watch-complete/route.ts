@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     if (!session || !session.userId) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
-    
+
     if (session.extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
@@ -60,7 +60,6 @@ export async function POST(req: Request) {
     const totalWatched = session.totalWatchedSeconds || 0;
     const now = Date.now();
 
-    // Calculate points based on watch duration
     let points = 0;
     if (totalWatched >= 30) points += 5;
     if (totalWatched >= 60) points += 10;
@@ -77,20 +76,17 @@ export async function POST(req: Request) {
         const currentPoints = userSnap.data()?.points || 0;
         const newTotalPoints = currentPoints + points;
 
-        // Correctly update user points
         transaction.update(userRef, {
             points: newTotalPoints,
             lastUpdated: now
         });
         
-        // Mark session as completed
         transaction.update(sessionRef, {
             status: "completed",
-            points: points, // Points earned in this session
+            points: points,
             completedAt: now,
         });
 
-        // Create a watch history record
         transaction.set(firestore.collection("watchHistory").doc(), {
             userId: session.userId,
             videoId: session.videoID,
