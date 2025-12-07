@@ -27,17 +27,22 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    body = await req.json();
+    const rawBody = await req.text();
+    if (!rawBody) {
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
+    }
+    body = JSON.parse(rawBody);
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
 
   try {
-    if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
+    const { videoID, userAuthToken, extensionSecret } = body;
+
+    if (extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
-    const { videoID, userAuthToken } = body;
     if (!videoID || !userAuthToken) {
       return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }), req);
     }
@@ -61,7 +66,8 @@ export async function POST(req: Request) {
       lastHeartbeatAt: now,
       totalWatchedSeconds: 0,
       adWatched: false,
-      status: "active"
+      status: "active",
+      extensionSecret: extensionSecret, // Store the secret for future validation
     };
 
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);

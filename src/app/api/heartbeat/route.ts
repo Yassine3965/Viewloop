@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const adminApp = initializeFirebaseAdmin();
     firestore = adminApp.firestore;
   } catch (error: any) {
-    console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new.toISOString() });
+    console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ 
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs for details."
@@ -25,7 +25,11 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    body = await req.json();
+    const rawBody = await req.text();
+    if (!rawBody) {
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
+    }
+    body = JSON.parse(rawBody);
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
@@ -39,13 +43,23 @@ export async function POST(req: Request) {
     if (!snap.exists) return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }), req);
 
     const session = snap.data();
-    if (!session || session.status !== "active") {
+    if (!session) {
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
+    }
+    
+    // Security check: Validate the stored secret
+    if (session.extensionSecret !== process.env.EXTENSION_SECRET) {
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
+    }
+
+    if (session.status !== "active") {
       return addCorsHeaders(NextResponse.json({ error: "SESSION_NOT_ACTIVE" }, { status: 400 }), req);
     }
 
     const now = Date.now();
     const lastHeartbeatMs = session.lastHeartbeatAt || session.createdAt || now;
     
+    // Calculate seconds passed since the last heartbeat
     const secondsSinceLast = Math.floor((now - lastHeartbeatMs) / 1000);
     
     // Prevent abuse: cap the increment to a reasonable value (e.g., 20 seconds for a 15s interval)

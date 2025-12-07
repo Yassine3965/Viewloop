@@ -26,7 +26,10 @@ export async function POST(req: Request) {
   let body;
   try {
     const rawBody = await req.text();
-    body = rawBody ? JSON.parse(rawBody) : {};
+    if (!rawBody) {
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
+    }
+    body = JSON.parse(rawBody);
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
@@ -48,6 +51,11 @@ export async function POST(req: Request) {
     const sessionData = sessionSnap.data();
     if (!sessionData) {
         return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
+    }
+    
+    // Security check: Validate the stored secret
+    if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
     if (sessionData.adWatched === true) {
