@@ -58,9 +58,22 @@ export async function POST(req: Request) {
     const activeSessionQuery = await sessionsRef.where('userId', '==', userId).where('status', '==', 'active').limit(1).get();
 
     if (!activeSessionQuery.empty) {
-        console.warn(`User ${userId} already has an active session. Closing old session and starting a new one.`);
         const oldSessionDoc = activeSessionQuery.docs[0];
-        await oldSessionDoc.ref.update({ status: 'expired', completedAt: now });
+        const oldSessionData = oldSessionDoc.data();
+        const sessionAge = now - (oldSessionData.createdAt || 0);
+        
+        // If the session is older than 5 minutes, expire it. Otherwise, return it.
+        if (sessionAge > 300000) { // 5 minutes
+            console.warn(`User ${userId} has an old active session. Expiring it and starting a new one.`);
+            await oldSessionDoc.ref.update({ status: 'expired', completedAt: now });
+        } else {
+            console.log(`User ${userId} already has a recent active session. Returning existing session token.`);
+            return addCorsHeaders(NextResponse.json({
+              success: true,
+              sessionToken: oldSessionDoc.id,
+              expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
+            }), req);
+        }
     }
     
     const sessionToken = `${now.toString(36)}-${Math.random().toString(36).slice(2,10)}`;
