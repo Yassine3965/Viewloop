@@ -31,9 +31,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { sessionToken } = body;
-    if (!sessionToken) {
-      return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 }), req);
+    const { sessionToken, adDuration } = body; // ⭐ أضف adDuration
+    if (!sessionToken || !adDuration) {
+      return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }), req);
     }
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
@@ -48,7 +48,6 @@ export async function POST(req: Request) {
         return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
     
-    // ⭐ Verify the stored secret
     if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
       console.warn("Ad-watched failed: Invalid secret in session doc", { sessionToken });
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
@@ -62,7 +61,8 @@ export async function POST(req: Request) {
       }, { status: 200 }), req);
     }
 
-    const pointsForAd = 20;
+    // ⭐⭐⭐ التصحيح: 1 نقطة لكل ثانية إعلان ⭐⭐⭐
+    const pointsForAd = Math.floor(Number(adDuration) * 1);
 
     await firestore.runTransaction(async (transaction) => {
       const userRef = firestore.collection("users").doc(sessionData.userId);
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
 
     return addCorsHeaders(NextResponse.json({
       success: true,
-      message: "تم منح 20 نقطة لمشاهدة الإعلان.",
+      message: `تم منح ${pointsForAd} نقطة لمشاهدة الإعلان.`,
       pointsAdded: pointsForAd
     }), req);
 
