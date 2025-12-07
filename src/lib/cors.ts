@@ -1,21 +1,19 @@
 // src/lib/cors.ts
 import { NextResponse } from 'next/server';
-import { signData, getServerPublicKey } from './firebase/admin';
 
 const allowedOriginPattern = /^chrome-extension:\/\/(\w+)$/;
 
 export function getCorsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin, X-Server-Signature, X-Server-Public-Key-Id, X-Server-Timestamp',
-    'Access-Control-Expose-Headers': 'X-Server-Signature, X-Server-Public-Key-Id, X-Server-Timestamp',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin', // Simplified headers
     'Access-Control-Allow-Credentials': 'true',
-    'Vary': 'Origin', // Important for caching
+    'Vary': 'Origin',
   };
 
   if (origin && (allowedOriginPattern.test(origin) || origin.startsWith('http://localhost:'))) {
     headers['Access-Control-Allow-Origin'] = origin;
-  } else if (origin === process.env.NEXT_PUBLIC_APP_URL) {
+  } else if (process.env.NEXT_PUBLIC_APP_URL && origin === process.env.NEXT_PUBLIC_APP_URL) {
     headers['Access-Control-Allow-Origin'] = origin;
   }
   
@@ -40,22 +38,4 @@ export function addCorsHeaders(response: NextResponse, request: Request): NextRe
   });
 
   return response;
-}
-
-export async function createSignedResponse(data: Record<string, any>, status: number = 200, request: Request) {
-    const signature = signData(data);
-    const publicKey = getServerPublicKey();
-
-    const response = NextResponse.json({
-        data,
-        signature,
-        timestamp: Date.now(),
-        publicKeyId: publicKey.keyId
-    }, { status });
-
-    response.headers.set('X-Server-Signature', signature);
-    response.headers.set('X-Server-Public-Key-Id', publicKey.keyId);
-    response.headers.set('X-Server-Timestamp', String(Date.now()));
-
-    return addCorsHeaders(response, request);
 }

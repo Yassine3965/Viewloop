@@ -1,8 +1,8 @@
 // /app/api/complete/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
-import { handleOptions, addCorsHeaders, createSignedResponse } from "@/lib/cors";
+import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
 export async function OPTIONS(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
   try {
     const adminApp = initializeFirebaseAdmin();
-    firestore = adminApp.firestore;
+    firestore = adminApp.firestore();
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ 
@@ -32,8 +32,8 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
   
-  if (!verifySignature(body)) {
-      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+  if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
+      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
       return addCorsHeaders(response, req);
   }
 
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     }
 
     if (sessionData.status === 'completed') {
-        return createSignedResponse({ success: true, pointsAdded: 0, message: "Session already completed." }, 200, req);
+        return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: 0, message: "Session already completed." }), req);
     }
 
     const totalWatched = sessionData.totalWatchedSeconds || 0;
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
         });
     });
 
-    return createSignedResponse({ success: true, pointsAdded: points }, 200, req);
+    return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
     
   } catch (err: any) {
     console.error("API Error: /api/complete failed.", { error: err.message, body, timestamp: new Date().toISOString() });

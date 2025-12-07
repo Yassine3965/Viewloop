@@ -1,10 +1,9 @@
 // /app/api/start-session/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
-import { handleOptions, addCorsHeaders, createSignedResponse } from "@/lib/cors";
+import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
-import { randomBytes } from 'crypto';
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -33,11 +32,6 @@ export async function POST(req: Request) {
   } catch (e) {
     const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
     return addCorsHeaders(response, req);
-  }
-
-  if (!verifySignature(body)) {
-      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
-      return addCorsHeaders(response, req);
   }
   
   try {
@@ -76,12 +70,6 @@ export async function POST(req: Request) {
     
     const sessionToken = `${now.toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 
-    const shortToken = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-    const batch = firestore.batch();
-
-    const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionDoc = {
       sessionToken,
       userId,
@@ -93,25 +81,15 @@ export async function POST(req: Request) {
       status: "active",
       extensionSecret: extensionSecret,
     };
-    batch.set(sessionRef, sessionDoc);
     
-    const shortTokenRef = firestore.collection("short_lived_tokens").doc(shortToken);
-    const tokenDoc = {
-      token: shortToken,
-      userId: userId, 
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: expiresAt,
-    };
-    batch.set(shortTokenRef, tokenDoc);
+    await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
 
-    await batch.commit();
-
-    return createSignedResponse({
+    // The new lite extension only needs the sessionToken
+    return addCorsHeaders(NextResponse.json({
       success: true,
       sessionToken,
-      shortToken,
-      expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
-    }, 200, req);
+    }), req);
+
   } catch (err: any) {
     console.error("API Error: /api/start-session failed.", { error: err.message, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });

@@ -1,8 +1,8 @@
 // /app/api/ad-watched/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
-import { handleOptions, addCorsHeaders, createSignedResponse } from "@/lib/cors";
+import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
 export async function OPTIONS(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
   try {
     const adminApp = initializeFirebaseAdmin();
-    firestore = adminApp.firestore;
+    firestore = adminApp.firestore();
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ 
@@ -32,8 +32,9 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
   
-  if (!verifySignature(body)) {
-      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+  // The new extension version doesn't use the complex signing
+  if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
+      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
       return addCorsHeaders(response, req);
   }
 
@@ -70,11 +71,11 @@ export async function POST(req: Request) {
     }
 
     if (sessionData.adWatched === true) {
-      return createSignedResponse({
-        success: false,
-        error: "AD_ALREADY_PROCESSED",
-        message: "This ad has already been processed for this session."
-      }, 200, req);
+        return addCorsHeaders(NextResponse.json({
+            success: false,
+            error: "AD_ALREADY_PROCESSED",
+            message: "This ad has already been processed for this session."
+          }, { status: 200 }), req);
     }
 
     const pointsForAd = Math.floor(Number(adDuration) * 1);
@@ -94,11 +95,11 @@ export async function POST(req: Request) {
       transaction.update(sessionRef, { adWatched: true });
     });
 
-    return createSignedResponse({
+    return addCorsHeaders(NextResponse.json({
       success: true,
       message: `تم منح ${pointsForAd} نقطة لمشاهدة الإعلان.`,
       pointsAdded: pointsForAd
-    }, 200, req);
+    }), req);
 
   } catch (err: any) {
     console.error("API Error: /api/ad-watched failed.", { error: err.message, timestamp: new Date().toISOString() });
