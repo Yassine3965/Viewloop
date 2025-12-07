@@ -104,20 +104,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (authUser) { 
         setIsUserLoading(true);
         
-        const storeTokenImmediately = async () => {
+        const storeTokenAndNotifyExtension = async () => {
           try {
             const token = await authUser.getIdToken();
             if (typeof window !== 'undefined') {
-              localStorage.setItem('authToken', token);
+              // Store in localStorage as a reliable fallback
               localStorage.setItem('userAuthToken', token);
-              localStorage.setItem('firebaseToken', token);
+              
+              // Attempt to send to extension directly
+              if (window.chrome && window.chrome.runtime && window.chrome.runtime.id) {
+                window.chrome.runtime.sendMessage(window.chrome.runtime.id, {
+                  type: 'STORE_AUTH_TOKEN',
+                  token: token,
+                  secret: "6B65FDC657B5D8CF4D5AB28C92CF2"
+                }, (response) => {
+                  if (chrome.runtime.lastError) {
+                    // This is expected if the extension is not listening, localStorage is the fallback.
+                  }
+                });
+              }
             }
           } catch (error) {
-            console.error('[ViewLoop] Failed to store token:', error);
+            console.error('[ViewLoop] Failed to store/send token:', error);
           }
         };
         
-        storeTokenImmediately();
+        storeTokenAndNotifyExtension();
 
         const userRef = doc(db, 'users', authUser.uid);
         
@@ -167,9 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
       } else {
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('authToken');
             localStorage.removeItem('userAuthToken');
-            localStorage.removeItem('firebaseToken');
         }
         setUser(null);
         previousPoints = null;
@@ -195,7 +205,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { success: false, message: "رابط يوتيوب غير صالح." };
     }
     
-    // Use the YouTube video ID as the document ID
     const videoRef = doc(db, 'videos', youtubeVideoId);
     
     try {
@@ -210,7 +219,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             submissionDate: serverTimestamp(),
         };
 
-        // Save the document with the correct ID
         await setDoc(videoRef, newVideo)
           .catch(async (serverError: FirestoreError) => {
               const permissionError = new FirestorePermissionError({
@@ -219,7 +227,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 requestResourceData: newVideo,
               });
               errorEmitter.emit('permission-error', permissionError);
-              throw serverError; // Re-throw to be caught by outer catch
+              throw serverError;
           });
 
       return { success: true, message: "تمت إضافة الفيديو بنجاح." };
@@ -235,7 +243,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const videoRef = doc(db, 'videos', video.id);
 
     try {
-        deleteDoc(videoRef)
+        await deleteDoc(videoRef)
         .catch(async (serverError: FirestoreError) => {
             const permissionError = new FirestorePermissionError({
               path: videoRef.path,
@@ -306,9 +314,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await updateDoc(userRef, { lastLogin: serverTimestamp() });
         const token = await userCredential.user.getIdToken();
         if (typeof window !== 'undefined') {
-            localStorage.setItem('authToken', token);
             localStorage.setItem('userAuthToken', token);
-            localStorage.setItem('firebaseToken', token);
         }
         
         return true;
@@ -390,9 +396,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const token = await authUser.getIdToken();
         if (typeof window !== 'undefined') {
-            localStorage.setItem('authToken', token);
             localStorage.setItem('userAuthToken', token);
-            localStorage.setItem('firebaseToken', token);
         }
 
         if (!userSnap.exists()) {
@@ -481,7 +485,3 @@ export const useApp = (): AppContextState => {
   }
   return context;
 };
-
-    
-
-    
