@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
+import { randomBytes } from 'crypto';
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -60,25 +61,20 @@ export async function POST(req: Request) {
 
     if (!activeSessionQuery.empty) {
         const oldSessionDoc = activeSessionQuery.docs[0];
-        const oldSessionData = oldSessionDoc.data();
-        const sessionAge = now - (oldSessionData.createdAt || 0);
-        
-        // If the session is older than 5 minutes, expire it. Otherwise, return it.
-        if (sessionAge > 300000) { // 5 minutes
-            console.warn(`User ${userId} has an old active session. Expiring it and starting a new one.`);
-            await oldSessionDoc.ref.update({ status: 'expired', completedAt: now });
-        } else {
-            console.log(`User ${userId} already has a recent active session. Returning existing session token.`);
-            return addCorsHeaders(NextResponse.json({
-              success: true,
-              sessionToken: oldSessionDoc.id,
-              expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
-            }), req);
-        }
+        await oldSessionDoc.ref.update({ status: 'expired', completedAt: now });
+        console.warn(`User ${userId} has an old active session. Expiring it and starting a new one.`);
     }
     
     const sessionToken = `${now.toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 
+    // Generate the first short-lived token
+    const shortToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // Create session and short-lived token in a single transaction
+    const batch = firestore.batch();
+
+    const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionDoc = {
       sessionToken,
       userId,
@@ -88,17 +84,28 @@ export async function POST(req: Request) {
       totalWatchedSeconds: 0,
       adWatched: false,
       status: "active",
-      extensionSecret: extensionSecret, // ⭐ Save the secret
+      extensionSecret: extensionSecret,
     };
+    batch.set(sessionRef, sessionDoc);
+    
+    const shortTokenRef = firestore.collection("short_lived_tokens").doc(shortToken);
+    const tokenDoc = {
+      token: shortToken,
+      userId: userId, // Link token to user
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: expiresAt,
+    };
+    batch.set(shortTokenRef, tokenDoc);
 
-    await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
+    await batch.commit();
 
     return addCorsHeaders(NextResponse.json({
       success: true,
       sessionToken,
+      shortToken, // Return the first short-lived token
       expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
     }), req);
-  } catch (err: any) {
+  } catch (err: any {
     console.error("API Error: /api/start-session failed.", { error: err.message, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
