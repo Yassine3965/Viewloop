@@ -10,23 +10,26 @@ import { Progress } from './ui/progress';
 import { Loader2, XCircle, AlertTriangle, CheckCircle, MonitorPlay } from 'lucide-react';
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { PointsAwardedModal } from './points-awarded-modal';
 
 const WATCH_INTERVAL = 5000; // 5 seconds
 const HEARTBEAT_INTERVAL = 15000; // 15 seconds
+
+type SessionState = 'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done';
 
 export function WatchSession() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { videos, user } = useApp();
-  const { toast } = useToast();
 
   const videoId = searchParams.get('videoId');
 
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [progress, setProgress] = useState(0);
-  const [sessionState, setSessionState] = useState<'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done'>('idle');
+  const [sessionState, setSessionState] = useState<SessionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [awardedPoints, setAwardedPoints] = useState(0);
 
   const watchIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,7 +46,6 @@ export function WatchSession() {
   const sendHeartbeat = useCallback(async (token: string | null) => {
     if (!token) return;
 
-    const watchedSinceLast = (Date.now() - lastHeartbeatTime.current) / 1000;
     lastHeartbeatTime.current = Date.now();
     
     try {
@@ -52,8 +54,6 @@ export function WatchSession() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionToken: token,
-          extensionSecret: process.env.NEXT_PUBLIC_EXTENSION_SECRET,
-          watchedSinceLastHeartbeat: watchedSinceLast,
         }),
       });
     } catch (error) {
@@ -72,15 +72,13 @@ export function WatchSession() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionToken: token,
-          extensionSecret: process.env.NEXT_PUBLIC_EXTENSION_SECRET,
         }),
       });
       const data = await response.json();
       if (data.success) {
-        toast({
-            title: 'اكتمل الفيديو!',
-            description: `شكرًا على المشاهدة. لقد ربحت ${data.pointsAdded} نقطة.`,
-        });
+        if (data.pointsAdded > 0) {
+            setAwardedPoints(data.pointsAdded);
+        }
         setSessionState('done');
       } else {
         throw new Error(data.error || 'Failed to complete session');
@@ -89,7 +87,7 @@ export function WatchSession() {
         setErrorMessage('فشل في إنهاء الجلسة. ' + error.message);
         setSessionState('error');
     }
-  }, [cleanup, toast]);
+  }, [cleanup]);
 
 
   // Main watch loop
@@ -180,6 +178,10 @@ export function WatchSession() {
     };
   }, [sessionState, sessionToken, cleanup]);
 
+  const handleModalConfirm = () => {
+      setAwardedPoints(0); // Hide modal
+      window.close();
+  }
 
   if (sessionState === 'idle' || sessionState === 'starting') {
     return (
@@ -206,19 +208,13 @@ export function WatchSession() {
   }
 
   if (sessionState === 'done') {
-    setTimeout(() => window.close(), 3000);
-
-    return (
-      <div className="container py-8 text-center">
-        <div className="max-w-md mx-auto">
-          <Alert variant="default" className="border-green-500">
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            <AlertTitle>اكتملت المشاهدة!</AlertTitle>
-            <AlertDescription>سيتم إغلاق هذه النافذة.</AlertDescription>
-          </Alert>
-        </div>
-      </div>
-    );
+     return (
+        <PointsAwardedModal 
+            open={awardedPoints > 0} 
+            points={awardedPoints} 
+            onConfirm={handleModalConfirm}
+        />
+     )
   }
 
   if (!currentVideo) {
