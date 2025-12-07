@@ -106,3 +106,6 @@ export async function POST(req: Request) {
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
 }
+async function startServerSession(videoId: any, userAuthToken: any, antiCheatData: any, videoType: any) {
+    // This function is no longer used on the server but is kept for compatibility with the extension
+}
