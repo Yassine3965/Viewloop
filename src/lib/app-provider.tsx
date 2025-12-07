@@ -205,6 +205,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { success: false, message: "رابط يوتيوب غير صالح." };
     }
     
+    // The document ID is the YouTube video ID
     const videoRef = doc(db, 'videos', youtubeVideoId);
     
     try {
@@ -214,8 +215,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return { success: false, message: "هذا الفيديو موجود بالفعل في قائمة المشاهدة." };
         }
         
+        // Ensure the videoId field is also set within the document data
         const newVideoData = {
             ...videoData,
+            videoId: youtubeVideoId, // Explicitly add the videoId field
             submissionDate: serverTimestamp(),
         };
   
