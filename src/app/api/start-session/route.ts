@@ -52,6 +52,17 @@ export async function POST(req: Request) {
 
     const userId = decoded.uid;
     const now = Date.now();
+    
+    // Check for existing active session for this user to prevent conflicts
+    const sessionsRef = firestore.collection("sessions");
+    const activeSessionQuery = await sessionsRef.where('userId', '==', userId).where('status', '==', 'active').limit(1).get();
+
+    if (!activeSessionQuery.empty) {
+        console.warn(`User ${userId} already has an active session. Closing old session and starting a new one.`);
+        const oldSessionDoc = activeSessionQuery.docs[0];
+        await oldSessionDoc.ref.update({ status: 'expired', completedAt: now });
+    }
+    
     const sessionToken = `${now.toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 
     const sessionDoc = {

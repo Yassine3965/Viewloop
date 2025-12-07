@@ -1,4 +1,3 @@
-
 // /app/api/watch-complete/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -70,13 +69,17 @@ export async function POST(req: Request) {
         const userRef = firestore.collection("users").doc(session.userId);
         const userSnap = await transaction.get(userRef);
 
-        if (userSnap.exists) {
-            const currentPoints = userSnap.data()?.points || 0;
-            transaction.update(userRef, {
-                points: currentPoints + points,
-                lastUpdated: now
-            });
+        if (!userSnap.exists) {
+            throw new Error(`User with ID ${session.userId} not found during transaction.`);
         }
+        
+        const currentPoints = userSnap.data()?.points || 0;
+        const newTotalPoints = currentPoints + points;
+
+        transaction.update(userRef, {
+            points: newTotalPoints,
+            lastUpdated: now
+        });
         
         transaction.update(sessionRef, {
             status: "completed",
