@@ -5,6 +5,10 @@ import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
+// Constants for behavioral analysis
+const MAX_INACTIVE_HEARTBEAT_RATIO = 0.3; // 30% of heartbeats can be inactive
+const MAX_NO_MOUSE_MOVEMENT_RATIO = 0.5; // 50% of heartbeats can have no mouse movement
+
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
 }
@@ -67,7 +71,30 @@ export async function POST(req: Request) {
     const totalWatched = sessionData.totalWatchedSeconds || 0;
     const now = Date.now();
 
+    // Behavioral Analysis
+    const totalHeartbeats = Math.floor(totalWatched / 15); // Approximate number of heartbeats
+    const inactiveRatio = (sessionData.inactiveHeartbeats || 0) / totalHeartbeats;
+    const noMouseRatio = (sessionData.noMouseMovementHeartbeats || 0) / totalHeartbeats;
+
+    let pointsPenalty = 0;
+    let penaltyReason = [];
+
+    if (totalHeartbeats > 2 && inactiveRatio > MAX_INACTIVE_HEARTBEAT_RATIO) {
+      pointsPenalty += 0.5; // 50% penalty
+      penaltyReason.push('High inactivity');
+    }
+    if (totalHeartbeats > 2 && noMouseRatio > MAX_NO_MOUSE_MOVEMENT_RATIO) {
+      pointsPenalty += 0.5; // 50% penalty
+      penaltyReason.push('No mouse movement');
+    }
+    
     let points = Math.floor(totalWatched * 0.05);
+
+    // Apply penalty
+    if (pointsPenalty > 0) {
+      points = Math.floor(points * (1 - Math.min(pointsPenalty, 1)));
+      console.warn(`Points penalty applied for session ${sessionToken}. Reason: ${penaltyReason.join(', ')}`);
+    }
 
     const MAX_POINTS_PER_VIDEO = 50;
     points = Math.min(points, MAX_POINTS_PER_VIDEO);
@@ -92,6 +119,7 @@ export async function POST(req: Request) {
             status: "completed",
             points: points,
             completedAt: now,
+            penaltyReasons: penaltyReason.length > 0 ? penaltyReason : null,
         });
 
         transaction.set(firestore.collection("watchHistory").doc(), {
@@ -101,7 +129,12 @@ export async function POST(req: Request) {
             adWatched: sessionData.adWatched || false,
             pointsEarned: points,
             completedAt: now,
-            sessionToken
+            sessionToken,
+            behavioralData: {
+              inactiveRatio,
+              noMouseRatio,
+              penaltyApplied: pointsPenalty > 0
+            }
         });
     });
 

@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   }
   
   try {
-    const { sessionToken } = body;
+    const { sessionToken, mouseMoved, tabIsActive, adIsPresent } = body;
     if (!sessionToken) {
       const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
       return addCorsHeaders(response, req);
@@ -74,10 +74,24 @@ export async function POST(req: Request) {
 
     const newTotal = (sessionData.totalWatchedSeconds || 0) + safeIncrement;
 
-    await sessionRef.update({
+    const updates: admin.firestore.UpdateData = {
       lastHeartbeatAt: now,
       totalWatchedSeconds: newTotal
-    });
+    };
+
+    // Update behavioral counters
+    if (tabIsActive === false) {
+      updates.inactiveHeartbeats = admin.firestore.FieldValue.increment(1);
+    }
+    if (mouseMoved === false) {
+      updates.noMouseMovementHeartbeats = admin.firestore.FieldValue.increment(1);
+    }
+    if (adIsPresent === true) {
+      updates.adHeartbeats = admin.firestore.FieldValue.increment(1);
+    }
+
+
+    await sessionRef.update(updates);
     
     // The "lite" extension doesn't need a signed response or a complex body.
     return addCorsHeaders(NextResponse.json({ success: true, totalWatchedSeconds: newTotal }), req);

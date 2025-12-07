@@ -131,7 +131,15 @@
         "adWatched": { "type": "boolean" },
         "pointsEarned": { "type": "number" },
         "completedAt": { "type": "number" },
-        "sessionToken": { "type": "string" }
+        "sessionToken": { "type": "string" },
+        "behavioralData": {
+          "type": "object",
+          "properties": {
+            "inactiveRatio": { "type": "number" },
+            "noMouseRatio": { "type": "number" },
+            "penaltyApplied": { "type": "boolean" }
+          }
+        }
       },
       "required": ["userId", "videoId", "totalWatchedSeconds", "pointsEarned", "completedAt"]
     },
@@ -149,7 +157,11 @@
             "totalWatchedSeconds": { "type": "number", "description": "Total accumulated watch time in seconds." },
             "adWatched": { "type": "boolean", "description": "Whether an ad was watched during the session." },
             "status": { "type": "string", "enum": ["active", "completed", "suspicious", "expired"], "description": "The current status of the session." },
-            "points": { "type": "number", "description": "Points awarded for this session upon completion." }
+            "points": { "type": "number", "description": "Points awarded for this session upon completion." },
+            "inactiveHeartbeats": { "type": "number", "description": "Count of heartbeats where tab was inactive." },
+            "noMouseMovementHeartbeats": { "type": "number", "description": "Count of heartbeats with no mouse movement." },
+            "adHeartbeats": { "type": "number", "description": "Count of heartbeats where an ad was present." },
+            "penaltyReasons": { "type": "array", "items": { "type": "string" } }
         },
         "required": ["sessionToken", "userId", "videoID", "createdAt", "lastHeartbeatAt", "status"]
     }
@@ -213,7 +225,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is simplified to support the new activity-based system. The primary collections are `/users` and `/videos`. The user's activity state (progress, level, bonus) is stored directly on their user document. This avoids complex transaction histories and makes activity updates atomic. Subcollections for user-specific data have been removed to simplify the model for this MVP. A new `watchHistory` collection is added to log events from the extension."
+    "reasoning": "The Firestore data structure is simplified to support the new activity-based system. The primary collections are `/users` and `/videos`. The user's activity state (progress, level, bonus) is stored directly on their user document. This avoids complex transaction histories and makes activity updates atomic. A new `watchHistory` collection is added to log events from the extension."
   }
 }
     
