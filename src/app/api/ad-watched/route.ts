@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
-import { handleOptions, addCorsHeaders } from "@/lib/cors";
+import { handleOptions, addCorsHeaders, createSignedResponse } from "@/lib/cors";
 import admin from 'firebase-admin';
 
 export async function OPTIONS(req: Request) {
@@ -17,57 +17,64 @@ export async function POST(req: Request) {
     firestore = adminApp.firestore;
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
-    return addCorsHeaders(NextResponse.json({ 
+    const response = NextResponse.json({ 
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs for details."
-    }, { status: 503 }), req);
+    }, { status: 503 });
+    return addCorsHeaders(response, req);
   }
 
   let body;
   try {
     body = await req.json();
   } catch (e) {
-    return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
+    const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+    return addCorsHeaders(response, req);
   }
   
-  // 🛡️ Verify signature
   if (!verifySignature(body)) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 }), req);
+      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+      return addCorsHeaders(response, req);
   }
 
   try {
     const { sessionToken, adDuration } = body;
     if (!sessionToken || adDuration === undefined) {
-      return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }), req);
+      const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+      return addCorsHeaders(response, req);
     }
     
     if (typeof adDuration !== 'number' || adDuration <= 0) {
-        return addCorsHeaders(NextResponse.json({ error: "INVALID_AD_DURATION" }, { status: 400 }), req);
+        const response = NextResponse.json({ error: "INVALID_AD_DURATION" }, { status: 400 });
+        return addCorsHeaders(response, req);
     }
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionSnap = await sessionRef.get();
 
     if (!sessionSnap.exists) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }), req);
+      const response = NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 });
+      return addCorsHeaders(response, req);
     }
 
     const sessionData = sessionSnap.data();
     if (!sessionData) {
-        return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
+        const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
+        return addCorsHeaders(response, req);
     }
     
     if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
       console.warn("Ad-watched failed: Invalid secret in session doc", { sessionToken });
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
+      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
+      return addCorsHeaders(response, req);
     }
 
     if (sessionData.adWatched === true) {
-      return addCorsHeaders(NextResponse.json({
+      return createSignedResponse({
         success: false,
         error: "AD_ALREADY_PROCESSED",
         message: "This ad has already been processed for this session."
-      }, { status: 200 }), req);
+      }, 200, req);
     }
 
     const pointsForAd = Math.floor(Number(adDuration) * 1);
@@ -87,14 +94,15 @@ export async function POST(req: Request) {
       transaction.update(sessionRef, { adWatched: true });
     });
 
-    return addCorsHeaders(NextResponse.json({
+    return createSignedResponse({
       success: true,
       message: `تم منح ${pointsForAd} نقطة لمشاهدة الإعلان.`,
       pointsAdded: pointsForAd
-    }), req);
+    }, 200, req);
 
   } catch (err: any) {
     console.error("API Error: /api/ad-watched failed.", { error: err.message, timestamp: new Date().toISOString() });
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
+    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
+    return addCorsHeaders(response, req);
   }
 }

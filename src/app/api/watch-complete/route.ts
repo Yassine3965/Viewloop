@@ -2,8 +2,8 @@
 // /app/api/watch-complete/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
-import { handleOptions, addCorsHeaders } from "@/lib/cors";
+import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
+import { handleOptions, addCorsHeaders, createSignedResponse } from "@/lib/cors";
 import admin from 'firebase-admin';
 
 export async function OPTIONS(req: Request) {
@@ -18,45 +18,56 @@ export async function POST(req: Request) {
     firestore = adminApp.firestore;
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
-    return addCorsHeaders(NextResponse.json({ 
+    const response = NextResponse.json({ 
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs for details."
-    }, { status: 503 }), req);
+    }, { status: 503 });
+    return addCorsHeaders(response, req);
   }
 
   let body;
   try {
     body = await req.json();
   } catch (e) {
-    return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
+    const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+    return addCorsHeaders(response, req);
+  }
+
+  if (!verifySignature(body)) {
+    const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+    return addCorsHeaders(response, req);
   }
 
   try {
     const { sessionToken } = body;
     
     if (!sessionToken) {
-      return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 }), req);
+      const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
+      return addCorsHeaders(response, req);
     }
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionSnap = await sessionRef.get();
     
     if (!sessionSnap.exists) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }), req);
+      const response = NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 });
+      return addCorsHeaders(response, req);
     }
 
     const sessionData = sessionSnap.data();
     if (!sessionData || !sessionData.userId) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
+      const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
+      return addCorsHeaders(response, req);
     }
 
     if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
       console.warn("Watch-complete failed: Invalid secret in session doc", { sessionToken });
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
+      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
+      return addCorsHeaders(response, req);
     }
 
     if (sessionData.status === 'completed') {
-        return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: 0, message: "Session already completed." }), req);
+        return createSignedResponse({ success: true, pointsAdded: 0, message: "Session already completed." }, 200, req);
     }
 
     const totalWatched = sessionData.totalWatchedSeconds || 0;
@@ -100,11 +111,12 @@ export async function POST(req: Request) {
         });
     });
 
-    return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
+    return createSignedResponse({ success: true, pointsAdded: points }, 200, req);
     
   } catch (err: any) {
     console.error("API Error: /api/watch-complete failed.", { error: err.message, body, timestamp: new Date().toISOString() });
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
+    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
+    return addCorsHeaders(response, req);
   }
 }
 async function startServerSession(videoId: any, userAuthToken: any, antiCheatData: any, videoType: any) {

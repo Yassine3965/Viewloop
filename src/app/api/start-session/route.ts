@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
-import { handleOptions, addCorsHeaders } from "@/lib/cors";
+import { handleOptions, addCorsHeaders, createSignedResponse } from "@/lib/cors";
 import admin from 'firebase-admin';
 import { randomBytes } from 'crypto';
 
@@ -20,22 +20,24 @@ export async function POST(req: Request) {
     auth = adminApp.auth;
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
-    return addCorsHeaders(NextResponse.json({ 
+    const response = NextResponse.json({ 
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs for details."
-    }, { status: 503 }), req);
+    }, { status: 503 });
+    return addCorsHeaders(response, req);
   }
 
   let body;
   try {
     body = await req.json();
   } catch (e) {
-    return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
+    const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+    return addCorsHeaders(response, req);
   }
 
-  // 🛡️ Verify signature
   if (!verifySignature(body)) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 }), req);
+      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+      return addCorsHeaders(response, req);
   }
   
   try {
@@ -43,24 +45,26 @@ export async function POST(req: Request) {
 
     if (extensionSecret !== process.env.EXTENSION_SECRET) {
       console.warn("Invalid secret received in start-session", { received: extensionSecret });
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
+      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
+      return addCorsHeaders(response, req);
     }
 
     if (!videoID || !userAuthToken) {
-      return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }), req);
+      const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+      return addCorsHeaders(response, req);
     }
 
     let decoded;
     try {
       decoded = await auth.verifyIdToken(userAuthToken);
     } catch (err) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_USER_TOKEN" }, { status: 401 }), req);
+      const response = NextResponse.json({ error: "INVALID_USER_TOKEN" }, { status: 401 });
+      return addCorsHeaders(response, req);
     }
 
     const userId = decoded.uid;
     const now = Date.now();
     
-    // Check for existing active session for this user to prevent conflicts
     const sessionsRef = firestore.collection("sessions");
     const activeSessionQuery = await sessionsRef.where('userId', '==', userId).where('status', '==', 'active').limit(1).get();
 
@@ -72,11 +76,9 @@ export async function POST(req: Request) {
     
     const sessionToken = `${now.toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 
-    // Generate the first short-lived token
     const shortToken = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    // Create session and short-lived token in a single transaction
     const batch = firestore.batch();
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
@@ -96,7 +98,7 @@ export async function POST(req: Request) {
     const shortTokenRef = firestore.collection("short_lived_tokens").doc(shortToken);
     const tokenDoc = {
       token: shortToken,
-      userId: userId, // Link token to user
+      userId: userId, 
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt: expiresAt,
     };
@@ -104,14 +106,15 @@ export async function POST(req: Request) {
 
     await batch.commit();
 
-    return addCorsHeaders(NextResponse.json({
+    return createSignedResponse({
       success: true,
       sessionToken,
-      shortToken, // Return the first short-lived token
+      shortToken,
       expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
-    }), req);
+    }, 200, req);
   } catch (err: any) {
     console.error("API Error: /api/start-session failed.", { error: err.message, timestamp: new Date().toISOString() });
-    return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
+    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
+    return addCorsHeaders(response, req);
   }
 }
