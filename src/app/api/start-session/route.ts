@@ -1,7 +1,7 @@
 // /app/api/start-session/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
@@ -12,6 +12,14 @@ export async function OPTIONS(req: Request) {
 export async function POST(req: Request) {
   let firestore: admin.firestore.Firestore;
   let auth: admin.auth.Auth;
+
+  const requestBody = await req.text();
+  const signature = req.headers.get('X-Signature');
+
+  if (!verifySignature(requestBody, signature)) {
+      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+      return addCorsHeaders(response, req);
+  }
 
   try {
     const adminApp = initializeFirebaseAdmin();
@@ -28,20 +36,14 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    body = await req.json();
+    body = JSON.parse(requestBody);
   } catch (e) {
     const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
     return addCorsHeaders(response, req);
   }
   
   try {
-    const { videoID, userAuthToken, extensionSecret } = body;
-
-    if (extensionSecret !== process.env.EXTENSION_SECRET) {
-      console.warn("Invalid secret received in start-session", { received: extensionSecret });
-      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
-      return addCorsHeaders(response, req);
-    }
+    const { videoID, userAuthToken } = body;
 
     if (!videoID || !userAuthToken) {
       const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
@@ -79,12 +81,10 @@ export async function POST(req: Request) {
       totalWatchedSeconds: 0,
       adWatched: false,
       status: "active",
-      extensionSecret: extensionSecret,
     };
     
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
 
-    // The new lite extension only needs the sessionToken
     return addCorsHeaders(NextResponse.json({
       success: true,
       sessionToken,

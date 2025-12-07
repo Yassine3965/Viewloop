@@ -1,7 +1,7 @@
 // /app/api/complete/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
@@ -15,6 +15,14 @@ export async function OPTIONS(req: Request) {
 
 export async function POST(req: Request) {
   let firestore: admin.firestore.Firestore;
+
+  const requestBody = await req.text();
+  const signature = req.headers.get('X-Signature');
+
+  if (!verifySignature(requestBody, signature)) {
+      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+      return addCorsHeaders(response, req);
+  }
 
   try {
     const adminApp = initializeFirebaseAdmin();
@@ -30,7 +38,7 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    body = await req.json();
+    body = JSON.parse(requestBody);
   } catch (e) {
     const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
     return addCorsHeaders(response, req);
@@ -58,12 +66,6 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
-    if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
-      console.warn("Watch-complete failed: Invalid secret in session doc", { sessionToken });
-      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
-      return addCorsHeaders(response, req);
-    }
-
     if (sessionData.status === 'completed') {
         return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: 0, message: "Session already completed." }), req);
     }
@@ -73,8 +75,8 @@ export async function POST(req: Request) {
 
     // Behavioral Analysis
     const totalHeartbeats = Math.floor(totalWatched / 15); // Approximate number of heartbeats
-    const inactiveRatio = (sessionData.inactiveHeartbeats || 0) / totalHeartbeats;
-    const noMouseRatio = (sessionData.noMouseMovementHeartbeats || 0) / totalHeartbeats;
+    const inactiveRatio = totalHeartbeats > 0 ? (sessionData.inactiveHeartbeats || 0) / totalHeartbeats : 0;
+    const noMouseRatio = totalHeartbeats > 0 ? (sessionData.noMouseMovementHeartbeats || 0) / totalHeartbeats : 0;
 
     let pointsPenalty = 0;
     let penaltyReason = [];

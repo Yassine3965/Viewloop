@@ -1,5 +1,6 @@
 // src/lib/firebase/admin.ts
 import admin from 'firebase-admin';
+import crypto from 'crypto';
 
 let isInitialized = false;
 
@@ -42,15 +43,31 @@ export function initializeFirebaseAdmin() {
   return admin;
 }
 
-// This function is kept for simplicity, in a real scenario, you'd use a more robust signing mechanism
-// if you were to re-introduce client-side signing. For now, it's not used by the lite extension.
-export function verifySignature(body: Record<string, any>): boolean {
+
+export function verifySignature(body: string, signature: string | null): boolean {
     if (!process.env.EXTENSION_SECRET) {
         console.error('CRITICAL: EXTENSION_SECRET is not set. Cannot verify signature.');
         return false;
     }
+    if (!signature) {
+        console.warn('Signature verification failed: No signature provided in headers.');
+        return false;
+    }
 
-    // This is a placeholder for a simple secret check.
-    // The "lite" extension doesn't do complex signing.
-    return body.extensionSecret === process.env.EXTENSION_SECRET;
+    try {
+        const hmac = crypto.createHmac('sha256', process.env.EXTENSION_SECRET);
+        hmac.update(body);
+        const expectedSignature = hmac.digest('hex');
+        
+        const areEqual = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+
+        if (!areEqual) {
+            console.warn('Signature verification failed: Mismatch.');
+        }
+
+        return areEqual;
+    } catch (error) {
+        console.error('Error during signature verification:', error);
+        return false;
+    }
 }
