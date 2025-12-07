@@ -25,7 +25,11 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    body = await req.json();
+    const rawBody = await req.text();
+    if (!rawBody) {
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
+    }
+    body = JSON.parse(rawBody);
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
@@ -36,7 +40,7 @@ export async function POST(req: Request) {
     }
 
     const { sessionToken, watchedSinceLastHeartbeat = 5 } = body;
-    if (!sessionToken) return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION" }, { status: 400 }), req);
+    if (!sessionToken) return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 }), req);
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const snap = await sessionRef.get();
@@ -52,7 +56,7 @@ export async function POST(req: Request) {
     const diffSec = Math.floor((now - lastHb) / 1000);
 
     const allowedInterval = Number(process.env.HEARTBEAT_ALLOWED_INTERVAL || 30);
-    if (diffSec > allowedInterval * 6) {
+    if (diffSec > allowedInterval * 6) { // if heartbeat is delayed by 6 intervals
       await sessionRef.update({ status: "suspicious", lastHeartbeatAt: now });
       return addCorsHeaders(NextResponse.json({ error: "HEARTBEAT_DELAYED", suspicious: true }, { status: 400 }), req);
     }
