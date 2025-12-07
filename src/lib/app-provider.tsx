@@ -118,7 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   token: token,
                   secret: "6B65FDC657B5D8CF4D5AB28C92CF2"
                 }, (response: any) => {
-                  if (chrome.runtime.lastError) {
+                  if (window.chrome && window.chrome.runtime && window.chrome.runtime.lastError) {
                     // This is expected if the extension is not listening, localStorage is the fallback.
                   }
                 });
