@@ -199,17 +199,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addVideo = useCallback(async (videoData: Omit<Video, 'id' | 'submissionDate'>): Promise<{ success: boolean, message: string }> => {
     if (!user || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
-
+  
     const youtubeVideoId = getYoutubeVideoId(videoData.url);
     if (!youtubeVideoId) {
         return { success: false, message: "رابط يوتيوب غير صالح." };
     }
     
+    // Use the YouTube video ID as the document ID
     const videoRef = doc(db, 'videos', youtubeVideoId);
     
     try {
         const videoSnap = await getDoc(videoRef);
-
+  
         if (videoSnap.exists()) {
             return { success: false, message: "هذا الفيديو موجود بالفعل في قائمة المشاهدة." };
         }
@@ -218,7 +219,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ...videoData,
             submissionDate: serverTimestamp(),
         };
-
+  
+        // Save the document with the correct reference
         await setDoc(videoRef, newVideo)
           .catch(async (serverError: FirestoreError) => {
               const permissionError = new FirestorePermissionError({
@@ -227,11 +229,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 requestResourceData: newVideo,
               });
               errorEmitter.emit('permission-error', permissionError);
-              throw serverError;
+              throw serverError; // Re-throw to be caught by the outer catch block
           });
-
+  
       return { success: true, message: "تمت إضافة الفيديو بنجاح." };
     } catch (error: any) {
+      console.error("Error in addVideo:", error);
       return { success: false, message: error.message || "فشل إنشاء الحملة." };
     }
   }, [user, db]);
@@ -485,3 +488,5 @@ export const useApp = (): AppContextState => {
   }
   return context;
 };
+
+    
