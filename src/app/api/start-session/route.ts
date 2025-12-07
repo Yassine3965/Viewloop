@@ -1,7 +1,7 @@
 // /app/api/start-session/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 import { randomBytes } from 'crypto';
@@ -33,6 +33,11 @@ export async function POST(req: Request) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
 
+  // 🛡️ Verify signature
+  if (!verifySignature(body)) {
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 }), req);
+  }
+  
   try {
     const { videoID, userAuthToken, extensionSecret } = body;
 
@@ -105,7 +110,7 @@ export async function POST(req: Request) {
       shortToken, // Return the first short-lived token
       expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
     }), req);
-  } catch (err: any {
+  } catch (err: any) {
     console.error("API Error: /api/start-session failed.", { error: err.message, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }

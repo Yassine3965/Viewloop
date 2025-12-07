@@ -1,5 +1,6 @@
 // src/lib/firebase/admin.ts
 import admin from 'firebase-admin';
+import { createHmac } from 'crypto';
 
 // This is a flag to ensure we only initialize the app once.
 let isInitialized = false;
@@ -52,4 +53,37 @@ export function initializeFirebaseAdmin() {
     firestore: admin.firestore(),
     auth: admin.auth(),
   };
+}
+
+/**
+* Verifies the HMAC-SHA256 signature of a request payload.
+* @param body The raw request body.
+* @returns True if the signature is valid, false otherwise.
+*/
+export function verifySignature(body: Record<string, any>): boolean {
+    if (!process.env.EXTENSION_SECRET) {
+        console.error('CRITICAL: EXTENSION_SECRET is not set. Cannot verify signature.');
+        return false;
+    }
+
+    if (!body.signature) {
+        console.warn('Signature verification failed: No signature provided.');
+        return false;
+    }
+    
+    // Destructure to separate signature from the data that was signed
+    const { signature, ...signedData } = body;
+
+    // Create the signature from the rest of the body
+    const expectedSignature = createHmac('sha256', process.env.EXTENSION_SECRET)
+        .update(JSON.stringify(signedData))
+        .digest('hex');
+
+    // Compare signatures
+    if (signature !== expectedSignature) {
+        console.warn('Signature verification failed: Invalid signature.');
+        return false;
+    }
+
+    return true;
 }

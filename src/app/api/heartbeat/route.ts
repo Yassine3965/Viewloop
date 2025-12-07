@@ -1,7 +1,7 @@
 // /app/api/heartbeat/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
@@ -28,6 +28,11 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
+  }
+  
+  // 🛡️ Verify signature
+  if (!verifySignature(body)) {
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 }), req);
   }
 
   try {
