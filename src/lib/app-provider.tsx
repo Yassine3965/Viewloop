@@ -195,6 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { success: false, message: "رابط يوتيوب غير صالح." };
     }
     
+    // Use the YouTube video ID as the document ID
     const videoRef = doc(db, 'videos', youtubeVideoId);
     
     try {
@@ -209,6 +210,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             submissionDate: serverTimestamp(),
         };
 
+        // Save the document with the correct ID
         await setDoc(videoRef, newVideo)
           .catch(async (serverError: FirestoreError) => {
               const permissionError = new FirestorePermissionError({
