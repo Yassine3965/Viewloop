@@ -299,6 +299,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!auth || !db) return false;
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        await updateDoc(userRef, { lastLogin: serverTimestamp() });
+        
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
             return false;
@@ -338,8 +341,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             country: locationData.country || 'Unknown',
             country_code: locationData.country_code || '',
             city: locationData.city || '',
-            createdAt: serverTimestamp() as any,
-            lastLogin: serverTimestamp() as any,
+            createdAt: serverTimestamp(),
+            lastLogin: serverTimestamp(),
             points: 100,
         };
 
@@ -411,8 +414,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 country: locationData.country || 'Unknown',
                 country_code: locationData.country_code || '',
                 city: locationData.city || '',
-                createdAt: serverTimestamp() as any,
-                lastLogin: serverTimestamp() as any,
+                createdAt: serverTimestamp(),
+                lastLogin: serverTimestamp(),
                 points: 100,
             };
             await setDoc(userRef, newUserProfile)
