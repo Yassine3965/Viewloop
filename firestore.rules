@@ -10,6 +10,7 @@
  * They can read and update their own profile. No other user can access this data.
  * The top-level /videos collection is treated as a public library, readable by
  * anyone but writable only by the original submitter.
+ * The /sessions and /watchHistory collections are server-only.
  *
  * Key Security Decisions:
  * - User Listing Disabled: To protect user privacy, it is impossible to list all
@@ -19,6 +20,8 @@
  * - Immutable Fields: Critical fields like 'role' and 'createdAt' on a user document cannot be
  *   changed by any client-side request to prevent privilege escalation.
  * - Public Content: The `/videos` collection is publicly readable. Writes are protected.
+ * - Server-Only Collections: `/sessions` and `/watchHistory` are locked down and can only
+ *   be accessed by the trusted server-side admin SDK, preventing any client manipulation.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -42,7 +45,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false; // Prevent listing all users
-      allow create: if true; // Allow user creation during registration
+      // Allow user creation only if the user is creating their own document
+      allow create: if isOwner(userId);
       allow update: if isOwner(userId)
                        // Prevent tampering with sensitive fields
                        && request.resource.data.role == resource.data.role
@@ -55,6 +59,16 @@ service cloud.firestore {
       allow get, list: if true; // Allow anyone to see videos
       allow create: if isSignedIn() && request.resource.data.submitterId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.submitterId == request.auth.uid;
+    }
+
+    match /sessions/{sessionId} {
+      // Server-only collection. Disallow all client access.
+      allow read, write: if false;
+    }
+
+    match /watchHistory/{historyId} {
+      // Server-only collection. Disallow all client access.
+      allow read, write: if false;
     }
   }
 }
