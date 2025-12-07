@@ -19,6 +19,13 @@ export function initializeFirebaseAdmin() {
         console.error(`❌ [Firebase Admin] ${errorMessage}`);
         throw new Error(errorMessage);
     }
+    
+    // Ensure EXTENSION_SECRET is loaded
+    if (!process.env.EXTENSION_SECRET) {
+        const errorMessage = `Firebase Admin initialization failed. Missing required environment variable: EXTENSION_SECRET.`;
+        console.error(`❌ [Firebase Admin] ${errorMessage}`);
+        throw new Error(errorMessage);
+    }
 
     try {
       admin.initializeApp({
@@ -42,8 +49,9 @@ export function initializeFirebaseAdmin() {
 
 
 export function verifySignature(body: string, signature: string | null): boolean {
-    if (!process.env.EXTENSION_SECRET) {
-        console.error('CRITICAL: EXTENSION_SECRET is not set. Cannot verify signature.');
+    const secret = process.env.EXTENSION_SECRET;
+    if (!secret) {
+        console.error('CRITICAL: EXTENSION_SECRET is not set on the server. Cannot verify signature.');
         return false;
     }
     if (!signature) {
@@ -52,11 +60,10 @@ export function verifySignature(body: string, signature: string | null): boolean
     }
 
     try {
-        const hmac = crypto.createHmac('sha256', process.env.EXTENSION_SECRET);
+        const hmac = crypto.createHmac('sha256', secret);
         hmac.update(body);
         const expectedSignature = hmac.digest('hex');
         
-        // Use timingSafeEqual to prevent timing attacks
         if (signature.length !== expectedSignature.length) {
             console.warn('Signature verification failed: Length mismatch.');
             return false;

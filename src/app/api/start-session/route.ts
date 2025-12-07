@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
         console.warn(`User ${userId} has an old active session. Expiring it and starting a new one.`);
     }
     
-    const sessionToken = `${now.toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+    const sessionToken = uuidv4();
 
     const sessionDoc = {
       sessionToken,
