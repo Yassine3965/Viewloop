@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
     const newTotal = (sessionData.totalWatchedSeconds || 0) + safeIncrement;
 
-    const updates: admin.firestore.UpdateData = {
+    const updates: { [key: string]: any } = {
       lastHeartbeatAt: now,
       totalWatchedSeconds: newTotal
     };
