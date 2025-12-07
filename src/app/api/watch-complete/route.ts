@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     const session = snap.data();
-    if (!session) {
+    if (!session || !session.userId) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
 
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
             userId: session.userId,
             videoId: session.videoID,
             totalWatchedSeconds: totalWatched,
-            adWatched: session.adWatched,
+            adWatched: session.adWatched || false,
             pointsEarned: points,
             completedAt: now,
             sessionToken

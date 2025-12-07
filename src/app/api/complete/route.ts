@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     const session = snap.data();
-    if (!session) {
+    if (!session || !session.userId) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
 
@@ -64,7 +64,6 @@ export async function POST(req: Request) {
     if (totalWatched >= 30) points += 5;   // 5 points for 30s
     if (totalWatched >= 60) points += 10;  // 10 more for 60s (15 total)
     if (totalWatched >= 120) points += 15; // 15 more for 120s (30 total)
-    // Points for ad are added via the ad-watched endpoint and stored on the user, not re-added here.
 
     await firestore.runTransaction(async (transaction) => {
         const userRef = firestore.collection("users").doc(session.userId);
@@ -88,7 +87,7 @@ export async function POST(req: Request) {
             userId: session.userId,
             videoId: session.videoID,
             totalWatchedSeconds: totalWatched,
-            adWatched: session.adWatched,
+            adWatched: session.adWatched || false,
             pointsEarned: points,
             completedAt: now,
             sessionToken

@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
-    const { sessionToken, watchedSinceLastHeartbeat = 5, positionSeconds } = body;
+    const { sessionToken, watchedSinceLastHeartbeat = 5 } = body;
     if (!sessionToken) return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION" }, { status: 400 }), req);
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
@@ -56,14 +56,14 @@ export async function POST(req: Request) {
       await sessionRef.update({ status: "suspicious", lastHeartbeatAt: now });
       return addCorsHeaders(NextResponse.json({ error: "HEARTBEAT_DELAYED", suspicious: true }, { status: 400 }), req);
     }
-
-    const safeDelta = Math.max(0, Math.min( watchedSinceLastHeartbeat, 120 ));
+    
+    // Increment total watched seconds safely
+    const safeDelta = Math.max(0, Math.min( watchedSinceLastHeartbeat, 120 )); // Cap delta to prevent abuse
     const newTotal = (session.totalWatchedSeconds || 0) + safeDelta;
 
     await sessionRef.update({
       lastHeartbeatAt: now,
-      totalWatchedSeconds: newTotal,
-      lastPositionSeconds: positionSeconds || session.lastPositionSeconds || 0
+      totalWatchedSeconds: newTotal
     });
 
     return addCorsHeaders(NextResponse.json({ success: true, totalWatchedSeconds: newTotal }), req);
