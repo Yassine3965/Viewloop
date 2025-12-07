@@ -13,8 +13,8 @@ export async function POST(req: Request) {
   let firestore: admin.firestore.Firestore;
 
   try {
-    const admin = initializeFirebaseAdmin();
-    firestore = admin.firestore;
+    const adminApp = initializeFirebaseAdmin();
+    firestore = adminApp.firestore;
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ 
@@ -23,17 +23,14 @@ export async function POST(req: Request) {
     }, { status: 503 }), req);
   }
 
-  if (req.headers.get("content-type") !== "application/json") {
-    return addCorsHeaders(NextResponse.json({ error: "INVALID_CONTENT_TYPE" }, { status: 400 }), req);
+  let body;
+  try {
+    body = await req.json();
+  } catch (e) {
+    return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
 
   try {
-    const rawBody = await req.text();
-    if (!rawBody) {
-      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
-    }
-    const body = JSON.parse(rawBody);
-
     if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
@@ -63,7 +60,7 @@ export async function POST(req: Request) {
     if (totalWatched >= 30) points += 5;
     if (totalWatched >= 60) points += 10;
     if (totalWatched >= 120) points += 15;
-    if (adWatched === true) points += 20;
+    if (adWatched === true && !session.adWatched) points += 20;
 
     await firestore.collection("watchHistory").add({
       userId: session.userId,
@@ -105,9 +102,6 @@ export async function POST(req: Request) {
     return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
     
   } catch (err: any) {
-    if (err instanceof SyntaxError) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
-    }
     console.error("API Error: /api/complete failed.", { error: err.message, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
