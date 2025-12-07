@@ -214,17 +214,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return { success: false, message: "هذا الفيديو موجود بالفعل في قائمة المشاهدة." };
         }
         
-        const newVideo = {
+        const newVideoData = {
             ...videoData,
             submissionDate: serverTimestamp(),
         };
   
-        await setDoc(videoRef, newVideo)
+        await setDoc(videoRef, newVideoData)
           .catch(async (serverError: FirestoreError) => {
               const permissionError = new FirestorePermissionError({
                 path: videoRef.path,
                 operation: 'create',
-                requestResourceData: newVideo,
+                requestResourceData: newVideoData,
               });
               errorEmitter.emit('permission-error', permissionError);
               throw serverError;
