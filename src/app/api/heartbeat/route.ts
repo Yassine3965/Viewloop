@@ -25,11 +25,7 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    const rawBody = await req.text();
-    if (!rawBody) {
-      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
-    }
-    body = JSON.parse(rawBody);
+    body = await req.json();
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
@@ -47,7 +43,6 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
     
-    // Security check: Validate the stored secret
     if (session.extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
@@ -59,10 +54,8 @@ export async function POST(req: Request) {
     const now = Date.now();
     const lastHeartbeatMs = session.lastHeartbeatAt || session.createdAt || now;
     
-    // Calculate seconds passed since the last heartbeat
     const secondsSinceLast = Math.floor((now - lastHeartbeatMs) / 1000);
     
-    // Prevent abuse: cap the increment to a reasonable value (e.g., 20 seconds for a 15s interval)
     const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20));
 
     const newTotal = (session.totalWatchedSeconds || 0) + safeIncrement;

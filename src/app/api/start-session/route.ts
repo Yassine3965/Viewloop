@@ -27,11 +27,7 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    const rawBody = await req.text();
-    if (!rawBody) {
-      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
-    }
-    body = JSON.parse(rawBody);
+    body = await req.json();
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
@@ -67,7 +63,7 @@ export async function POST(req: Request) {
       totalWatchedSeconds: 0,
       adWatched: false,
       status: "active",
-      extensionSecret: extensionSecret, // Store the secret for future validation
+      extensionSecret: extensionSecret,
     };
 
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
