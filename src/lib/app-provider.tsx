@@ -241,6 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!user || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
     if (user.id !== video.submitterId) return { success: false, message: "ليس لديك إذن لحذف هذا الفيديو." };
 
+    // The video ID from the app is the YouTube video ID, which is the document ID.
     const videoRef = doc(db, 'videos', video.id);
 
     try {
@@ -251,6 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               operation: 'delete',
             });
             errorEmitter.emit('permission-error', permissionError);
+            throw new Error("Firestore deletion failed");
         });
         return { success: true, message: `تم حذف الفيديو بنجاح.` };
     } catch (error: any) {
