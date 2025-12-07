@@ -1,8 +1,8 @@
 // /app/api/heartbeat/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
-import { handleOptions, addCorsHeaders, createSignedResponse } from "@/lib/cors";
+import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
 export async function OPTIONS(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
   try {
     const adminApp = initializeFirebaseAdmin();
-    firestore = adminApp.firestore;
+    firestore = adminApp.firestore();
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ 
@@ -32,12 +32,6 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
   
-  // The new extension version doesn't use the complex signing, so we revert to the simple secret check
-  if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
-      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
-      return addCorsHeaders(response, req);
-  }
-
   try {
     const { sessionToken } = body;
     if (!sessionToken) {

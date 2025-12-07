@@ -32,12 +32,6 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
   
-  // The new extension version doesn't use the complex signing
-  if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
-      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
-      return addCorsHeaders(response, req);
-  }
-
   try {
     const { sessionToken, adDuration } = body;
     if (!sessionToken || adDuration === undefined) {

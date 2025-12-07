@@ -15,8 +15,8 @@ export async function POST(req: Request) {
 
   try {
     const adminApp = initializeFirebaseAdmin();
-    firestore = adminApp.firestore;
-    auth = adminApp.auth;
+    firestore = adminApp.firestore();
+    auth = adminApp.auth();
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ 

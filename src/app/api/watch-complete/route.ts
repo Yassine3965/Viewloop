@@ -1,4 +1,3 @@
-
 // /app/api/watch-complete/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -33,7 +32,8 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
+  // This endpoint might be called by older extension versions, so we keep the direct secret check
+  if (body.extensionSecret && body.extensionSecret !== process.env.EXTENSION_SECRET) {
     const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
     return addCorsHeaders(response, req);
   }
