@@ -76,9 +76,7 @@ export function WatchSession() {
       });
       const data = await response.json();
       if (data.success) {
-        if (data.pointsAdded > 0) {
-            setAwardedPoints(data.pointsAdded);
-        }
+        setAwardedPoints(data.pointsAdded || 0);
         setSessionState('done');
       } else {
         throw new Error(data.error || 'Failed to complete session');
@@ -208,13 +206,30 @@ export function WatchSession() {
   }
 
   if (sessionState === 'done') {
-     return (
-        <PointsAwardedModal 
-            open={awardedPoints > 0} 
-            points={awardedPoints} 
-            onConfirm={handleModalConfirm}
-        />
-     )
+    if (awardedPoints > 0) {
+      return (
+          <PointsAwardedModal 
+              open={true} 
+              points={awardedPoints} 
+              onConfirm={handleModalConfirm}
+          />
+      )
+    }
+    // Handle case where session is done but no points were awarded
+    return (
+      <div className="container py-8 text-center">
+          <Alert className="max-w-md mx-auto">
+              <CheckCircle className="h-4 w-4" />
+              <AlertTitle>اكتملت الجلسة</AlertTitle>
+              <AlertDescription>
+                  انتهت جلسة المشاهدة. لم يتم كسب أي نقاط هذه المرة.
+              </AlertDescription>
+          </Alert>
+          <Button onClick={() => window.close()} className="mt-4">
+              إغلاق
+          </Button>
+      </div>
+    );
   }
 
   if (!currentVideo) {
