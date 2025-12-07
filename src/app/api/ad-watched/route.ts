@@ -31,9 +31,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { sessionToken, adDuration } = body; // ⭐ أضف adDuration
-    if (!sessionToken || !adDuration) {
+    const { sessionToken, adDuration } = body;
+    if (!sessionToken || adDuration === undefined) {
       return addCorsHeaders(NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 }), req);
+    }
+    
+    if (typeof adDuration !== 'number' || adDuration <= 0) {
+        return addCorsHeaders(NextResponse.json({ error: "INVALID_AD_DURATION" }, { status: 400 }), req);
     }
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
@@ -61,7 +65,6 @@ export async function POST(req: Request) {
       }, { status: 200 }), req);
     }
 
-    // ⭐⭐⭐ التصحيح: 1 نقطة لكل ثانية إعلان ⭐⭐⭐
     const pointsForAd = Math.floor(Number(adDuration) * 1);
 
     await firestore.runTransaction(async (transaction) => {

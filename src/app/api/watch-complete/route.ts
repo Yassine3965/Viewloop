@@ -61,13 +61,10 @@ export async function POST(req: Request) {
     const totalWatched = sessionData.totalWatchedSeconds || 0;
     const now = Date.now();
 
-    // ⭐⭐⭐ التصحيح: 0.05 نقطة لكل ثانية ⭐⭐⭐
     let points = Math.floor(totalWatched * 0.05);
 
-    // تحديد حد أقصى للنقاط لكل فيديو
-    const MAX_POINTS = 50;
-    points = Math.min(points, MAX_POINTS);
-
+    const MAX_POINTS_PER_VIDEO = 50;
+    points = Math.min(points, MAX_POINTS_PER_VIDEO);
 
     await firestore.runTransaction(async (transaction) => {
         const userRef = firestore.collection("users").doc(sessionData.userId);
