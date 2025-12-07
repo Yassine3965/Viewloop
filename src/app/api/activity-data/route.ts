@@ -10,10 +10,15 @@ export async function OPTIONS(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const requestBody = await req.text();
-  const signature = req.headers.get('X-HMAC-Signature');
+  let body;
+  try {
+    body = await req.json();
+  } catch (e) {
+    const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+    return addCorsHeaders(response, req);
+  }
 
-  if (!verifySignature(requestBody, signature)) {
+  if (!verifySignature(req, body)) {
       const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
       return addCorsHeaders(response, req);
   }

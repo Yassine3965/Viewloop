@@ -1,6 +1,7 @@
 // src/lib/firebase/admin.ts
 import admin from 'firebase-admin';
 import crypto from 'crypto';
+import { NextRequest } from 'next/server';
 
 let isInitialized = false;
 
@@ -9,20 +10,16 @@ export function initializeFirebaseAdmin() {
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
     const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const extensionSecret = process.env.EXTENSION_SECRET;
 
-    if (!projectId || !clientEmail || !privateKey) {
+    if (!projectId || !clientEmail || !privateKey || !extensionSecret) {
         const missingVars = [];
         if (!projectId) missingVars.push('FIREBASE_PROJECT_ID');
         if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
         if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
+        if (!extensionSecret) missingVars.push('EXTENSION_SECRET');
+
         const errorMessage = `Firebase Admin initialization failed. Missing required environment variables: ${missingVars.join(', ')}.`;
-        console.error(`❌ [Firebase Admin] ${errorMessage}`);
-        throw new Error(errorMessage);
-    }
-    
-    // Ensure EXTENSION_SECRET is loaded
-    if (!process.env.EXTENSION_SECRET) {
-        const errorMessage = `Firebase Admin initialization failed. Missing required environment variable: EXTENSION_SECRET.`;
         console.error(`❌ [Firebase Admin] ${errorMessage}`);
         throw new Error(errorMessage);
     }
@@ -48,31 +45,42 @@ export function initializeFirebaseAdmin() {
 }
 
 
-export function verifySignature(body: string, signature: string | null): boolean {
+export function verifySignature(req: Request, body: any): boolean {
     const secret = process.env.EXTENSION_SECRET;
     if (!secret) {
-        console.error('CRITICAL: EXTENSION_SECRET is not set on the server. Cannot verify signature.');
+        console.error('CRITICAL: EXTENSION_SECRET is not set on the server.');
         return false;
     }
+
+    const signature = req.headers.get('X-HMAC-Signature');
     if (!signature) {
-        console.warn('Signature verification failed: No signature provided in headers.');
+        console.warn('Signature verification failed: No signature header.');
         return false;
     }
+    
+    // Reconstruct the payload exactly as it was on the client
+    const requestData = {
+      method: req.method,
+      url: req.url,
+      timestamp: Number(req.headers.get('X-Timestamp')),
+      requestId: req.headers.get('X-Request-ID'),
+      body: body 
+    };
 
     try {
         const hmac = crypto.createHmac('sha256', secret);
-        hmac.update(body);
-        const expectedSignature = hmac.digest('hex');
+        // Use a consistent, sorted stringification method
+        hmac.update(JSON.stringify(requestData));
+        const expectedSignature = hmac.digest('base64');
         
-        if (signature.length !== expectedSignature.length) {
-            console.warn('Signature verification failed: Length mismatch.');
-            return false;
-        }
-
-        const areEqual = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+        // Use a safe comparison
+        const areEqual = crypto.timingSafeEqual(Buffer.from(signature, 'base64'), Buffer.from(expectedSignature, 'base64'));
 
         if (!areEqual) {
             console.warn('Signature verification failed: Mismatch.');
+            console.log('Server Payload:', JSON.stringify(requestData));
+            console.log('Received Signature:', signature);
+            console.log('Expected Signature:', expectedSignature);
         }
 
         return areEqual;

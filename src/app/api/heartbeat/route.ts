@@ -12,10 +12,15 @@ export async function OPTIONS(req: Request) {
 export async function POST(req: Request) {
   let firestore: admin.firestore.Firestore;
 
-  const requestBody = await req.text();
-  const signature = req.headers.get('X-HMAC-Signature');
+  let body;
+  try {
+    body = await req.json();
+  } catch (e) {
+    const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+    return addCorsHeaders(response, req);
+  }
 
-  if (!verifySignature(requestBody, signature)) {
+  if (!verifySignature(req, body)) {
       const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
       return addCorsHeaders(response, req);
   }
@@ -24,19 +29,10 @@ export async function POST(req: Request) {
     const adminApp = initializeFirebaseAdmin();
     firestore = adminApp.firestore();
   } catch (error: any) {
-    console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ 
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs for details."
     }, { status: 503 });
-    return addCorsHeaders(response, req);
-  }
-
-  let body;
-  try {
-    body = JSON.parse(requestBody);
-  } catch (e) {
-    const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
     return addCorsHeaders(response, req);
   }
   
@@ -71,7 +67,6 @@ export async function POST(req: Request) {
     
     const secondsSinceLast = Math.floor((now - lastHeartbeatMs) / 1000);
     
-    // Increment should be based on the heartbeat interval to prevent cheating
     const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20)); // Cap increment to 20s
 
     const newTotal = (sessionData.totalWatchedSeconds || 0) + safeIncrement;
@@ -81,7 +76,6 @@ export async function POST(req: Request) {
       totalWatchedSeconds: newTotal
     };
 
-    // Update behavioral counters
     if (tabIsActive === false) {
       updates.inactiveHeartbeats = admin.firestore.FieldValue.increment(1);
     }
@@ -92,13 +86,11 @@ export async function POST(req: Request) {
       updates.adHeartbeats = admin.firestore.FieldValue.increment(1);
     }
 
-
     await sessionRef.update(updates);
     
     return addCorsHeaders(NextResponse.json({ success: true, totalWatchedSeconds: newTotal }), req);
 
   } catch (err: any) {
-    console.error("API Error: /api/heartbeat failed.", { error: err.message, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
     return addCorsHeaders(response, req);
   }
