@@ -33,4 +33,5 @@ export type UserProfile = {
     createdAt: any;
     lastLogin: any;
     points: number;
+    lastUpdated?: number;
 };

@@ -344,6 +344,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             points: 100,
+            lastUpdated: Date.now(),
         };
 
         const userDocRef = doc(db, 'users', authUser.uid);
@@ -417,6 +418,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 createdAt: serverTimestamp(),
                 lastLogin: serverTimestamp(),
                 points: 100,
+                lastUpdated: Date.now(),
             };
             await setDoc(userRef, newUserProfile)
               .catch(async (serverError: FirestoreError) => {
