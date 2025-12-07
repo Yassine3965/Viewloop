@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   let firestore: admin.firestore.Firestore;
 
   const requestBody = await req.text();
-  const signature = req.headers.get('X-Signature');
+  const signature = req.headers.get('X-HMAC-Signature');
 
   if (!verifySignature(requestBody, signature)) {
       const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });

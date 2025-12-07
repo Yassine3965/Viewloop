@@ -59,6 +59,12 @@ export function verifySignature(body: string, signature: string | null): boolean
         hmac.update(body);
         const expectedSignature = hmac.digest('hex');
         
+        // Use timingSafeEqual to prevent timing attacks
+        if (signature.length !== expectedSignature.length) {
+            console.warn('Signature verification failed: Length mismatch.');
+            return false;
+        }
+
         const areEqual = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
 
         if (!areEqual) {
