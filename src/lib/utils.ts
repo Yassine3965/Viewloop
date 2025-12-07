@@ -12,15 +12,16 @@ export function getYoutubeVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
     if (urlObj.hostname === 'youtu.be') {
-      videoId = urlObj.pathname.slice(1);
-    } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) {
-      videoId = urlObj.searchParams.get('v');
-    } else {
-      // Handle URLs like /embed/VIDEO_ID
-      const match = urlObj.pathname.match(/\/embed\/([^/]+)/);
-      if (match) {
-        videoId = match[1];
-      }
+      videoId = urlObj.pathname.slice(1).split('?')[0];
+    } else if (urlObj.hostname.includes('youtube.com')) {
+        if (urlObj.searchParams.has('v')) {
+            videoId = urlObj.searchParams.get('v');
+        } else {
+            const match = urlObj.pathname.match(/\/embed\/([^/]+)/);
+            if (match) {
+              videoId = match[1];
+            }
+        }
     }
   } catch (error) {
     // Handle cases where the URL is not valid, e.g. just a video ID
