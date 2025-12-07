@@ -26,10 +26,7 @@ export async function POST(req: Request) {
   let body;
   try {
     const rawBody = await req.text();
-    if (!rawBody) {
-      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
-    }
-    body = JSON.parse(rawBody);
+    body = rawBody ? JSON.parse(rawBody) : {};
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
@@ -39,7 +36,7 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
-    const { sessionToken, watchedSinceLastHeartbeat = 5 } = body;
+    const { sessionToken } = body;
     if (!sessionToken) return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 }), req);
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
@@ -52,18 +49,17 @@ export async function POST(req: Request) {
     }
 
     const now = Date.now();
-    const lastHb = session.lastHeartbeatAt || session.createdAt || now;
-    const diffSec = Math.floor((now - lastHb) / 1000);
-
-    const allowedInterval = Number(process.env.HEARTBEAT_ALLOWED_INTERVAL || 30);
-    if (diffSec > allowedInterval * 6) { // if heartbeat is delayed by 6 intervals
-      await sessionRef.update({ status: "suspicious", lastHeartbeatAt: now });
-      return addCorsHeaders(NextResponse.json({ error: "HEARTBEAT_DELAYED", suspicious: true }, { status: 400 }), req);
-    }
+    const lastHeartbeatMs = session.lastHeartbeatAt || session.createdAt || now;
     
+    // Calculate the time difference in seconds since the last heartbeat
+    const secondsSinceLast = Math.floor((now - lastHeartbeatMs) / 1000);
+    
+    // Prevent abuse: cap the increment to a reasonable value (e.g., 20 seconds for a 15s interval)
+    // This prevents a user from pausing for a long time and getting credit.
+    const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20));
+
     // Increment total watched seconds safely
-    const safeDelta = Math.max(0, Math.min( watchedSinceLastHeartbeat, 120 )); // Cap delta to prevent abuse
-    const newTotal = (session.totalWatchedSeconds || 0) + safeDelta;
+    const newTotal = (session.totalWatchedSeconds || 0) + safeIncrement;
 
     await sessionRef.update({
       lastHeartbeatAt: now,

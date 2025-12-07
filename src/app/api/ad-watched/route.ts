@@ -25,7 +25,8 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    body = await req.json();
+    const rawBody = await req.text();
+    body = rawBody ? JSON.parse(rawBody) : {};
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
@@ -53,7 +54,11 @@ export async function POST(req: Request) {
     }
 
     if (sessionData.adWatched === true) {
-      return addCorsHeaders(NextResponse.json({ error: "AD_ALREADY_PROCESSED", message: "This ad has already been processed for this session." }, { status: 400 }), req);
+      return addCorsHeaders(NextResponse.json({
+        success: false,
+        error: "AD_ALREADY_PROCESSED",
+        message: "This ad has already been processed for this session."
+      }, { status: 200 }), req);
     }
 
     const pointsForAd = 20;
@@ -63,7 +68,7 @@ export async function POST(req: Request) {
       const userSnap = await transaction.get(userRef);
 
       if (!userSnap.exists) {
-        throw new Error("User not found");
+        throw new Error("User not found during transaction");
       }
       
       const currentPoints = userSnap.data()?.points || 0;
