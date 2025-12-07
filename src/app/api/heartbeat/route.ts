@@ -38,27 +38,29 @@ export async function POST(req: Request) {
     const snap = await sessionRef.get();
     if (!snap.exists) return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }), req);
 
-    const session = snap.data();
-    if (!session) {
+    const sessionData = snap.data();
+    if (!sessionData) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
     
-    if (session.extensionSecret !== process.env.EXTENSION_SECRET) {
+    // ⭐ Verify the stored secret
+    if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
+      console.warn("Heartbeat failed: Invalid secret in session doc", { sessionToken });
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
-    if (session.status !== "active") {
+    if (sessionData.status !== "active") {
       return addCorsHeaders(NextResponse.json({ error: "SESSION_NOT_ACTIVE" }, { status: 400 }), req);
     }
 
     const now = Date.now();
-    const lastHeartbeatMs = session.lastHeartbeatAt || session.createdAt || now;
+    const lastHeartbeatMs = sessionData.lastHeartbeatAt || sessionData.createdAt || now;
     
     const secondsSinceLast = Math.floor((now - lastHeartbeatMs) / 1000);
     
-    const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20));
+    const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20)); // Cap increment to 20s to prevent abuse
 
-    const newTotal = (session.totalWatchedSeconds || 0) + safeIncrement;
+    const newTotal = (sessionData.totalWatchedSeconds || 0) + safeIncrement;
 
     await sessionRef.update({
       lastHeartbeatAt: now,

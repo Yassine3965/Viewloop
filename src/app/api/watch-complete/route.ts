@@ -38,26 +38,27 @@ export async function POST(req: Request) {
     }
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
-    const snap = await sessionRef.get();
+    const sessionSnap = await sessionRef.get();
     
-    if (!snap.exists) {
+    if (!sessionSnap.exists) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }), req);
     }
 
-    const session = snap.data();
-    if (!session || !session.userId) {
+    const sessionData = sessionSnap.data();
+    if (!sessionData || !sessionData.userId) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
 
-    if (session.extensionSecret !== process.env.EXTENSION_SECRET) {
+    if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
+      console.warn("Watch-complete failed: Invalid secret in session doc", { sessionToken });
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
-    if (session.status === 'completed') {
+    if (sessionData.status === 'completed') {
         return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: 0, message: "Session already completed." }), req);
     }
 
-    const totalWatched = session.totalWatchedSeconds || 0;
+    const totalWatched = sessionData.totalWatchedSeconds || 0;
     const now = Date.now();
 
     let points = 0;
@@ -66,11 +67,11 @@ export async function POST(req: Request) {
     if (totalWatched >= 120) points += 15;
 
     await firestore.runTransaction(async (transaction) => {
-        const userRef = firestore.collection("users").doc(session.userId);
+        const userRef = firestore.collection("users").doc(sessionData.userId);
         const userSnap = await transaction.get(userRef);
 
         if (!userSnap.exists) {
-            throw new Error(`User with ID ${session.userId} not found during transaction.`);
+            throw new Error(`User with ID ${sessionData.userId} not found during transaction.`);
         }
         
         const currentPoints = userSnap.data()?.points || 0;
@@ -88,10 +89,10 @@ export async function POST(req: Request) {
         });
 
         transaction.set(firestore.collection("watchHistory").doc(), {
-            userId: session.userId,
-            videoId: session.videoID,
+            userId: sessionData.userId,
+            videoId: sessionData.videoID,
             totalWatchedSeconds: totalWatched,
-            adWatched: session.adWatched || false,
+            adWatched: sessionData.adWatched || false,
             pointsEarned: points,
             completedAt: now,
             sessionToken

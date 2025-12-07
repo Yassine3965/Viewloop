@@ -48,7 +48,9 @@ export async function POST(req: Request) {
         return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
     
+    // ⭐ Verify the stored secret
     if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
+      console.warn("Ad-watched failed: Invalid secret in session doc", { sessionToken });
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 

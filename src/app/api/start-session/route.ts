@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     const { videoID, userAuthToken, extensionSecret } = body;
 
     if (extensionSecret !== process.env.EXTENSION_SECRET) {
+      console.warn("Invalid secret received in start-session", { received: extensionSecret });
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
       totalWatchedSeconds: 0,
       adWatched: false,
       status: "active",
-      extensionSecret: extensionSecret,
+      extensionSecret: extensionSecret, // ⭐ Save the secret
     };
 
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
