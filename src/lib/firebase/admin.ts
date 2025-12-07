@@ -6,8 +6,6 @@ let isInitialized = false;
 
 export function initializeFirebaseAdmin() {
   if (!isInitialized) {
-    console.log("🔧 [Firebase Admin] Attempting to initialize...");
-    
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
     const privateKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -31,7 +29,6 @@ export function initializeFirebaseAdmin() {
         }),
       });
 
-      console.log("✅ [Firebase Admin] Initialized SUCCESSFULLY.");
       isInitialized = true;
 
     } catch (error: any) {
