@@ -31,9 +31,29 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { sessionToken } = body;
-    if (!sessionToken) return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 }), req);
+    const { sessionToken, shortToken } = body;
+    if (!sessionToken || !shortToken) return addCorsHeaders(NextResponse.json({ error: "MISSING_TOKENS" }, { status: 400 }), req);
 
+    // Verify the short-lived token
+    const shortTokenRef = firestore.collection("short_lived_tokens").doc(shortToken);
+    const shortTokenSnap = await shortTokenRef.get();
+
+    if (!shortTokenSnap.exists) {
+      console.warn("Heartbeat failed: Invalid short-lived token", { sessionToken });
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SHORT_TOKEN" }, { status: 403 }), req);
+    }
+
+    const shortTokenData = shortTokenSnap.data();
+    if (!shortTokenData || shortTokenData.expiresAt.toDate() < new Date()) {
+      console.warn("Heartbeat failed: Expired short-lived token", { sessionToken });
+      // Delete the expired token
+      await shortTokenRef.delete();
+      return addCorsHeaders(NextResponse.json({ error: "EXPIRED_SHORT_TOKEN" }, { status: 403 }), req);
+    }
+    
+    // Delete the token after successful use to prevent reuse
+    await shortTokenRef.delete();
+    
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const snap = await sessionRef.get();
     if (!snap.exists) return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 }), req);
@@ -43,7 +63,6 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
     
-    // ⭐ Verify the stored secret
     if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
       console.warn("Heartbeat failed: Invalid secret in session doc", { sessionToken });
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
@@ -58,7 +77,7 @@ export async function POST(req: Request) {
     
     const secondsSinceLast = Math.floor((now - lastHeartbeatMs) / 1000);
     
-    const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20)); // Cap increment to 20s to prevent abuse
+    const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20));
 
     const newTotal = (sessionData.totalWatchedSeconds || 0) + safeIncrement;
 

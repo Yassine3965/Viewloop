@@ -10,7 +10,7 @@
  * They can read and update their own profile. No other user can access this data.
  * The top-level /videos collection is treated as a public library, readable by
  * anyone but writable only by the original submitter.
- * The /sessions and /watchHistory collections are server-only.
+ * The /sessions, /watchHistory, and /short_lived_tokens collections are server-only.
  *
  * Key Security Decisions:
  * - User Listing Disabled: To protect user privacy, it is impossible to list all
@@ -20,8 +20,8 @@
  * - Immutable Fields: Critical fields like 'role' and 'createdAt' on a user document cannot be
  *   changed by any client-side request to prevent privilege escalation.
  * - Public Content: The `/videos` collection is publicly readable. Writes are protected.
- * - Server-Only Collections: `/sessions` and `/watchHistory` are locked down and can only
- *   be accessed by the trusted server-side admin SDK, preventing any client manipulation.
+ * - Server-Only Collections: `/sessions`, `/watchHistory`, and `/short_lived_tokens` are locked down 
+ *   and can only be accessed by the trusted server-side admin SDK, preventing any client manipulation.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -68,6 +68,11 @@ service cloud.firestore {
 
     match /watchHistory/{historyId} {
       // Server-only collection. Disallow all client access.
+      allow read, write: if false;
+    }
+    
+    match /short_lived_tokens/{tokenId} {
+      // Server-only collection for an additional security layer.
       allow read, write: if false;
     }
   }
