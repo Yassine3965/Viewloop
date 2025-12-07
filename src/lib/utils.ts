@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-function getYoutubeVideoId(url: string): string | null {
+export function getYoutubeVideoId(url: string): string | null {
   if (!url) return null;
   let videoId = null;
   try {
@@ -53,5 +53,7 @@ export function getYoutubeThumbnailUrl(url: string): string | null {
     // hqdefault provides a high-quality 480x360 image
     return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
+
+    
 
     

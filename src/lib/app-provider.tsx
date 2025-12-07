@@ -34,6 +34,7 @@ import {
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { PointsAwardedModal } from '@/components/points-awarded-modal';
+import { getYoutubeVideoId } from '@/lib/utils';
 
 interface AppContextState {
     user: (UserProfile & { getIdToken: () => Promise<string>, emailVerified: boolean }) | null;
@@ -189,30 +190,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addVideo = useCallback(async (videoData: Omit<Video, 'id' | 'submissionDate'>): Promise<{ success: boolean, message: string }> => {
     if (!user || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
 
-    const videosCollectionRef = collection(db, 'videos');
-    const q = query(videosCollectionRef, where("url", "==", videoData.url), limit(1));
+    const youtubeVideoId = getYoutubeVideoId(videoData.url);
+    if (!youtubeVideoId) {
+        return { success: false, message: "رابط يوتيوب غير صالح." };
+    }
+
+    const videoRef = doc(db, 'videos', youtubeVideoId);
     
     try {
-        const existingVideoSnapshot = await getDocs(q);
+        const videoSnap = await getDoc(videoRef);
 
-        if (!existingVideoSnapshot.empty) {
-            return { success: false, message: "هذا الفيديو موجود في قسم المشاهدات" };
+        if (videoSnap.exists()) {
+            return { success: false, message: "هذا الفيديو موجود بالفعل في قائمة المشاهدة." };
         }
         
-        const newVideoRef = doc(videosCollectionRef);
         const newVideo = {
             ...videoData,
             submissionDate: serverTimestamp(),
         };
 
-        setDoc(newVideoRef, newVideo)
+        await setDoc(videoRef, newVideo)
           .catch(async (serverError: FirestoreError) => {
               const permissionError = new FirestorePermissionError({
-                path: newVideoRef.path,
+                path: videoRef.path,
                 operation: 'create',
                 requestResourceData: newVideo,
               });
               errorEmitter.emit('permission-error', permissionError);
+              throw serverError; // Re-throw to be caught by outer catch
           });
 
       return { success: true, message: "تمت إضافة الفيديو بنجاح." };
@@ -474,3 +479,5 @@ export const useApp = (): AppContextState => {
   }
   return context;
 };
+
+    
