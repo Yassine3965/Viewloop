@@ -25,8 +25,7 @@ export async function POST(req: Request) {
 
   let body;
   try {
-    const rawBody = await req.text();
-    body = rawBody ? JSON.parse(rawBody) : {};
+    body = await req.json();
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
