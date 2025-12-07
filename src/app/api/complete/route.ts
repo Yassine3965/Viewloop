@@ -29,11 +29,9 @@ export async function POST(req: Request) {
 
   try {
     const rawBody = await req.text();
-    
-    if (!rawBody || rawBody.trim() === "") {
+    if (!rawBody) {
       return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
     }
-    
     const body = JSON.parse(rawBody);
 
     if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
@@ -58,18 +56,15 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
 
-    // اجمع ساعات المشاهدة النهائية
     const totalWatched = (session.totalWatchedSeconds || 0) + Math.max(0, Math.min(finalDelta, 600));
     const now = Date.now();
 
-    // قواعد نقاط بسيطة كمثال
     let points = 0;
     if (totalWatched >= 30) points += 5;
     if (totalWatched >= 60) points += 10;
     if (totalWatched >= 120) points += 15;
     if (adWatched === true) points += 20;
 
-    // تحديث watchHistory
     await firestore.collection("watchHistory").add({
       userId: session.userId,
       videoId: session.videoID,
@@ -80,7 +75,6 @@ export async function POST(req: Request) {
       sessionToken
     });
 
-    // تحديث المستخدم وإضافة النقاط
     const userRef = firestore.collection("users").doc(session.userId);
     const userSnap = await userRef.get();
     
@@ -100,7 +94,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // إغلاق الجلسة
     await sessionRef.update({
       status: "completed",
       totalWatchedSeconds: totalWatched,
@@ -112,7 +105,7 @@ export async function POST(req: Request) {
     return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
     
   } catch (err: any) {
-    if (err.name === 'SyntaxError') {
+    if (err instanceof SyntaxError) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
     }
     console.error("API Error: /api/complete failed.", { error: err.message, timestamp: new Date().toISOString() });

@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
   try {
     const rawBody = await req.text();
-    if (!rawBody || rawBody.trim() === "") {
+    if (!rawBody) {
       return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
     }
     const body = JSON.parse(rawBody);
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       expiresInSeconds: Number(process.env.SESSION_TTL_SECONDS || 7200)
     }), req);
   } catch (err: any) {
-    if (err.name === 'SyntaxError') {
+    if (err instanceof SyntaxError) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
     }
     console.error("API Error: /api/start-session failed.", { error: err.message, timestamp: new Date().toISOString() });

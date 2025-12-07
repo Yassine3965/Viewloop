@@ -28,7 +28,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    if (!rawBody) {
+      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
+    }
+    const body = JSON.parse(rawBody);
 
     if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
@@ -81,7 +85,7 @@ export async function POST(req: Request) {
     }), req);
 
   } catch (err: any) {
-    if (err.name === 'SyntaxError') {
+    if (err instanceof SyntaxError) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
     }
     console.error("API Error: /api/ad-watched failed.", { error: err.message, timestamp: new Date().toISOString() });
