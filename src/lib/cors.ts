@@ -6,19 +6,16 @@ const allowedOriginPattern = /^chrome-extension:\/\/(\w+)$/;
 export function getCorsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Origin',
+    'Access-Control-Allow-Credentials': 'true',
     'Vary': 'Origin', // Important for caching
   };
 
-  if (origin && allowedOriginPattern.test(origin)) {
-    // Dynamically set the origin if it matches the expected pattern
-    headers['Access-control-allow-origin'] = origin;
-  } else {
-    // Fallback or deny if it's not a chrome extension
-    // For development, you might want a more permissive fallback,
-    // but for production, it's better to be strict.
-    // We will allow requests to proceed and let the browser handle it,
-    // but we won't add the Allow-Origin header for non-matching origins.
+  if (origin && (allowedOriginPattern.test(origin) || origin.startsWith('http://localhost:'))) {
+    // Dynamically set the origin if it matches the expected pattern or is localhost
+    headers['Access-Control-Allow-Origin'] = origin;
+  } else if (origin === process.env.NEXT_PUBLIC_APP_URL) {
+    headers['Access-Control-Allow-Origin'] = origin;
   }
   
   return headers;
