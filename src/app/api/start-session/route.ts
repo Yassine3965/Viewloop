@@ -49,6 +49,16 @@ export async function POST(req: Request) {
       const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
+    
+    // --- التحقق من الفيديو ---
+    const videoRef = firestore.collection("videos").doc(videoID);
+    const videoSnap = await videoRef.get();
+    if (!videoSnap.exists) {
+        console.warn(`Attempt to start session for non-existent video: ${videoID}`);
+        const response = NextResponse.json({ success: false, error: "VIDEO_NOT_FOUND" }, { status: 404 });
+        return addCorsHeaders(response, req);
+    }
+    // --- نهاية التحقق ---
 
     let decoded;
     try {
@@ -81,6 +91,11 @@ export async function POST(req: Request) {
       totalWatchedSeconds: 0,
       adWatched: false,
       status: "active",
+      // Initialize behavioral counters
+      inactiveHeartbeats: 0,
+      noMouseMovementHeartbeats: 0,
+      adHeartbeats: 0,
+      penaltyReasons: []
     };
     
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
