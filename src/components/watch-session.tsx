@@ -12,6 +12,7 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 const WATCH_INTERVAL = 5000; // 5 seconds
+const HEARTBEAT_INTERVAL = 15000; // 15 seconds
 
 export function WatchSession() {
   const router = useRouter();
@@ -23,86 +24,168 @@ export function WatchSession() {
 
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [progress, setProgress] = useState(0);
-  const [sessionState, setSessionState] = useState<'idle' | 'watching' | 'completing' | 'error' | 'done'>('idle');
+  const [sessionState, setSessionState] = useState<'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   const watchIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const totalWatchedSeconds = useRef(0);
-  const sessionActive = useRef(true);
+  const lastHeartbeatTime = useRef(Date.now());
 
   const cleanup = useCallback(() => {
     if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
+    if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
     watchIntervalRef.current = null;
-    sessionActive.current = false;
+    heartbeatIntervalRef.current = null;
   }, []);
+
+  const sendHeartbeat = useCallback(async (token: string | null) => {
+    if (!token) return;
+
+    const watchedSinceLast = (Date.now() - lastHeartbeatTime.current) / 1000;
+    lastHeartbeatTime.current = Date.now();
+    
+    try {
+      await fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionToken: token,
+          extensionSecret: process.env.NEXT_PUBLIC_EXTENSION_SECRET,
+          watchedSinceLastHeartbeat: watchedSinceLast,
+        }),
+      });
+    } catch (error) {
+      console.error('Heartbeat failed:', error);
+    }
+  }, []);
+
+  const completeSession = useCallback(async (token: string | null) => {
+    if (!token) return;
+    setSessionState('completing');
+    cleanup();
+
+    try {
+      const response = await fetch('/api/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionToken: token,
+          extensionSecret: process.env.NEXT_PUBLIC_EXTENSION_SECRET,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+            title: 'اكتمل الفيديو!',
+            description: `شكرًا على المشاهدة. لقد ربحت ${data.pointsAdded} نقطة.`,
+        });
+        setSessionState('done');
+      } else {
+        throw new Error(data.error || 'Failed to complete session');
+      }
+    } catch (error: any) {
+        setErrorMessage('فشل في إنهاء الجلسة. ' + error.message);
+        setSessionState('error');
+    }
+  }, [cleanup, toast]);
+
 
   // Main watch loop
   useEffect(() => {
     if (sessionState !== 'watching' || !currentVideo || !user) return;
 
     watchIntervalRef.current = setInterval(() => {
-      if (!sessionActive.current) return;
-      
       totalWatchedSeconds.current += WATCH_INTERVAL / 1000;
       const newProgress = (totalWatchedSeconds.current / currentVideo.duration) * 100;
-      setProgress(newProgress);
+      setProgress(Math.min(newProgress, 100));
 
-      if (totalWatchedSeconds.current >= currentVideo.duration) {
-        setSessionState('completing');
+      if (newProgress >= 100) {
+        completeSession(sessionToken);
       }
     }, WATCH_INTERVAL);
 
     return () => {
       if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
     };
-  }, [sessionState, currentVideo, user]);
+  }, [sessionState, currentVideo, user, sessionToken, completeSession]);
 
-  // Handle completion
+  // Heartbeat loop
   useEffect(() => {
-    if (sessionState === 'completing' && currentVideo) {
-      cleanup();
-      setSessionState('done');
+    if (sessionState !== 'watching' || !sessionToken) return;
+    
+    heartbeatIntervalRef.current = setInterval(() => {
+        sendHeartbeat(sessionToken);
+    }, HEARTBEAT_INTERVAL);
+
+    return () => {
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
     }
-  }, [sessionState, currentVideo, cleanup]);
-  
-  // Find video and start session
+  }, [sessionState, sessionToken, sendHeartbeat]);
+
+  // Start session
   useEffect(() => {
-    if (!videoId) {
-      setErrorMessage("معرّف الفيديو مفقود.");
+    if (!videoId || !user || videos.length === 0 || sessionState !== 'idle') return;
+
+    const video = videos.find(v => v.id === videoId);
+    if (!video) {
+      setErrorMessage("الفيديو المطلوب غير موجود.");
       setSessionState('error');
       return;
     }
-    const video = videos.find(v => v.id === videoId);
-    if (video) {
-        setCurrentVideo(video);
-        setSessionState('watching');
-    } else if (videos.length > 0) { // ensure videos are loaded
-        setErrorMessage("الفيديو المطلوب غير موجود.");
+    
+    setCurrentVideo(video);
+    setSessionState('starting');
+
+    const start = async () => {
+      try {
+        const userAuthToken = await user.getIdToken();
+        const response = await fetch('/api/start-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            videoID: videoId,
+            userAuthToken: userAuthToken,
+            extensionSecret: process.env.NEXT_PUBLIC_EXTENSION_SECRET,
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success && data.sessionToken) {
+          setSessionToken(data.sessionToken);
+          setSessionState('watching');
+          lastHeartbeatTime.current = Date.now();
+        } else {
+          throw new Error(data.error || 'Failed to start session');
+        }
+      } catch (err: any) {
+        setErrorMessage('فشل في بدء الجلسة: ' + err.message);
         setSessionState('error');
-    }
-  }, [videoId, videos]);
+      }
+    };
+    start();
+  }, [videoId, videos, user, sessionState]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (sessionState === 'watching') {
-        // You can use sendBeacon here if you need to report un-tracked time before closing
-        // For now, we just let the session end.
+      if (sessionState === 'watching' && sessionToken) {
+        // Beacon is not reliable for complex logic, so we just cleanup
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
         window.removeEventListener('beforeunload', handleBeforeUnload);
         cleanup();
     };
-  }, [sessionState, cleanup]);
+  }, [sessionState, sessionToken, cleanup]);
 
 
-  if (sessionState === 'idle') {
+  if (sessionState === 'idle' || sessionState === 'starting') {
     return (
       <div className="flex h-screen items-center justify-center bg-background p-4 flex-col gap-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground">جارٍ تحميل جلسة المشاهدة...</p>
+        <p className="text-muted-foreground">{sessionState === 'idle' ? 'جارٍ تحميل جلسة المشاهدة...' : 'جارٍ بدء الجلسة...'}</p>
       </div>
     );
   }
@@ -123,12 +206,7 @@ export function WatchSession() {
   }
 
   if (sessionState === 'done') {
-    toast({
-        title: 'اكتمل الفيديو!',
-        description: `شكرًا على المشاهدة.`,
-    });
-    // This will run after the toast is shown
-    setTimeout(() => window.close(), 2000);
+    setTimeout(() => window.close(), 3000);
 
     return (
       <div className="container py-8 text-center">

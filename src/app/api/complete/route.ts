@@ -35,10 +35,10 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
     }
 
-    const { sessionToken, videoDuration: finalDelta = 0, adWatched = false } = body;
+    const { sessionToken } = body;
     
     if (!sessionToken) {
-      return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION" }, { status: 400 }), req);
+      return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 }), req);
     }
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
@@ -53,56 +53,53 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 }), req);
     }
 
-    const totalWatched = (session.totalWatchedSeconds || 0) + Math.max(0, Math.min(finalDelta, 600));
+    if (session.status === 'completed') {
+        return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: 0, message: "Session already completed." }), req);
+    }
+
+    const totalWatched = session.totalWatchedSeconds || 0;
     const now = Date.now();
 
     let points = 0;
-    if (totalWatched >= 30) points += 5;
-    if (totalWatched >= 60) points += 10;
-    if (totalWatched >= 120) points += 15;
-    if (adWatched === true && !session.adWatched) points += 20;
+    if (totalWatched >= 30) points += 5;   // 5 points for 30s
+    if (totalWatched >= 60) points += 10;  // 10 more for 60s (15 total)
+    if (totalWatched >= 120) points += 15; // 15 more for 120s (30 total)
+    // Points for ad are added via the ad-watched endpoint and stored on the user, not re-added here.
 
-    await firestore.collection("watchHistory").add({
-      userId: session.userId,
-      videoId: session.videoID,
-      totalWatchedSeconds: totalWatched,
-      adWatched,
-      pointsEarned: points,
-      completedAt: now,
-      sessionToken
-    });
+    await firestore.runTransaction(async (transaction) => {
+        const userRef = firestore.collection("users").doc(session.userId);
+        const userSnap = await transaction.get(userRef);
 
-    const userRef = firestore.collection("users").doc(session.userId);
-    const userSnap = await userRef.get();
-    
-    if (userSnap.exists) {
-      const userData = userSnap.data();
-      if(userData){
-        await userRef.update({
-          points: (userData.points || 0) + points,
-          lastUpdated: now
+        if (userSnap.exists) {
+            const currentPoints = userSnap.data()?.points || 0;
+            transaction.update(userRef, {
+                points: currentPoints + points,
+                lastUpdated: now
+            });
+        }
+        
+        transaction.update(sessionRef, {
+            status: "completed",
+            points,
+            completedAt: now,
         });
-      }
-    } else {
-      await userRef.set({
-        points,
-        createdAt: now,
-        lastUpdated: now
-      });
-    }
 
-    await sessionRef.update({
-      status: "completed",
-      totalWatchedSeconds: totalWatched,
-      adWatched,
-      completedAt: now,
-      points
+        transaction.set(firestore.collection("watchHistory").doc(), {
+            userId: session.userId,
+            videoId: session.videoID,
+            totalWatchedSeconds: totalWatched,
+            adWatched: session.adWatched,
+            pointsEarned: points,
+            completedAt: now,
+            sessionToken
+        });
     });
+
 
     return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
     
   } catch (err: any) {
-    console.error("API Error: /api/complete failed.", { error: err.message, timestamp: new Date().toISOString() });
+    console.error("API Error: /api/complete failed.", { error: err.message, body, timestamp: new Date().toISOString() });
     return addCorsHeaders(NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 }), req);
   }
 }
