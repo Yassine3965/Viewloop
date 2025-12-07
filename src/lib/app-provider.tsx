@@ -117,7 +117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   type: 'STORE_AUTH_TOKEN',
                   token: token,
                   secret: "6B65FDC657B5D8CF4D5AB28C92CF2"
-                }, (response) => {
+                }, (response: any) => {
                   if (chrome.runtime.lastError) {
                     // This is expected if the extension is not listening, localStorage is the fallback.
                   }
@@ -205,7 +205,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { success: false, message: "رابط يوتيوب غير صالح." };
     }
     
-    // Use the YouTube video ID as the document ID
     const videoRef = doc(db, 'videos', youtubeVideoId);
     
     try {
@@ -220,7 +219,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             submissionDate: serverTimestamp(),
         };
   
-        // Save the document with the correct reference
         await setDoc(videoRef, newVideo)
           .catch(async (serverError: FirestoreError) => {
               const permissionError = new FirestorePermissionError({
@@ -229,7 +227,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 requestResourceData: newVideo,
               });
               errorEmitter.emit('permission-error', permissionError);
-              throw serverError; // Re-throw to be caught by the outer catch block
+              throw serverError;
           });
   
       return { success: true, message: "تمت إضافة الفيديو بنجاح." };
