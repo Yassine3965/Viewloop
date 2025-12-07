@@ -32,10 +32,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
-    }
-
+    // The session token is now the primary authenticator for this action.
     const { sessionToken } = body;
     if (!sessionToken) {
       return addCorsHeaders(NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 }), req);

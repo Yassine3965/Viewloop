@@ -26,19 +26,12 @@ export async function POST(req: Request) {
   let body;
   try {
     const rawBody = await req.text();
-    if (!rawBody) {
-      return addCorsHeaders(NextResponse.json({ error: "EMPTY_BODY" }, { status: 400 }), req);
-    }
-    body = JSON.parse(rawBody);
+    body = rawBody ? JSON.parse(rawBody) : {};
   } catch (e) {
     return addCorsHeaders(NextResponse.json({ error: "INVALID_JSON" }, { status: 400 }), req);
   }
 
   try {
-    if (body.extensionSecret !== process.env.EXTENSION_SECRET) {
-      return addCorsHeaders(NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 }), req);
-    }
-
     const { sessionToken } = body;
     
     if (!sessionToken) {
@@ -65,9 +58,9 @@ export async function POST(req: Request) {
     const now = Date.now();
 
     let points = 0;
-    if (totalWatched >= 30) points += 5;   // 5 points for 30s
-    if (totalWatched >= 60) points += 10;  // 10 more for 60s (15 total)
-    if (totalWatched >= 120) points += 15; // 15 more for 120s (30 total)
+    if (totalWatched >= 30) points += 5;
+    if (totalWatched >= 60) points += 10;
+    if (totalWatched >= 120) points += 15;
 
     await firestore.runTransaction(async (transaction) => {
         const userRef = firestore.collection("users").doc(session.userId);
@@ -97,7 +90,6 @@ export async function POST(req: Request) {
             sessionToken
         });
     });
-
 
     return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
     
