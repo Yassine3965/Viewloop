@@ -40,6 +40,8 @@ interface AppContextState {
     user: (UserProfile & { getIdToken: () => Promise<string>, emailVerified: boolean }) | null;
     isUserLoading: boolean;
     videos: Video[];
+    searchQuery: string;
+    setSearchQuery: (query: string) => void;
     addVideo: (video: Omit<Video, 'id' | 'submissionDate'>) => Promise<{ success: boolean, message: string }>;
     deleteVideo: (video: Video) => Promise<{ success: boolean, message: string }>;
     deleteCurrentUserAccount: (reason?: string) => Promise<{ success: boolean, message: string }>;
@@ -63,6 +65,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppContextState['user']>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [awardedPoints, setAwardedPoints] = useState(0);
   
   // Videos listener
@@ -462,6 +465,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     user,
     isUserLoading,
     videos,
+    searchQuery,
+    setSearchQuery,
     addVideo,
     deleteVideo,
     deleteCurrentUserAccount,
@@ -470,7 +475,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     verifyRegistrationCodeAndCreateUser,
     loginWithGoogle,
     logout,
-  }), [user, isUserLoading, videos, addVideo, deleteVideo, deleteCurrentUserAccount, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
+  }), [user, isUserLoading, videos, searchQuery, addVideo, deleteVideo, deleteCurrentUserAccount, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
 
   return (
     <AppContext.Provider value={contextValue}>

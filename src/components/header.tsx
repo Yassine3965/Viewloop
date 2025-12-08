@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2 } from 'lucide-react';
+import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,10 @@ import { DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from '@/components/logo';
 import { useApp } from '@/lib/app-provider';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Skeleton } from './ui/skeleton';
 import { DeleteAccountDialog } from './delete-account-dialog';
+import { Input } from './ui/input';
 
 function UserSection() {
   const { user, isUserLoading, logout } = useApp();
@@ -106,6 +107,10 @@ function UserSection() {
 export function Header() {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { searchQuery, setSearchQuery } = useApp();
+  const pathname = usePathname();
+
+  const isWatchPage = pathname === '/watch';
 
   useEffect(() => {
     setMounted(true);
@@ -118,23 +123,41 @@ export function Header() {
           <Link href="/" className="flex items-center gap-2">
             <Logo />
           </Link>
-          {mounted ? (
-              <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              aria-label="تبديل السمة"
-              >
-              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">تبديل السمة</span>
-              </Button>
-          ) : <Skeleton className="h-8 w-8 rounded-full" />}
         </div>
+
+        {isWatchPage && (
+          <div className="flex-1 flex justify-center px-4 lg:px-8">
+            <div className="relative w-full max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    type="search" 
+                    placeholder="ابحث عن فيديو..."
+                    className="w-full pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-1 items-center justify-end space-x-4">
-          <nav>
-            <UserSection />
-          </nav>
+            <div className='flex items-center gap-2'>
+                {mounted ? (
+                <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                aria-label="تبديل السمة"
+                >
+                <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">تبديل السمة</span>
+                </Button>
+                ) : <Skeleton className="h-8 w-8 rounded-full" />}
+                <nav>
+                    <UserSection />
+                </nav>
+            </div>
         </div>
       </div>
     </header>
