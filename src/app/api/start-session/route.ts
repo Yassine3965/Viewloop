@@ -72,8 +72,6 @@ export async function POST(req: Request) {
     } catch (err: any) {
         if (err.code === 'auth/id-token-expired') {
             console.warn("⚠️ Token is expired, but proceeding. This is expected behavior.");
-            // Manually decode the token to get the UID without verification.
-            // This is "safe" on the server because we're only extracting the UID for internal use.
             const payloadBase64 = userAuthToken.split('.')[1];
             const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
             decoded = JSON.parse(decodedPayload);
@@ -125,6 +123,23 @@ export async function POST(req: Request) {
         }, { status: 409 });
         return addCorsHeaders(response, req);
     }
+
+    // Server-side debounce to prevent race conditions from duplicate requests
+    const recentSessionQuery = await firestore.collection("sessions")
+        .where("userId", "==", userId)
+        .where("videoID", "==", videoID)
+        .where("createdAt", ">=", now - 2000) // Check for sessions created in the last 2 seconds
+        .limit(1)
+        .get();
+
+    if (!recentSessionQuery.empty) {
+        console.warn(`Duplicate session request for user ${userId} and video ${videoID}. Returning existing session.`);
+        return addCorsHeaders(NextResponse.json({
+            success: true,
+            sessionToken: recentSessionQuery.docs[0].id,
+            note: "EXISTING_SESSION_RETURNED"
+        }), req);
+    }
     
     // Invalidate any other existing sessions for this user
     const sessionsRef = firestore.collection("sessions");
@@ -164,6 +179,11 @@ export async function POST(req: Request) {
     }), req);
 
   } catch (err: any) {
+    console.error(`[SERVER_ERROR] in /api/start-session:`, {
+        message: err.message,
+        stack: err.stack,
+        body: body,
+    });
     const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
     return addCorsHeaders(response, req);
   }
