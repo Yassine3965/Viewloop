@@ -35,7 +35,7 @@ const reputationInfo: { [key: number]: { text: string; stars: number } } = {
 };
 
 function ReputationDisplay({ reputation }: { reputation: number }) {
-    const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation)));
+    const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation || 4.5)));
     const info = reputationInfo[roundedReputation];
 
     return (
@@ -59,16 +59,17 @@ function ReputationDisplay({ reputation }: { reputation: number }) {
 }
 
 function LevelDisplay({ currentLevel }: { currentLevel: number }) {
+    const level = currentLevel || 1;
     return (
         <div className="flex items-center justify-center gap-2 md:gap-4">
-            {Object.entries(levelInfo).map(([level, info]) => (
-                <TooltipProvider key={level}>
+            {Object.entries(levelInfo).map(([levelKey, info]) => (
+                <TooltipProvider key={levelKey}>
                     <Tooltip>
                         <TooltipTrigger>
                             <div
                                 className={cn(
                                     "flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all",
-                                    Number(level) === currentLevel
+                                    Number(levelKey) === level
                                         ? "bg-primary/20 text-primary scale-110"
                                         : "opacity-60"
                                 )}
@@ -79,7 +80,7 @@ function LevelDisplay({ currentLevel }: { currentLevel: number }) {
                         </TooltipTrigger>
                         <TooltipContent>
                             <p>{info.points} نقطة/ثانية</p>
-                            {Number(level) > 1 && <p>يتطلب {info.gems} جوهرة</p>}
+                            {Number(levelKey) > 1 && <p>يتطلب {info.gems} جوهرة</p>}
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
