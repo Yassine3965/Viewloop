@@ -393,7 +393,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             points: 100,
             gems: 0,
             level: 1,
-            reputation: 4.0,
+            reputation: 4.5,
             lastUpdated: Date.now(),
         };
 
@@ -466,7 +466,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 points: 100,
                 gems: 0,
                 level: 1,
-                reputation: 4.0,
+                reputation: 4.5,
                 lastUpdated: Date.now(),
             };
             await setDoc(userRef, newUserProfile)
