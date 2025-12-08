@@ -62,6 +62,7 @@ export async function POST(req: Request) {
     try {
       decoded = await auth.verifyIdToken(userAuthToken);
     } catch (err) {
+      console.error("Token verification failed:", err);
       const response = NextResponse.json({ error: "INVALID_USER_TOKEN" }, { status: 401 });
       return addCorsHeaders(response, req);
     }
@@ -95,6 +96,7 @@ export async function POST(req: Request) {
             batch.update(doc.ref, { status: 'expired', completedAt: now });
         });
         await batch.commit();
+        console.log(`Expired ${activeSessionQuery.size} old session(s) for user ${userId}`);
     }
     
     const sessionToken = uuidv4();
