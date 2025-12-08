@@ -15,7 +15,7 @@ export default function HomePage() {
               شاهد أكثر، اكسب أكثر
               </h1>
               <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
-              منصة ViewLoop هي المكان الذي تتحول فيه مشاهداتك إلى مكافآت. انضم إلى مجتمعنا، شارك فيديوهاتك، واكتشف محتوى جديدًا بينما تزيد من نقاطك.
+              ادعم منشئي المحتوى المفضلين لديك. منصة ViewLoop تكافئك على مشاهدة الإعلانات، مما يساعد أصحاب القنوات على زيادة أرباحهم.
               </p>
               <div className="flex flex-col gap-4 sm:flex-row justify-center">
                 <Button asChild size="lg">
@@ -60,7 +60,7 @@ export default function HomePage() {
                 </div>
               <h3 className="text-lg font-bold">اكسب النقاط</h3>
               <p className="text-sm text-muted-foreground">
-              كل ثانية تشاهدها تتحول إلى نقاط يمكنك استخدامها لإنشاء حملاتك الإعلانية الخاصة.
+              كل ثانية تشاهدها تتحول إلى نقاط. احصل على مكافآت إضافية عند مشاهدة الإعلانات بالكامل.
               </p>
             </div>
             <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow">

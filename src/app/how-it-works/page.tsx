@@ -1,6 +1,6 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { PlayCircle, Star, Eye } from "lucide-react";
+import { PlayCircle, Star, Eye, PlusCircle } from "lucide-react";
 
 export default function HowItWorksPage() {
   return (
@@ -8,7 +8,7 @@ export default function HowItWorksPage() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold tracking-tight">كيف يعمل ViewLoop</h1>
         <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
-        نظام بسيط ومباشر لتحقيق الفائدة المتبادلة.
+        نظام بسيط ومباشر لدعم منشئي المحتوى وكسب المكافآت.
         </p>
       </div>
 
@@ -32,7 +32,7 @@ export default function HowItWorksPage() {
         </Card>
 
         {/* Step 2 */}
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="hover:shadow-lg transition-shadow border-2 border-primary shadow-primary/20">
           <CardHeader className="text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
               <Star className="h-8 w-8 text-primary" />
@@ -43,9 +43,14 @@ export default function HowItWorksPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground text-center">
-            نظامنا يمنحك نقاطًا مقابل وقت المشاهدة. هذه النقاط هي عملة المنصة التي يمكنك استخدامها للترويج لفيديوهاتك.
-            </p>
+            <ul className="text-sm text-muted-foreground text-center space-y-2">
+                <li>
+                    <strong>0.05 نقطة</strong> لكل ثانية من مشاهدة الفيديو.
+                </li>
+                <li className="font-bold text-primary">
+                    <strong>+15 نقطة إضافية</strong> عند مشاهدة إعلان بالكامل!
+                </li>
+            </ul>
           </CardContent>
         </Card>
 
@@ -53,7 +58,7 @@ export default function HowItWorksPage() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-              <PlayCircle className="h-8 w-8 text-primary" />
+              <PlusCircle className="h-8 w-8 text-primary" />
             </div>
             <CardTitle>3. أضف فيديوهاتك</CardTitle>
             <CardDescription>

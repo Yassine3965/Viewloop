@@ -37,16 +37,13 @@ export async function POST(req: Request) {
   }
   
   try {
-    const { sessionToken, adDuration } = body;
-    if (!sessionToken || adDuration === undefined) {
+    const { sessionToken } = body;
+    if (!sessionToken) {
       const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
     
-    if (typeof adDuration !== 'number' || adDuration <= 0) {
-        const response = NextResponse.json({ error: "INVALID_AD_DURATION" }, { status: 400 });
-        return addCorsHeaders(response, req);
-    }
+    const pointsForAd = 15; // Fixed 15 points bonus
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionSnap = await sessionRef.get();
@@ -69,8 +66,6 @@ export async function POST(req: Request) {
             message: "This ad has already been processed for this session."
           }, { status: 200 }), req);
     }
-
-    const pointsForAd = Math.floor(Number(adDuration) * 1);
 
     await firestore.runTransaction(async (transaction) => {
       const userRef = firestore.collection("users").doc(sessionData.userId);
