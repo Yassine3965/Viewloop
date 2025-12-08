@@ -7,6 +7,9 @@ import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
 
+const MAX_WATCHES_PER_CYCLE = 5;
+const WATCH_CYCLE_HOURS = 24;
+
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
 }
@@ -116,21 +119,37 @@ export async function POST(req: Request) {
 
     const now = Date.now();
 
-    // Prevent re-watching completed videos
-    const watchHistoryQuery = await firestore.collection("watchHistory")
+    // --- New Watch Limit Logic ---
+    const watchHistoryQuery = firestore.collection("watchHistory")
         .where('userId', '==', userId)
         .where('videoId', '==', videoID)
-        .limit(1)
-        .get();
+        .orderBy('completedAt', 'desc');
 
-    if (!watchHistoryQuery.empty) {
-        const response = NextResponse.json({ 
-            success: false, 
-            error: "VIDEO_ALREADY_WATCHED",
-            message: "You have already watched this video and received points for it."
-        }, { status: 409 });
-        return addCorsHeaders(response, req);
+    const historySnap = await watchHistoryQuery.get();
+    const watchCount = historySnap.size;
+
+    if (watchCount >= MAX_WATCHES_PER_CYCLE) {
+        const lastWatchedDoc = historySnap.docs[0];
+        const lastWatchedTime = lastWatchedDoc.data().completedAt;
+        const hoursSinceLastWatch = (now - lastWatchedTime) / (1000 * 60 * 60);
+
+        if (hoursSinceLastWatch < WATCH_CYCLE_HOURS) {
+            const hoursRemaining = Math.ceil(WATCH_CYCLE_HOURS - hoursSinceLastWatch);
+            const response = NextResponse.json({
+                success: false,
+                error: "WATCH_LIMIT_REACHED",
+                message: `لقد وصلت إلى الحد الأقصى للمشاهدات لهذا الفيديو. يرجى المحاولة مرة أخرى بعد ${hoursRemaining} ساعة.`,
+                retryAfterHours: hoursRemaining,
+            }, { status: 429 });
+            return addCorsHeaders(response, req);
+        } else {
+            // Over 24 hours have passed, so we reset the "cycle" by simply allowing them to watch again.
+            // Firestore rules or a server-side cleanup job could eventually remove very old history.
+            // For now, we just allow it.
+        }
     }
+    // --- End New Logic ---
+
 
     // Server-side debounce to prevent race conditions from duplicate requests
     const recentSessionQuery = await firestore.collection("sessions")
@@ -196,4 +215,3 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 }
-
