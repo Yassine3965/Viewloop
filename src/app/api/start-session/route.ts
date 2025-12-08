@@ -128,26 +128,30 @@ export async function POST(req: Request) {
     const watchCount = historySnap.size;
 
     if (watchCount >= MAX_WATCHES_PER_CYCLE) {
-        const sortedHistory = historySnap.docs
-            .map(doc => doc.data())
-            .sort((a, b) => b.completedAt - a.completedAt);
-            
-        const lastWatchedTime = sortedHistory[0]?.completedAt;
+      const sortedHistory = historySnap.docs
+          .map(doc => doc.data())
+          .sort((a, b) => {
+              const timeA = a.completedAt || 0;
+              const timeB = b.completedAt || 0;
+              return timeB - timeA;
+          });
+          
+      const lastWatchedTime = sortedHistory[0]?.completedAt;
 
-        if (lastWatchedTime) {
-            const hoursSinceLastWatch = (now - lastWatchedTime) / (1000 * 60 * 60);
+      if (lastWatchedTime) {
+          const hoursSinceLastWatch = (now - lastWatchedTime) / (1000 * 60 * 60);
 
-            if (hoursSinceLastWatch < WATCH_CYCLE_HOURS) {
-                const hoursRemaining = Math.ceil(WATCH_CYCLE_HOURS - hoursSinceLastWatch);
-                const response = NextResponse.json({
-                    success: false,
-                    error: "WATCH_LIMIT_REACHED",
-                    message: `لقد وصلت إلى الحد الأقصى للمشاهدات لهذا الفيديو. يرجى المحاولة مرة أخرى بعد ${hoursRemaining} ساعة.`,
-                    retryAfterHours: hoursRemaining,
-                }, { status: 429 });
-                return addCorsHeaders(response, req);
-            }
-        }
+          if (hoursSinceLastWatch < WATCH_CYCLE_HOURS) {
+              const hoursRemaining = Math.ceil(WATCH_CYCLE_HOURS - hoursSinceLastWatch);
+              const response = NextResponse.json({
+                  success: false,
+                  error: "WATCH_LIMIT_REACHED",
+                  message: `لقد وصلت إلى الحد الأقصى للمشاهدات لهذا الفيديو. يرجى المحاولة مرة أخرى بعد ${hoursRemaining} ساعة.`,
+                  retryAfterHours: hoursRemaining,
+              }, { status: 429 });
+              return addCorsHeaders(response, req);
+          }
+      }
     }
     // --- End New Logic ---
 
