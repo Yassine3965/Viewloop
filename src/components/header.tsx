@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search, PlayCircle } from 'lucide-react';
+import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search, PlayCircle, Gem } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -96,9 +96,13 @@ function UserSection() {
                 </DeleteAccountDialog>
             </DropdownMenuContent>
         </DropdownMenu>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" title="النقاط">
             <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
             <span className="font-semibold">{user.points ?? 0}</span>
+        </div>
+        <div className="flex items-center gap-2" title="المجوهرات">
+            <Gem className="h-5 w-5 text-sky-400 fill-sky-400" />
+            <span className="font-semibold">{user.gems ?? 0}</span>
         </div>
     </div>
   );

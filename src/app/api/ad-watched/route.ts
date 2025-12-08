@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
     
-    const pointsForAd = 15; // Fixed 15 points bonus
+    const gemsForAd = 1; // 1 Gem bonus
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionSnap = await sessionRef.get();
@@ -75,17 +75,14 @@ export async function POST(req: Request) {
         throw new Error("User not found during transaction");
       }
       
-      const currentPoints = userSnap.data()?.points || 0;
-      const newPoints = currentPoints + pointsForAd;
-
-      transaction.update(userRef, { points: newPoints });
+      transaction.update(userRef, { gems: admin.firestore.FieldValue.increment(gemsForAd) });
       transaction.update(sessionRef, { adWatched: true });
     });
 
     return addCorsHeaders(NextResponse.json({
       success: true,
-      message: `تم منح ${pointsForAd} نقطة لمشاهدة الإعلان.`,
-      pointsAdded: pointsForAd
+      message: `تم منح ${gemsForAd} جوهرة لمشاهدة الإعلان.`,
+      gemsAdded: gemsForAd
     }), req);
 
   } catch (err: any) {

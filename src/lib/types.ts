@@ -33,5 +33,8 @@ export type UserProfile = {
     createdAt: any;
     lastLogin: any;
     points: number;
+    gems: number;
+    level: number;
+    reputation: number;
     lastUpdated?: number;
 };

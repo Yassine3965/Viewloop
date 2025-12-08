@@ -355,6 +355,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             points: 100,
+            gems: 100,
+            level: 1,
+            reputation: 4.5,
             lastUpdated: Date.now(),
         };
 
@@ -425,6 +428,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 createdAt: serverTimestamp(),
                 lastLogin: serverTimestamp(),
                 points: 100,
+                gems: 100,
+                level: 1,
+                reputation: 4.5,
                 lastUpdated: Date.now(),
             };
             await setDoc(userRef, newUserProfile)
