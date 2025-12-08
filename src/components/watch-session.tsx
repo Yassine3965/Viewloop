@@ -12,7 +12,6 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { PointsAwardedModal } from './points-awarded-modal';
 
-const WATCH_INTERVAL = 5000; // 5 seconds
 const HEARTBEAT_INTERVAL = 15000; // 15 seconds
 
 type SessionState = 'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done';
@@ -29,34 +28,40 @@ export function WatchSession() {
   const [sessionState, setSessionState] = useState<SessionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [totalWatchedSeconds, setTotalWatchedSeconds] = useState(0);
 
-  const watchIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const totalWatchedSeconds = useRef(0);
-  const lastHeartbeatTime = useRef(Date.now());
+  const lastMousePosition = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const mouseMoved = useRef(false);
 
   const cleanup = useCallback(() => {
-    if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
-    watchIntervalRef.current = null;
     heartbeatIntervalRef.current = null;
   }, []);
 
   const sendHeartbeat = useCallback(async (token: string | null) => {
     if (!token) return;
-
-    lastHeartbeatTime.current = Date.now();
     
     try {
-      await fetch('/api/heartbeat', {
+      const response = await fetch('/api/heartbeat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionToken: token,
+          mouseMoved: mouseMoved.current,
+          tabIsActive: !document.hidden,
+          adIsPresent: false, // This needs to be implemented in the extension
         }),
       });
+      const data = await response.json();
+      if(data.success && data.totalWatchedSeconds) {
+        setTotalWatchedSeconds(data.totalWatchedSeconds);
+      }
     } catch (error) {
       console.error('Heartbeat failed:', error);
+    } finally {
+      // Reset mouse move detection for the next interval
+      mouseMoved.current = false;
     }
   }, []);
 
@@ -76,13 +81,11 @@ export function WatchSession() {
       const data = await response.json();
       if (data.success) {
         setSessionState('done');
-        // The main app provider will handle the notification.
-        // We can close this window after a short delay.
         setTimeout(() => {
           window.close();
         }, 500);
       } else {
-        throw new Error(data.error || 'Failed to complete session');
+        throw new Error(data.message || 'Failed to complete session');
       }
     } catch (error: any) {
         setErrorMessage('فشل في إنهاء الجلسة. ' + error.message);
@@ -91,24 +94,16 @@ export function WatchSession() {
   }, [cleanup]);
 
 
-  // Main watch loop
   useEffect(() => {
-    if (sessionState !== 'watching' || !currentVideo || !user) return;
-
-    watchIntervalRef.current = setInterval(() => {
-      totalWatchedSeconds.current += WATCH_INTERVAL / 1000;
-      const newProgress = (totalWatchedSeconds.current / currentVideo.duration) * 100;
+    if (sessionState === 'watching' && currentVideo) {
+      const newProgress = (totalWatchedSeconds / currentVideo.duration) * 100;
       setProgress(Math.min(newProgress, 100));
 
       if (newProgress >= 100) {
         completeSession(sessionToken);
       }
-    }, WATCH_INTERVAL);
-
-    return () => {
-      if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
-    };
-  }, [sessionState, currentVideo, user, sessionToken, completeSession]);
+    }
+  }, [totalWatchedSeconds, currentVideo, sessionState, sessionToken, completeSession]);
 
   // Heartbeat loop
   useEffect(() => {
@@ -118,8 +113,22 @@ export function WatchSession() {
         sendHeartbeat(sessionToken);
     }, HEARTBEAT_INTERVAL);
 
+    const handleMouseMove = (e: MouseEvent) => {
+      const distance = Math.sqrt(
+        Math.pow(e.clientX - lastMousePosition.current.x, 2) +
+        Math.pow(e.clientY - lastMousePosition.current.y, 2)
+      );
+      if (distance > 3) { // Threshold to count as movement
+        mouseMoved.current = true;
+        lastMousePosition.current = { x: e.clientX, y: e.clientY };
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+
     return () => {
       if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+      window.removeEventListener('mousemove', handleMouseMove);
     }
   }, [sessionState, sessionToken, sendHeartbeat]);
 
@@ -146,7 +155,6 @@ export function WatchSession() {
           body: JSON.stringify({
             videoID: videoId,
             userAuthToken: userAuthToken,
-            extensionSecret: process.env.NEXT_PUBLIC_EXTENSION_SECRET,
           }),
         });
 
@@ -154,9 +162,8 @@ export function WatchSession() {
         if (data.success && data.sessionToken) {
           setSessionToken(data.sessionToken);
           setSessionState('watching');
-          lastHeartbeatTime.current = Date.now();
         } else {
-          throw new Error(data.error || 'Failed to start session');
+          throw new Error(data.message || 'Failed to start session');
         }
       } catch (err: any) {
         setErrorMessage('فشل في بدء الجلسة: ' + err.message);
@@ -169,7 +176,8 @@ export function WatchSession() {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (sessionState === 'watching' && sessionToken) {
-        // Beacon is not reliable for complex logic, so we just cleanup
+        // Use sendBeacon for a reliable request on unload
+        navigator.sendBeacon('/api/complete', JSON.stringify({ sessionToken }));
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -205,7 +213,6 @@ export function WatchSession() {
   }
 
   if (sessionState === 'done') {
-      // The window will be closed automatically by the completeSession function
       return (
         <div className="container py-8 text-center">
             <Alert className="max-w-md mx-auto">
@@ -257,13 +264,14 @@ export function WatchSession() {
           <Progress value={progress} className="w-full h-3" />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>المشاهدة لمدة {currentVideo.duration} ثانية</span>
+            <span>{Math.round(totalWatchedSeconds)} / {currentVideo.duration} ث</span>
           </div>
         </div>
 
         {sessionState === 'watching' && (
           <div className="mt-6">
-            <Button variant="destructive" className="w-full" onClick={() => { cleanup(); window.close(); }}>
-              <XCircle className="mr-2 h-4 w-4" /> إنهاء وإغلاق
+            <Button variant="destructive" className="w-full" onClick={() => completeSession(sessionToken)}>
+              <XCircle className="mr-2 h-4 w-4" /> إنهاء مبكر وإغلاق
             </Button>
           </div>
         )}

@@ -10,14 +10,20 @@ export type Video = {
 };
 
 export type Session = {
-    id: string;
+    sessionToken: string;
     userId: string;
-    videoId: string;
-    videoDuration: number;
-    startTime: any;
-    lastHeartbeat: any;
-    totalWatchedTime: number;
-    status: 'active' | 'completed' | 'aborted';
+    videoID: string;
+    createdAt: number;
+    lastHeartbeatAt: number;
+    totalWatchedSeconds: number;
+    adWatched: boolean;
+    status: 'active' | 'completed' | 'suspicious' | 'expired';
+    points: number;
+    gems: number;
+    inactiveHeartbeats: number;
+    noMouseMovementHeartbeats: number;
+    adHeartbeats: number;
+    penaltyReasons: string[];
 };
 
 export type UserProfile = {
