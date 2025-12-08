@@ -10,15 +10,14 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="w-full py-20 md:py-32 lg:py-40 bg-card/50">
         <div className="container px-4 md:px-6">
-          <div className="grid gap-6 lg:grid-cols-2 lg:gap-16">
-            <div className="flex flex-col justify-center space-y-6">
+          <div className="flex flex-col justify-center space-y-6 text-center">
               <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
               شاهد أكثر، اكسب أكثر
               </h1>
-              <p className="max-w-[600px] text-muted-foreground md:text-xl">
+              <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
               منصة ViewLoop هي المكان الذي تتحول فيه مشاهداتك إلى مكافآت. انضم إلى مجتمعنا، شارك فيديوهاتك، واكتشف محتوى جديدًا بينما تزيد من نقاطك.
               </p>
-              <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex flex-col gap-4 sm:flex-row justify-center">
                 <Button asChild size="lg">
                   <Link href="/register">
                   ابدأ الآن مجانًا
@@ -33,17 +32,6 @@ export default function HomePage() {
                 </Button>
               </div>
             </div>
-            <div className="flex items-center justify-center">
-                <Image 
-                    src="https://images.unsplash.com/photo-1611162617213-6d22e525735c?w=1200&q=80"
-                    width={550}
-                    height={310}
-                    alt="Hero"
-                    className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full lg:order-last"
-                    data-ai-hint="youtube logo screen"
-                />
-            </div>
-          </div>
         </div>
       </section>
 

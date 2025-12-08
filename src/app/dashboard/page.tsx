@@ -109,24 +109,21 @@ export default function DashboardPage() {
       <div className="container mx-auto max-w-4xl space-y-8">
         
         <Card className="overflow-hidden shadow-lg">
-          <CardHeader className="bg-card p-0 relative h-32">
-            <Image src="https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1200&h=200&fit=crop" alt="Header" fill style={{ objectFit: 'cover' }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-          </CardHeader>
-          <CardContent className="p-6 pt-0 text-center -mt-16 relative">
-            <div className="flex flex-col items-center gap-2">
-              <Avatar className="h-28 w-28 border-4 border-card ring-4 ring-primary">
+          <CardHeader className="bg-card p-6 border-b">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                 <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-center gap-1 mt-2">
-                <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm'>
+              <div className="flex flex-col gap-1">
+                <h1 className="text-2xl font-bold">{user.name}</h1>
+                <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit'>
                     {user.role === 'admin' ? "مسؤول" : "مستخدم"}
                 </Badge>
               </div>
             </div>
-          </CardContent>
-          <div className='border-t p-6 flex justify-between items-start text-sm'>
+          </CardHeader>
+          <CardContent className='p-6 flex justify-between items-start text-sm'>
             <div className="flex flex-col items-start gap-4">
                 <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowEmail(!showEmail)}>
                     <Mail className="h-5 w-5 text-muted-foreground" />
@@ -151,7 +148,7 @@ export default function DashboardPage() {
                 <Calendar className="h-5 w-5 text-muted-foreground" />
                 </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

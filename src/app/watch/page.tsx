@@ -24,7 +24,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 function VideoCard({ video, user, onDelete }: { video: Video, user: UserProfile | null, onDelete: (video: Video) => void }) {
-  const thumbnailUrl = getYoutubeThumbnailUrl(video.url);
   const isOwner = user && user.id === video.submitterId;
 
   const handleWatchClick = () => {
@@ -42,17 +41,12 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: UserProfile 
   return (
     <div className="col-span-12 md:col-span-6 lg:col-span-4 xl:col-span-3 group">
       <Card className="h-full flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 bg-card overflow-hidden">
-        <div className="relative h-40 2xl:h-56">
-          <Image
-            alt={video.title}
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            src={thumbnailUrl || 'https://placehold.co/480x360'}
-            fill
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div 
+          onClick={handleWatchClick}
+          className="relative h-40 2xl:h-56 bg-muted hover:bg-muted/80 flex items-center justify-center cursor-pointer"
+        >
           <div className="absolute inset-0 flex items-center justify-center">
             <Button
-              onClick={handleWatchClick}
               className="w-16 h-16 bg-primary/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform hover:scale-110 focus:opacity-100 focus:scale-110"
               aria-label={`Play video: ${video.title}`}
             >
