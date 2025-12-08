@@ -1,7 +1,8 @@
+
 'use client';
 
 import Link from 'next/link';
-import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search } from 'lucide-react';
+import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search, PlayCircle } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -107,7 +108,7 @@ function UserSection() {
 export function Header() {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
-  const { searchQuery, setSearchQuery } = useApp();
+  const { user, searchQuery, setSearchQuery } = useApp();
   const pathname = usePathname();
 
   const isWatchPage = pathname === '/watch';
@@ -123,18 +124,11 @@ export function Header() {
           <Link href="/" className="flex items-center gap-2">
             <Logo />
           </Link>
-          {mounted ? (
-            <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            aria-label="تبديل السمة"
-            >
-            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">تبديل السمة</span>
-            </Button>
-            ) : <Skeleton className="h-8 w-8" />}
+          <nav className="hidden md:flex items-center gap-4 text-sm text-muted-foreground">
+            <Link href="/watch" className="hover:text-primary transition-colors font-medium">شاهد واكسب</Link>
+            <Link href="/campaign" className="hover:text-primary transition-colors font-medium">أضف فيديو</Link>
+            <Link href="/how-it-works" className="hover:text-primary transition-colors font-medium">كيف يعمل</Link>
+          </nav>
         </div>
 
         {isWatchPage && (
@@ -152,7 +146,20 @@ export function Header() {
           </div>
         )}
 
-        <div className="flex flex-1 items-center justify-end space-x-4">
+        <div className="flex flex-1 items-center justify-end space-x-4" dir="ltr">
+             {mounted ? (
+            <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            aria-label="تبديل السمة"
+            >
+            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">تبديل السمة</span>
+            </Button>
+            ) : <Skeleton className="h-8 w-8" />}
+            <div className='h-6 w-px bg-border'/>
             <nav>
                 <UserSection />
             </nav>
