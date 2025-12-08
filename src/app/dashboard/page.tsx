@@ -186,14 +186,14 @@ export default function DashboardPage() {
             <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
                     {/* User Info */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-center text-center gap-4">
                         <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                             <AvatarImage src={user.avatar} alt={user.name} />
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col gap-1">
                             <h1 className="text-2xl font-bold">{user.name}</h1>
-                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit'>
+                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit self-center'>
                                 {user.role === 'admin' ? "مسؤول" : "مستخدم"}
                             </Badge>
                         </div>
