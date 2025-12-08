@@ -45,7 +45,7 @@ function UserSection() {
     return (
         <Button asChild variant="outline">
             <Link href="/login">
-                <LogIn className="mr-2 h-4 w-4" />
+                <LogIn className="ml-2 h-4 w-4" />
                 <span>تسجيل الدخول</span>
             </Link>
         </Button>
@@ -54,14 +54,18 @@ function UserSection() {
   
   return (
     <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+            <span className="font-semibold">{user.points ?? 0}</span>
+        </div>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <div className="flex items-center gap-2 cursor-pointer">
-                    <span className="font-semibold text-sm">{user.name}</span>
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={user?.avatar ?? ''} alt={user?.name ?? ''} />
                         <AvatarFallback>{(user?.name ?? '').charAt(0)}</AvatarFallback>
                     </Avatar>
+                    <span className="font-semibold text-sm">{user.name}</span>
                 </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -74,12 +78,12 @@ function UserSection() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                     <Link href="/dashboard">
-                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <LayoutDashboard className="ml-2 h-4 w-4" />
                     <span>لوحة التحكم</span>
                     </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
+                    <LogOut className="ml-2 h-4 w-4" />
                     <span>تسجيل الخروج</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -89,17 +93,13 @@ function UserSection() {
                             onSelect={(e) => e.preventDefault()}
                             className="text-destructive focus:text-destructive focus:bg-destructive/10"
                             >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className="ml-2 h-4 w-4" />
                             <span>حذف الحساب</span>
                         </DropdownMenuItem>
                     </DialogTrigger>
                 </DeleteAccountDialog>
             </DropdownMenuContent>
         </DropdownMenu>
-        <div className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
-            <span className="font-semibold">{user.points ?? 0}</span>
-        </div>
     </div>
   );
 }
@@ -120,33 +120,20 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container flex h-16 items-center">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <Logo />
-          </Link>
-          {mounted ? (
-            <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            aria-label="تبديل السمة"
-            >
-            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">تبديل السمة</span>
-            </Button>
-            ) : <Skeleton className="h-8 w-8" />}
-          
+        <div className="flex flex-1 items-center justify-start">
+            <nav>
+                <UserSection />
+            </nav>
         </div>
 
         {isWatchPage && (
           <div className="flex-1 flex justify-center px-4 lg:px-8">
             <div className="relative w-full max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                     type="search" 
                     placeholder="ابحث عن فيديو..."
-                    className="w-full pl-10"
+                    className="w-full pr-10"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -154,10 +141,23 @@ export function Header() {
           </div>
         )}
 
-        <div className="flex flex-1 items-center justify-end space-x-4" dir="ltr">
-            <nav>
-                <UserSection />
-            </nav>
+        <div className="flex items-center justify-end gap-4" dir="ltr">
+            {mounted ? (
+                <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                aria-label="تبديل السمة"
+                >
+                <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">تبديل السمة</span>
+                </Button>
+                ) : <Skeleton className="h-8 w-8" />}
+            
+            <Link href="/" className="flex items-center gap-2">
+                <Logo />
+            </Link>
         </div>
       </div>
     </header>
