@@ -18,6 +18,9 @@ export function Footer() {
           <Link href="/how-it-works" className="hover:text-primary transition-colors">
             كيف يعمل
           </Link>
+          <Link href="/how-to-earn-more" className="hover:text-primary transition-colors">
+            كيف تربح أكثر
+          </Link>
           <Link href="/privacy-policy" className="hover:text-primary transition-colors">
             سياسة الخصوصية
           </Link>
