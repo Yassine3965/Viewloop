@@ -125,7 +125,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container flex h-16 items-center">
         <div className="flex flex-1 items-center justify-start">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" aria-label="ViewLoop Home">
                 <Logo />
             </Link>
             <div className='mr-6'>
