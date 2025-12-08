@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { ArrowRight, PlayCircle, Eye, Star, TrendingUp } from 'lucide-react';
+import { ArrowRight, PlayCircle, Eye, Star, TrendingUp, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -31,12 +31,15 @@ export default function HomePage() {
                   </Link>
                 </Button>
               </div>
+              <div className="flex justify-center pt-12 animate-bounce">
+                <ArrowDown className="h-8 w-8 text-muted-foreground" />
+              </div>
             </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
+      <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
         <div className="container px-4 md:px-6">
           <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">مصمم لزيادة أرباح منشئي المحتوى</h2>
