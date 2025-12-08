@@ -89,16 +89,8 @@ export async function POST(req: Request) {
     }
     
     // --- Determine Watched Time ---
-    const addSeconds = tabIsActive && (mouseMoved || sessionData.noMouseMovementHeartbeats < 3);
-    let newTotalWatchedSeconds = sessionData.totalWatchedSeconds || 0;
-
-    if (currentTime !== undefined && currentTime > newTotalWatchedSeconds) {
-        // If extension provides a more accurate currentTime, use it.
-        newTotalWatchedSeconds = currentTime;
-    } else if (addSeconds) {
-        // Otherwise, increment by the interval if active.
-        newTotalWatchedSeconds += HEARTBEAT_INTERVAL_SEC;
-    }
+    // Trust the currentTime from the extension as the source of truth.
+    let newTotalWatchedSeconds = currentTime !== undefined ? currentTime : (sessionData.totalWatchedSeconds || 0);
     updates.totalWatchedSeconds = newTotalWatchedSeconds;
     
     // --- Update Status based on behavior ---
@@ -125,7 +117,7 @@ export async function POST(req: Request) {
         success: true, 
         totalWatchedSeconds: newTotalWatchedSeconds,
         status: updates.status || sessionData.status,
-        adHeartbeats: sessionData.adHeartbeats + (adIsPresent ? 1 : 0)
+        adHeartbeats: (sessionData.adHeartbeats || 0) + (adIsPresent ? 1 : 0)
     }), req);
 
   } catch (err: any) {
