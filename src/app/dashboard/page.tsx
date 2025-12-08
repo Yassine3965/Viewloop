@@ -184,23 +184,23 @@ export default function DashboardPage() {
         
         <Card className="overflow-hidden shadow-lg">
             <CardContent className="p-6">
-                <div className="flex flex-col items-center gap-6">
+                <div className="flex flex-col md:flex-row items-center gap-6">
                     {/* User Info */}
-                    <div className="flex flex-col items-center text-center gap-4">
+                    <div className="flex items-center gap-4">
                         <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                             <AvatarImage src={user.avatar} alt={user.name} />
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col gap-1">
                             <h1 className="text-2xl font-bold">{user.name}</h1>
-                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit self-center'>
+                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit'>
                                 {user.role === 'admin' ? "مسؤول" : "مستخدم"}
                             </Badge>
                         </div>
                     </div>
 
                     {/* Reputation & Level */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full flex-1">
                         <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-muted/50">
                             <span className="text-sm font-bold text-muted-foreground">السمعة</span>
                             <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
