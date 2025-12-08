@@ -32,7 +32,9 @@ export default function HomePage() {
                 </Button>
               </div>
               <div className="flex justify-center pt-12 animate-bounce">
-                <ArrowDown className="h-8 w-8 text-muted-foreground" />
+                <Link href="#features" className="scroll-smooth">
+                    <ArrowDown className="h-8 w-8 text-muted-foreground cursor-pointer" />
+                </Link>
               </div>
             </div>
         </div>
