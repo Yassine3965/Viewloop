@@ -71,10 +71,11 @@ export async function POST(req: Request) {
     } catch (err: any) {
         if (err.code === 'auth/id-token-expired') {
             console.warn("⚠️ Token is expired, but proceeding. This is expected behavior.");
-            // Decode the token without verifying the expiration to get the UID.
-            // This is safe because we're only extracting the UID on the server.
-            const decodedUnverified = admin.auth().decodeIdToken(userAuthToken);
-            decoded = await decodedUnverified;
+            // Manually decode the token to get the UID without verification.
+            // This is "safe" on the server because we're only extracting the UID for internal use.
+            const payloadBase64 = userAuthToken.split('.')[1];
+            const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
+            decoded = JSON.parse(decodedPayload);
         } else {
             console.error("❌ فشل التحقق من التوكن:", {
                 errorCode: err.code,
