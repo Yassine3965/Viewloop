@@ -113,7 +113,7 @@ export default function HomePage() {
         size="icon"
         onClick={scrollToTop}
         className={cn(
-          "fixed bottom-8 left-8 z-50 h-12 w-12 rounded-full transition-opacity duration-300",
+          "fixed bottom-8 left-1/2 -translate-x-1/2 z-50 h-12 w-12 rounded-full transition-opacity duration-300",
           showScrollTop ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
         aria-label="العودة إلى الأعلى"
