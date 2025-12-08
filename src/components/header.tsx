@@ -54,10 +54,6 @@ function UserSection() {
   
   return (
     <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
-            <span className="font-semibold">{user.points ?? 0}</span>
-        </div>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <div className="flex items-center gap-2 cursor-pointer">
@@ -100,6 +96,10 @@ function UserSection() {
                 </DeleteAccountDialog>
             </DropdownMenuContent>
         </DropdownMenu>
+        <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+            <span className="font-semibold">{user.points ?? 0}</span>
+        </div>
     </div>
   );
 }
@@ -155,7 +155,6 @@ export function Header() {
         )}
 
         <div className="flex flex-1 items-center justify-end space-x-4" dir="ltr">
-            <div className='h-6 w-px bg-border'/>
             <nav>
                 <UserSection />
             </nav>
