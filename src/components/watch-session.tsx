@@ -12,8 +12,6 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
 
-const HEARTBEAT_INTERVAL = 15000; // 15 seconds
-
 type SessionState = 'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done';
 
 interface FinalState {
@@ -49,8 +47,6 @@ export function WatchSession() {
 
 
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastMousePosition = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
-  const mouseMoved = useRef(false);
 
   const cleanup = useCallback(() => {
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
@@ -91,77 +87,20 @@ export function WatchSession() {
     }
   }, [cleanup, sessionState]);
 
-
-  const sendHeartbeat = useCallback(async (token: string | null) => {
-    if (!token) return;
-    
-    try {
-      const response = await fetch('/api/heartbeat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionToken: token,
-          mouseMoved: mouseMoved.current,
-          tabIsActive: !document.hidden,
-          adIsPresent: false,
-        }),
-      });
-      const data = await response.json();
-      if(data.success) {
-        if(data.totalWatchedSeconds) {
-            setTotalWatchedSeconds(data.totalWatchedSeconds);
-        }
-        // If the heartbeat response tells us the session is complete, trigger the final step.
-        if (data.status === 'completed') {
-            completeSession(token);
-        }
-      }
-    } catch (error) {
-      console.error('Heartbeat failed:', error);
-    } finally {
-      mouseMoved.current = false;
-    }
-  }, [completeSession]);
-
-
+  // This effect now primarily listens for the server to change the session status
+  // which is driven by the extension's heartbeats.
   useEffect(() => {
     if (sessionState === 'watching' && currentVideo) {
       const newProgress = (totalWatchedSeconds / currentVideo.duration) * 100;
       setProgress(Math.min(newProgress, 100));
-
-      // This condition is now a fallback, the primary trigger is the heartbeat response
-      if (newProgress >= 100) {
-        completeSession(sessionToken);
-      }
     }
   }, [totalWatchedSeconds, currentVideo, sessionState, sessionToken, completeSession]);
 
-  // Heartbeat loop
+  // Heartbeat loop from the frontend is now disabled to prevent conflicts.
+  // The extension is the sole source of heartbeats.
   useEffect(() => {
-    if (sessionState !== 'watching' || !sessionToken) return;
-    
-    heartbeatIntervalRef.current = setInterval(() => {
-        sendHeartbeat(sessionToken);
-    }, HEARTBEAT_INTERVAL);
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const distance = Math.sqrt(
-        Math.pow(e.clientX - lastMousePosition.current.x, 2) +
-        Math.pow(e.clientY - lastMousePosition.current.y, 2)
-      );
-      if (distance > 3) {
-        mouseMoved.current = true;
-        lastMousePosition.current = { x: e.clientX, y: e.clientY };
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
-      window.removeEventListener('mousemove', handleMouseMove);
-    }
-  }, [sessionState, sessionToken, sendHeartbeat]);
+    // Intentionally left blank.
+  }, [sessionState, sessionToken]);
 
   // Start session
   useEffect(() => {
@@ -207,6 +146,7 @@ export function WatchSession() {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (sessionState === 'watching' && sessionToken) {
+        // Use sendBeacon for reliability on page close.
         navigator.sendBeacon('/api/complete', JSON.stringify({ sessionToken }));
       }
     };
