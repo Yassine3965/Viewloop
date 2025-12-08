@@ -105,7 +105,15 @@ export async function POST(req: Request) {
     }
 
 
-    const userId = decoded.uid;
+    const userId = decoded.uid || decoded.user_id;
+    if (!userId) {
+        console.error("CRITICAL: Could not extract userId from token.", { decoded });
+        return addCorsHeaders(NextResponse.json({ 
+            error: "INVALID_TOKEN_CLAIMS",
+            message: "لم يتم العثور على معرف المستخدم في التوكن."
+        }, { status: 400 }), req);
+    }
+
     const now = Date.now();
 
     // Prevent re-watching completed videos
