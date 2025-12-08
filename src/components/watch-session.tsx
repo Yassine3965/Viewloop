@@ -7,14 +7,27 @@ import type { Video } from '@/lib/types';
 import { useFirebase } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from './ui/progress';
-import { Loader2, XCircle, AlertTriangle, CheckCircle, MonitorPlay } from 'lucide-react';
+import { Loader2, XCircle, AlertTriangle, CheckCircle, MonitorPlay, ShieldAlert, Send } from 'lucide-react';
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { PointsAwardedModal } from './points-awarded-modal';
+import { Textarea } from './ui/textarea';
 
 const HEARTBEAT_INTERVAL = 15000; // 15 seconds
 
 type SessionState = 'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done';
+
+interface FinalState {
+    status: 'suspicious' | 'completed';
+    points: number;
+    gems: number;
+    penaltyReasons: string[];
+}
+
+const reasonTranslations: { [key: string]: string } = {
+    'inactive_too_long': 'تم ترك التبويبة غير نشطة لفترة طويلة.',
+    'no_mouse_activity': 'لم يتم رصد أي حركة للماوس لفترة طويلة.',
+    'heartbeat_missing': 'انقطع الاتصال بالخادم.'
+};
 
 export function WatchSession() {
   const router = useRouter();
@@ -29,6 +42,11 @@ export function WatchSession() {
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [totalWatchedSeconds, setTotalWatchedSeconds] = useState(0);
+  const [finalState, setFinalState] = useState<FinalState | null>(null);
+  const [showAppealForm, setShowAppealForm] = useState(false);
+  const [appealText, setAppealText] = useState('');
+  const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
+
 
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastMousePosition = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
@@ -50,7 +68,7 @@ export function WatchSession() {
           sessionToken: token,
           mouseMoved: mouseMoved.current,
           tabIsActive: !document.hidden,
-          adIsPresent: false, // This needs to be implemented in the extension
+          adIsPresent: false,
         }),
       });
       const data = await response.json();
@@ -60,7 +78,6 @@ export function WatchSession() {
     } catch (error) {
       console.error('Heartbeat failed:', error);
     } finally {
-      // Reset mouse move detection for the next interval
       mouseMoved.current = false;
     }
   }, []);
@@ -80,10 +97,13 @@ export function WatchSession() {
       });
       const data = await response.json();
       if (data.success) {
+        setFinalState({
+            status: data.status,
+            points: data.points,
+            gems: data.gems,
+            penaltyReasons: data.penaltyReasons || []
+        });
         setSessionState('done');
-        setTimeout(() => {
-          window.close();
-        }, 500);
       } else {
         throw new Error(data.message || 'Failed to complete session');
       }
@@ -118,7 +138,7 @@ export function WatchSession() {
         Math.pow(e.clientX - lastMousePosition.current.x, 2) +
         Math.pow(e.clientY - lastMousePosition.current.y, 2)
       );
-      if (distance > 3) { // Threshold to count as movement
+      if (distance > 3) {
         mouseMoved.current = true;
         lastMousePosition.current = { x: e.clientX, y: e.clientY };
       }
@@ -176,7 +196,6 @@ export function WatchSession() {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (sessionState === 'watching' && sessionToken) {
-        // Use sendBeacon for a reliable request on unload
         navigator.sendBeacon('/api/complete', JSON.stringify({ sessionToken }));
       }
     };
@@ -212,13 +231,55 @@ export function WatchSession() {
     );
   }
 
-  if (sessionState === 'done') {
+  if (sessionState === 'done' && finalState) {
+    if (finalState.status === 'suspicious') {
+        return (
+            <div className="container py-8 text-center flex items-center justify-center h-screen">
+                <Alert variant="destructive" className="max-w-md mx-auto">
+                    <ShieldAlert className="h-4 w-4" />
+                    <AlertTitle>تم تعليق الجلسة</AlertTitle>
+                    <AlertDescription>
+                        <p>تم تصنيف هذه الجلسة على أنها مشبوهة. تم تطبيق عقوبة على النقاط والسمعة.</p>
+                        <strong className='my-2 block'>الأسباب:</strong>
+                        <ul className='list-disc list-inside text-right mb-4'>
+                            {finalState.penaltyReasons.map(r => <li key={r}>{reasonTranslations[r] || r}</li>)}
+                        </ul>
+                        {!showAppealForm ? (
+                             <div className='flex gap-2 mt-4'>
+                                <Button onClick={() => window.close()} variant="secondary" className="flex-1">
+                                    موافق وإغلاق
+                                </Button>
+                                <Button onClick={() => setShowAppealForm(true)} className="flex-1">
+                                    تقديم طعن
+                                </Button>
+                             </div>
+                        ) : (
+                            <div className='mt-4 space-y-2 text-right'>
+                                <label htmlFor="appeal" className='font-semibold text-sm'>توضيح الموقف:</label>
+                                <Textarea 
+                                    id="appeal"
+                                    value={appealText}
+                                    onChange={(e) => setAppealText(e.target.value)}
+                                    placeholder='اشرح لماذا تعتقد أن هذا القرار غير صحيح...'
+                                />
+                                <Button className='w-full' disabled={!appealText || isSubmittingAppeal}>
+                                    {isSubmittingAppeal ? <Loader2 className='ml-2 h-4 w-4 animate-spin' /> : <Send className='ml-2 h-4 w-4'/>}
+                                    إرسال الطعن
+                                </Button>
+                            </div>
+                        )}
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
       return (
-        <div className="container py-8 text-center">
+        <div className="container py-8 text-center flex items-center justify-center h-screen">
             <Alert className="max-w-md mx-auto">
-                <CheckCircle className="h-4 w-4" />
-                <AlertTitle>اكتملت الجلسة</AlertTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <AlertTitle>اكتملت الجلسة بنجاح!</AlertTitle>
                 <AlertDescription>
+                    لقد ربحت {finalState.points} نقطة و {finalState.gems} جوهرة.
                     سيتم إغلاق هذه النافذة تلقائيًا.
                 </AlertDescription>
             </Alert>
