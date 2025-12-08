@@ -136,11 +136,7 @@ export function Header() {
             <span className="sr-only">تبديل السمة</span>
             </Button>
             ) : <Skeleton className="h-8 w-8" />}
-          <nav className="hidden md:flex items-center gap-4 text-sm text-muted-foreground">
-            <Link href="/watch" className="hover:text-primary transition-colors font-medium">شاهد واكسب</Link>
-            <Link href="/campaign" className="hover:text-primary transition-colors font-medium">أضف فيديو</Link>
-            <Link href="/how-it-works" className="hover:text-primary transition-colors font-medium">كيف يعمل</Link>
-          </nav>
+          
         </div>
 
         {isWatchPage && (
