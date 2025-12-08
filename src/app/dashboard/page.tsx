@@ -173,17 +173,20 @@ export default function DashboardPage() {
   }
 
   const canCreateCampaign = user.emailVerified;
+  
+  const lastLoginDate = user.lastLogin?.toDate ? formatDistanceToNow(user.lastLogin.toDate(), { addSuffix: true, locale: ar }) : 'غير معروف';
+  const creationDate = user.createdAt?.toDate ? format(user.createdAt.toDate(), 'PPP', { locale: ar }) : 'غير معروف';
 
   return (
     <>
     <main className="flex-1 bg-muted/20 p-8">
-      <div className="container mx-auto max-w-4xl space-y-8">
+      <div className="container mx-auto max-w-6xl space-y-8">
         
         <Card className="overflow-hidden shadow-lg">
             <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-12 items-center gap-6">
                     {/* User Info */}
-                    <div className="flex items-center gap-4">
+                    <div className="md:col-span-3 flex items-center gap-4">
                         <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                             <AvatarImage src={user.avatar} alt={user.name} />
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
@@ -195,17 +198,36 @@ export default function DashboardPage() {
                             </Badge>
                         </div>
                     </div>
-
-                    {/* Levels */}
-                    <div className="flex flex-col items-center gap-2">
-                        <span className="text-sm font-bold text-muted-foreground">المستوى</span>
-                        <LevelDisplay currentLevel={user.level} />
+                    {/* Details */}
+                    <div className="md:col-span-5 grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span>{user.email}</span>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span>{user.city || 'غير معروف'}, {user.country}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span>انضم في {creationDate}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>آخر ظهور {lastLoginDate}</span>
+                        </div>
                     </div>
 
-                    {/* Reputation */}
-                    <div className="flex flex-col items-center gap-2">
-                        <span className="text-sm font-bold text-muted-foreground">السمعة</span>
-                        <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
+                    {/* Reputation & Level */}
+                    <div className="md:col-span-4 grid grid-cols-2 gap-4">
+                        <div className="flex flex-col items-center gap-2">
+                            <span className="text-sm font-bold text-muted-foreground">السمعة</span>
+                            <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
+                        </div>
+                        <div className="flex flex-col items-center gap-2">
+                            <span className="text-sm font-bold text-muted-foreground">المستوى</span>
+                            <LevelDisplay currentLevel={user.level} />
+                        </div>
                     </div>
                 </div>
             </CardContent>
