@@ -11,6 +11,7 @@ const POINT_MULTIPLIERS: { [key: number]: number } = {
     1: 0.05, 2: 0.1, 3: 0.2, 4: 0.3, 5: 0.5
 };
 const GEM_RATE_PER_SECOND = 0.01;
+const AD_BONUS_RATE_PER_SECOND = 1.0; // 1 point per second of ad time
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -77,8 +78,8 @@ export async function POST(req: Request) {
 
     if (sessionData.status === 'expired' || (sessionData.penaltyReasons && sessionData.penaltyReasons.includes('inactive_too_long'))) {
       finalStatus = 'suspicious';
-      if (!sessionData.penaltyReasons.includes('inactive_too_long')) {
-        sessionData.penaltyReasons.push('inactive_too_long');
+      if (!sessionData.penaltyReasons || !sessionData.penaltyReasons.includes('inactive_too_long')) {
+        sessionData.penaltyReasons = [...(sessionData.penaltyReasons || []), 'inactive_too_long'];
       }
     }
 
@@ -98,11 +99,13 @@ export async function POST(req: Request) {
         const videoDuration = sessionData.videoDuration || 0;
         let totalWatched = Math.min(sessionData.totalWatchedSeconds || 0, videoDuration + 60*5); // Cap extra time
         
+        // 1. Base points for watching the video content
         const baseWatchedSeconds = Math.min(totalWatched, videoDuration);
         const basePoints = baseWatchedSeconds * pointMultiplier;
 
+        // 2. "Extra time" points for watching ads
         const bonusSeconds = Math.max(0, totalWatched - videoDuration);
-        const bonusPoints = bonusSeconds * 1.0; // 1 point per second of ad time
+        const bonusPoints = bonusSeconds * AD_BONUS_RATE_PER_SECOND; 
         
         points = (basePoints + bonusPoints);
 
@@ -171,5 +174,3 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 }
-
-    
