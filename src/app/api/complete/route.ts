@@ -1,3 +1,4 @@
+
 // /app/api/complete/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -5,17 +6,9 @@ import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
-// Constants for behavioral analysis
-const MAX_INACTIVE_HEARTBEAT_RATIO = 0.3; // 30% of heartbeats can be inactive
-const MAX_NO_MOUSE_MOVEMENT_RATIO = 0.5; // 50% of heartbeats can have no mouse movement
-
 // Level-based point multipliers
 const POINT_MULTIPLIERS: { [key: number]: number } = {
-    1: 0.05, // Level 1 (Basic)
-    2: 0.1,  // Level 2
-    3: 0.2,  // Level 3
-    4: 0.3,  // Level 4
-    5: 0.5   // Level 5
+    1: 0.05, 2: 0.1, 3: 0.2, 4: 0.3, 5: 0.5
 };
 const GEM_RATE_PER_SECOND = 0.01;
 
@@ -66,22 +59,28 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
-    const sessionData = sessionSnap.data();
+    let sessionData = sessionSnap.data();
     if (!sessionData || !sessionData.userId) {
       const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
       return addCorsHeaders(response, req);
     }
 
-    if (sessionData.status === 'completed') {
-        return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: 0, gemsAdded: 0, message: "Session already completed." }), req);
+    if (sessionData.status === 'completed' || sessionData.status === 'finalized') {
+        return addCorsHeaders(NextResponse.json({ success: true, points: sessionData.points, gems: sessionData.gems, message: "Session already finalized." }), req);
     }
 
-    const totalWatched = sessionData.totalWatchedSeconds || 0;
     const now = Date.now();
-
     let points = 0;
     let gems = 0;
     let reputationChange = 0;
+    let finalStatus = sessionData.status;
+
+    if (sessionData.status === 'expired' || (sessionData.penaltyReasons && sessionData.penaltyReasons.includes('inactive_too_long'))) {
+      finalStatus = 'suspicious';
+      if (!sessionData.penaltyReasons.includes('inactive_too_long')) {
+        sessionData.penaltyReasons.push('inactive_too_long');
+      }
+    }
 
     await firestore.runTransaction(async (transaction) => {
         const userRef = firestore.collection("users").doc(sessionData.userId);
@@ -95,42 +94,35 @@ export async function POST(req: Request) {
         const currentLevel = userData.level || 1;
         const pointMultiplier = POINT_MULTIPLIERS[currentLevel] || POINT_MULTIPLIERS[1];
         
-        // Behavioral Analysis
-        const totalHeartbeats = Math.floor(totalWatched / 15); // Approximate number of heartbeats
-        const inactiveRatio = totalHeartbeats > 0 ? (sessionData.inactiveHeartbeats || 0) / totalHeartbeats : 0;
-        const noMouseRatio = totalHeartbeats > 0 ? (sessionData.noMouseMovementHeartbeats || 0) / totalHeartbeats : 0;
+        // --- POINTS CALCULATION ---
+        const videoDuration = sessionData.videoDuration || 0;
+        let totalWatched = Math.min(sessionData.totalWatchedSeconds || 0, videoDuration + 60*5); // Cap extra time
+        
+        const baseWatchedSeconds = Math.min(totalWatched, videoDuration);
+        const basePoints = baseWatchedSeconds * pointMultiplier;
 
-        let pointsPenalty = 0;
-        let penaltyReason: string[] = [];
+        const bonusSeconds = Math.max(0, totalWatched - videoDuration);
+        const bonusPoints = bonusSeconds * 1.0; // 1 point per second of ad time
+        
+        points = (basePoints + bonusPoints);
 
-        if (totalHeartbeats > 2 && inactiveRatio > MAX_INACTIVE_HEARTBEAT_RATIO) {
-            pointsPenalty += 0.5; // 50% penalty
-            penaltyReason.push('High inactivity');
-            reputationChange -= 0.2;
-        }
-        if (totalHeartbeats > 2 && noMouseRatio > MAX_NO_MOUSE_MOVEMENT_RATIO) {
-            pointsPenalty += 0.5; // 50% penalty
-            penaltyReason.push('No mouse movement');
-            reputationChange -= 0.3;
-        }
+        // --- GEMS CALCULATION ---
+        const baseGems = baseWatchedSeconds * GEM_RATE_PER_SECOND;
+        const adGems = (sessionData.adHeartbeats || 0) * 1; // 1 gem per ad heartbeat
+        gems = baseGems + adGems;
 
-        // Calculate base points and gems
-        points = Math.floor(totalWatched * pointMultiplier);
-        gems = totalWatched * GEM_RATE_PER_SECOND;
-
-        // Apply penalty
-        if (pointsPenalty > 0) {
-            points = Math.floor(points * (1 - Math.min(pointsPenalty, 1)));
-            console.warn(`Points penalty applied for session ${sessionToken}. Reason: ${penaltyReason.join(', ')}`);
-            reputationChange -= 0.5;
+        // --- REPUTATION & PENALTIES ---
+        if (finalStatus === 'suspicious') {
+          points *= 0.1; // 90% penalty for suspicious sessions
+          gems *= 0.1;
+          reputationChange = -0.5;
         } else {
-            // Reward for good behavior
-            reputationChange += 0.1;
+          reputationChange = 0.1; // Reward for good behavior
         }
         
-        const MAX_POINTS_PER_VIDEO = 50;
-        points = Math.min(points, MAX_POINTS_PER_VIDEO);
-        
+        points = Math.round(points * 100) / 100;
+        gems = Math.round(gems * 100) / 100;
+
         const newReputation = Math.max(0, Math.min(5, (userData.reputation || 4.5) + reputationChange));
         
         transaction.update(userRef, {
@@ -141,34 +133,43 @@ export async function POST(req: Request) {
         });
         
         transaction.update(sessionRef, {
-            status: "completed",
+            status: "finalized", // A new terminal state
             points: points,
             gems: gems,
             completedAt: now,
-            penaltyReasons: penaltyReason,
+            penaltyReasons: sessionData.penaltyReasons || [],
         });
 
         transaction.set(firestore.collection("watchHistory").doc(), {
             userId: sessionData.userId,
             videoId: sessionData.videoID,
-            totalWatchedSeconds: totalWatched,
-            adWatched: sessionData.adWatched || false,
+            totalWatchedSeconds: sessionData.totalWatchedSeconds,
+            adWatched: sessionData.adWatched || false, // keep for compatibility
             pointsEarned: points,
             gemsEarned: gems,
             completedAt: now,
             sessionToken,
             behavioralData: {
-              inactiveRatio,
-              noMouseRatio,
-              penaltyApplied: pointsPenalty > 0
+              inactiveHeartbeats: sessionData.inactiveHeartbeats,
+              noMouseMovementHeartbeats: sessionData.noMouseMovementHeartbeats,
+              adHeartbeats: sessionData.adHeartbeats,
+              penaltyApplied: finalStatus === 'suspicious'
             }
         });
     });
 
-    return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points, gemsAdded: gems }), req);
+    return addCorsHeaders(NextResponse.json({ 
+        success: true, 
+        status: finalStatus,
+        points: points, 
+        gems: gems,
+        penaltyReasons: sessionData.penaltyReasons || []
+    }), req);
     
   } catch (err: any) {
     const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
     return addCorsHeaders(response, req);
   }
 }
+
+    

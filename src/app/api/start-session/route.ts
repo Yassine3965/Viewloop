@@ -60,6 +60,11 @@ export async function POST(req: Request) {
         const response = NextResponse.json({ success: false, error: "VIDEO_NOT_FOUND" }, { status: 404 });
         return addCorsHeaders(response, req);
     }
+    const videoData = videoSnap.data();
+    if (!videoData || !videoData.duration) {
+      const response = NextResponse.json({ success: false, error: "VIDEO_DATA_INVALID" }, { status: 500 });
+      return addCorsHeaders(response, req);
+    }
     // --- End Check ---
 
     let decoded: admin.auth.DecodedIdToken;
@@ -173,12 +178,13 @@ export async function POST(req: Request) {
       createdAt: now,
       lastHeartbeatAt: now,
       totalWatchedSeconds: 0,
-      adWatched: false,
+      adWatched: false, // Legacy, can be removed later
       status: "active",
       inactiveHeartbeats: 0,
       noMouseMovementHeartbeats: 0,
       adHeartbeats: 0,
-      penaltyReasons: []
+      penaltyReasons: [],
+      videoDuration: videoData.duration,
     };
     
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
@@ -198,3 +204,5 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 }
+
+    

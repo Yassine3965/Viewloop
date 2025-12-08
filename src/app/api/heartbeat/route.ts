@@ -1,9 +1,12 @@
+
 // /app/api/heartbeat/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
+
+const HEARTBEAT_INTERVAL_SEC = 15;
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -63,35 +66,63 @@ export async function POST(req: Request) {
     }
 
     const now = Date.now();
-    const lastHeartbeatMs = sessionData.lastHeartbeatAt || sessionData.createdAt || now;
     
-    const secondsSinceLast = Math.floor((now - lastHeartbeatMs) / 1000);
-    
-    const safeIncrement = Math.max(0, Math.min(secondsSinceLast, 20)); // Cap increment to 20s
-
-    const newTotal = (sessionData.totalWatchedSeconds || 0) + safeIncrement;
-
     const updates: { [key: string]: any } = {
       lastHeartbeatAt: now,
-      totalWatchedSeconds: newTotal
     };
 
     if (tabIsActive === false) {
       updates.inactiveHeartbeats = admin.firestore.FieldValue.increment(1);
+    } else {
+        updates.inactiveHeartbeats = 0; // Reset when tab becomes active again
     }
+
     if (mouseMoved === false) {
       updates.noMouseMovementHeartbeats = admin.firestore.FieldValue.increment(1);
+    } else {
+      updates.noMouseMovementHeartbeats = 0; // Reset on movement
     }
+
     if (adIsPresent === true) {
       updates.adHeartbeats = admin.firestore.FieldValue.increment(1);
+    }
+    
+    const addSeconds = tabIsActive && (mouseMoved || sessionData.noMouseMovementHeartbeats < 3);
+    if(addSeconds) {
+        updates.totalWatchedSeconds = admin.firestore.FieldValue.increment(HEARTBEAT_INTERVAL_SEC);
+    }
+
+    const newTotalWatchedSeconds = (sessionData.totalWatchedSeconds || 0) + (addSeconds ? HEARTBEAT_INTERVAL_SEC : 0);
+    const newInactiveHeartbeats = tabIsActive === false ? (sessionData.inactiveHeartbeats || 0) + 1 : 0;
+    const newNoMouseMovementHeartbeats = mouseMoved === false ? (sessionData.noMouseMovementHeartbeats || 0) + 1 : 0;
+
+    if (newNoMouseMovementHeartbeats >= 4 && newInactiveHeartbeats === 0) {
+        if (!sessionData.penaltyReasons.includes('no_mouse_activity')) {
+            updates.penaltyReasons = admin.firestore.FieldValue.arrayUnion('no_mouse_activity');
+        }
+    }
+
+    if (newInactiveHeartbeats >= 6) { // ~90 seconds of inactivity
+        updates.status = 'expired';
+    }
+
+    if (sessionData.videoDuration && newTotalWatchedSeconds >= sessionData.videoDuration) {
+        updates.status = 'completed';
     }
 
     await sessionRef.update(updates);
     
-    return addCorsHeaders(NextResponse.json({ success: true, totalWatchedSeconds: newTotal }), req);
+    return addCorsHeaders(NextResponse.json({ 
+        success: true, 
+        totalWatchedSeconds: newTotalWatchedSeconds,
+        status: updates.status || sessionData.status,
+        adHeartbeats: sessionData.adHeartbeats + (adIsPresent ? 1 : 0)
+    }), req);
 
   } catch (err: any) {
     const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
     return addCorsHeaders(response, req);
   }
 }
+
+    
