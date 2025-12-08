@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   }
   
   try {
-    const { sessionToken, mouseMoved, tabIsActive, adIsPresent } = body;
+    const { sessionToken, mouseMoved, tabIsActive, adIsPresent, currentTime } = body;
     if (!sessionToken) {
       const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
       return addCorsHeaders(response, req);
@@ -71,6 +71,7 @@ export async function POST(req: Request) {
       lastHeartbeatAt: now,
     };
 
+    // --- Merge data from extension and web page ---
     if (tabIsActive === false) {
       updates.inactiveHeartbeats = admin.firestore.FieldValue.increment(1);
     } else {
@@ -87,12 +88,20 @@ export async function POST(req: Request) {
       updates.adHeartbeats = admin.firestore.FieldValue.increment(1);
     }
     
+    // --- Determine Watched Time ---
     const addSeconds = tabIsActive && (mouseMoved || sessionData.noMouseMovementHeartbeats < 3);
-    if(addSeconds) {
-        updates.totalWatchedSeconds = admin.firestore.FieldValue.increment(HEARTBEAT_INTERVAL_SEC);
-    }
+    let newTotalWatchedSeconds = sessionData.totalWatchedSeconds || 0;
 
-    const newTotalWatchedSeconds = (sessionData.totalWatchedSeconds || 0) + (addSeconds ? HEARTBEAT_INTERVAL_SEC : 0);
+    if (currentTime !== undefined && currentTime > newTotalWatchedSeconds) {
+        // If extension provides a more accurate currentTime, use it.
+        newTotalWatchedSeconds = currentTime;
+    } else if (addSeconds) {
+        // Otherwise, increment by the interval if active.
+        newTotalWatchedSeconds += HEARTBEAT_INTERVAL_SEC;
+    }
+    updates.totalWatchedSeconds = newTotalWatchedSeconds;
+    
+    // --- Update Status based on behavior ---
     const newInactiveHeartbeats = tabIsActive === false ? (sessionData.inactiveHeartbeats || 0) + 1 : 0;
     const newNoMouseMovementHeartbeats = mouseMoved === false ? (sessionData.noMouseMovementHeartbeats || 0) + 1 : 0;
 
@@ -124,5 +133,3 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 }
-
-    
