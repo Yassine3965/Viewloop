@@ -57,33 +57,11 @@ export function WatchSession() {
     heartbeatIntervalRef.current = null;
   }, []);
 
-  const sendHeartbeat = useCallback(async (token: string | null) => {
-    if (!token) return;
-    
-    try {
-      const response = await fetch('/api/heartbeat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionToken: token,
-          mouseMoved: mouseMoved.current,
-          tabIsActive: !document.hidden,
-          adIsPresent: false,
-        }),
-      });
-      const data = await response.json();
-      if(data.success && data.totalWatchedSeconds) {
-        setTotalWatchedSeconds(data.totalWatchedSeconds);
-      }
-    } catch (error) {
-      console.error('Heartbeat failed:', error);
-    } finally {
-      mouseMoved.current = false;
-    }
-  }, []);
-
   const completeSession = useCallback(async (token: string | null) => {
     if (!token) return;
+    // Prevent multiple completions
+    if (sessionState === 'completing' || sessionState === 'done') return;
+
     setSessionState('completing');
     cleanup();
 
@@ -111,7 +89,39 @@ export function WatchSession() {
         setErrorMessage('فشل في إنهاء الجلسة. ' + error.message);
         setSessionState('error');
     }
-  }, [cleanup]);
+  }, [cleanup, sessionState]);
+
+
+  const sendHeartbeat = useCallback(async (token: string | null) => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionToken: token,
+          mouseMoved: mouseMoved.current,
+          tabIsActive: !document.hidden,
+          adIsPresent: false,
+        }),
+      });
+      const data = await response.json();
+      if(data.success) {
+        if(data.totalWatchedSeconds) {
+            setTotalWatchedSeconds(data.totalWatchedSeconds);
+        }
+        // If the heartbeat response tells us the session is complete, trigger the final step.
+        if (data.status === 'completed') {
+            completeSession(token);
+        }
+      }
+    } catch (error) {
+      console.error('Heartbeat failed:', error);
+    } finally {
+      mouseMoved.current = false;
+    }
+  }, [completeSession]);
 
 
   useEffect(() => {
@@ -119,6 +129,7 @@ export function WatchSession() {
       const newProgress = (totalWatchedSeconds / currentVideo.duration) * 100;
       setProgress(Math.min(newProgress, 100));
 
+      // This condition is now a fallback, the primary trigger is the heartbeat response
       if (newProgress >= 100) {
         completeSession(sessionToken);
       }
