@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useApp } from '@/lib/app-provider';
 import { useRouter } from 'next/navigation';
 import { Mail, Calendar, Clock, MapPin, Loader2, PlayCircle, PlusCircle, Star, Sparkles, Gem, ArrowUp } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -47,7 +47,7 @@ const reputationInfo: { [key: number]: { text: string; stars: number } } = {
 };
 
 function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImprove: () => void, isImproving: boolean }) {
-    const reputation = user?.reputation ?? 4.5;
+    const reputation = user?.reputation ?? 4;
     const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation)));
     const info = reputationInfo[roundedReputation];
 
@@ -184,9 +184,9 @@ export default function DashboardPage() {
         
         <Card className="overflow-hidden shadow-lg">
             <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-12 items-center gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
                     {/* User Info */}
-                    <div className="md:col-span-3 flex items-center gap-4">
+                    <div className="flex items-center gap-4">
                         <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                             <AvatarImage src={user.avatar} alt={user.name} />
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
@@ -198,39 +198,40 @@ export default function DashboardPage() {
                             </Badge>
                         </div>
                     </div>
-                    {/* Details */}
-                    <div className="md:col-span-5 grid grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <span>{user.email}</span>
-                        </div>
-                         <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            <span>{user.city || 'غير معروف'}, {user.country}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span>انضم في {creationDate}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>آخر ظهور {lastLoginDate}</span>
-                        </div>
-                    </div>
 
                     {/* Reputation & Level */}
-                    <div className="md:col-span-4 grid grid-cols-2 gap-4">
-                        <div className="flex flex-col items-center gap-2">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-muted/50">
                             <span className="text-sm font-bold text-muted-foreground">السمعة</span>
                             <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
                         </div>
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-muted/50">
                             <span className="text-sm font-bold text-muted-foreground">المستوى</span>
                             <LevelDisplay currentLevel={user.level} />
                         </div>
                     </div>
                 </div>
             </CardContent>
+            <CardFooter className='bg-muted/30 p-4 border-t'>
+                <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span>{user.email}</span>
+                    </div>
+                     <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>{user.city || 'غير معروف'}, {user.country}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>انضم في {creationDate}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>آخر ظهور {lastLoginDate}</span>
+                    </div>
+                </div>
+            </CardFooter>
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
