@@ -38,7 +38,7 @@ export default function HomePage() {
         <div className="container px-4 md:px-6">
           <div className="flex flex-col justify-center space-y-6 text-center">
               <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
-              ضاعف أرباح إعلانات يوتيوب
+              ضاعف أرباح قناتك من إعلانات يوتيوب
               </h1>
               <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
               منصة ViewLoop تحفز مشاهديك على مشاهدة الإعلانات بالكامل، مما يزيد من أرباح قناتك بشكل مباشر. انضم إلينا وحوّل كل مشاهدة إلى دخل إضافي.
