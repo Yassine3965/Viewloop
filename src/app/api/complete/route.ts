@@ -53,37 +53,46 @@ export async function POST(req: Request) {
     }
 
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
-    const sessionSnap = await sessionRef.get();
     
-    if (!sessionSnap.exists) {
-      const response = NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 });
-      return addCorsHeaders(response, req);
-    }
-
-    let sessionData = sessionSnap.data();
-    if (!sessionData || !sessionData.userId) {
-      const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
-      return addCorsHeaders(response, req);
-    }
-
-    if (sessionData.status === 'completed' || sessionData.status === 'finalized') {
-        return addCorsHeaders(NextResponse.json({ success: true, points: sessionData.points, gems: sessionData.gems, message: "Session already finalized." }), req);
-    }
-
-    const now = Date.now();
     let points = 0;
     let gems = 0;
     let reputationChange = 0;
-    let finalStatus = sessionData.status;
-
-    if (sessionData.status === 'expired' || (sessionData.penaltyReasons && sessionData.penaltyReasons.includes('inactive_too_long'))) {
-      finalStatus = 'suspicious';
-      if (!sessionData.penaltyReasons || !sessionData.penaltyReasons.includes('inactive_too_long')) {
-        sessionData.penaltyReasons = [...(sessionData.penaltyReasons || []), 'inactive_too_long'];
-      }
-    }
+    let finalStatus = 'completed'; // Default to completed
+    let sessionData: admin.firestore.DocumentData | undefined;
+    let penaltyReasons: string[] = [];
 
     await firestore.runTransaction(async (transaction) => {
+        const sessionSnap = await transaction.get(sessionRef);
+        
+        if (!sessionSnap.exists) {
+          throw new Error("INVALID_SESSION");
+        }
+
+        sessionData = sessionSnap.data();
+        if (!sessionData || !sessionData.userId) {
+          throw new Error("INVALID_SESSION_DATA");
+        }
+
+        if (sessionData.status === 'finalized') {
+            points = sessionData.points || 0;
+            gems = sessionData.gems || 0;
+            finalStatus = sessionData.status;
+            penaltyReasons = sessionData.penaltyReasons || [];
+            return; // Exit transaction early
+        }
+        
+        finalStatus = sessionData.status;
+        penaltyReasons = sessionData.penaltyReasons || [];
+        
+        const now = Date.now();
+
+        if (sessionData.status === 'expired' || (sessionData.penaltyReasons && sessionData.penaltyReasons.includes('inactive_too_long'))) {
+            finalStatus = 'suspicious';
+            if (!penaltyReasons.includes('inactive_too_long')) {
+                penaltyReasons.push('inactive_too_long');
+            }
+        }
+        
         const userRef = firestore.collection("users").doc(sessionData.userId);
         const userSnap = await transaction.get(userRef);
 
@@ -121,6 +130,7 @@ export async function POST(req: Request) {
           reputationChange = -0.5;
         } else {
           reputationChange = 0.1; // Reward for good behavior
+          finalStatus = 'completed'; // Ensure final status is correct
         }
         
         points = Math.round(points * 100) / 100;
@@ -140,7 +150,7 @@ export async function POST(req: Request) {
             points: points,
             gems: gems,
             completedAt: now,
-            penaltyReasons: sessionData.penaltyReasons || [],
+            penaltyReasons: penaltyReasons,
         });
 
         transaction.set(firestore.collection("watchHistory").doc(), {
@@ -161,16 +171,24 @@ export async function POST(req: Request) {
         });
     });
 
+    if (sessionData?.status === 'finalized') {
+         return addCorsHeaders(NextResponse.json({ success: true, points: sessionData.points, gems: sessionData.gems, status: sessionData.status, penaltyReasons: sessionData.penaltyReasons, message: "Session already finalized." }), req);
+    }
+    
     return addCorsHeaders(NextResponse.json({ 
         success: true, 
         status: finalStatus,
         points: points, 
         gems: gems,
-        penaltyReasons: sessionData.penaltyReasons || []
+        penaltyReasons: penaltyReasons
     }), req);
     
   } catch (err: any) {
-    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
+    let errorMessage = "SERVER_ERROR";
+    if (err.message === "INVALID_SESSION" || err.message === "INVALID_SESSION_DATA") {
+        errorMessage = err.message;
+    }
+    const response = NextResponse.json({ error: errorMessage, details: err.message }, { status: 500 });
     return addCorsHeaders(response, req);
   }
 }

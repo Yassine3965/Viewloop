@@ -57,7 +57,7 @@ interface AppContextState {
 const AppContext = createContext<AppContextState | undefined>(undefined);
 
 const getInitialAvatar = (name: string): string => {
-    const sanitizedName = encodeURIComponent(name);
+    const sanitizedName = encodeURIComponent(name.trim());
     return `https://source.boringavatars.com/beam/120/${sanitizedName}?colors=264653,2a9d8f,e9c46a,f4a261,e76f51`;
 };
 
@@ -372,6 +372,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { name, email, password, gender } = details;
     if (!auth || !db) return { success: false, message: "خدمات المصادقة غير متاحة."};
     
+    const trimmedName = name.trim();
+    
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const authUser = userCredential.user;
@@ -380,9 +382,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const locationData = await locationRes.json();
         
         const newUserProfile: Omit<UserProfile, 'id'> = {
-            name: name,
+            name: trimmedName,
             email: email,
-            avatar: getInitialAvatar(name),
+            avatar: getInitialAvatar(trimmedName),
             role: 'user',
             gender: gender,
             country: locationData.country || 'Unknown',
@@ -447,15 +449,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
             localStorage.setItem('userAuthToken', token);
         }
 
+        const trimmedName = authUser.displayName?.trim() || 'Anonymous User';
+
         if (!userSnap.exists()) {
             const locationRes = await fetch('/api/user-location');
             const locationData = await locationRes.json();
             
             const gender = 'male';
             const newUserProfile: Omit<UserProfile, 'id'> = {
-                name: authUser.displayName || 'Anonymous User',
+                name: trimmedName,
                 email: authUser.email!,
-                avatar: getInitialAvatar(authUser.displayName || 'A'),
+                avatar: getInitialAvatar(trimmedName),
                 role: 'user',
                 gender: gender,
                 country: locationData.country || 'Unknown',
@@ -481,6 +485,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
               });
         } else {
             const updateData = { lastLogin: serverTimestamp() };
+            // Also update name and avatar in case they changed in Google account
+            if (userSnap.data().name !== trimmedName) {
+                (updateData as any).name = trimmedName;
+            }
+            if (userSnap.data().avatar !== getInitialAvatar(trimmedName)) {
+                (updateData as any).avatar = getInitialAvatar(trimmedName);
+            }
+
             await updateDoc(userRef, updateData)
               .catch(async (serverError: FirestoreError) => {
                 const permissionError = new FirestorePermissionError({
