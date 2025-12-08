@@ -35,6 +35,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { PointsAwardedModal } from '@/components/points-awarded-modal';
 import { getYoutubeVideoId } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface AppContextState {
     user: (UserProfile & { getIdToken: () => Promise<string>, emailVerified: boolean }) | null;
@@ -45,6 +46,7 @@ interface AppContextState {
     addVideo: (video: Omit<Video, 'id' | 'submissionDate'>) => Promise<{ success: boolean, message: string }>;
     deleteVideo: (video: Video) => Promise<{ success: boolean, message: string }>;
     deleteCurrentUserAccount: (reason?: string) => Promise<{ success: boolean, message: string }>;
+    improveReputation: () => Promise<{ success: boolean, message: string }>;
     login: (email: string, password: string) => Promise<boolean>;
     registerAndSendCode: (details: any) => Promise<{ success: boolean; message: string; userId?: string }>;
     verifyRegistrationCodeAndCreateUser: (userId: string, code: string, details: any) => Promise<{ success: boolean; message: string }>;
@@ -62,6 +64,7 @@ const getInitialAvatar = (name: string): string => {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const { auth, db } = useFirebase();
+  const { toast } = useToast();
   const [user, setUser] = useState<AppContextState['user']>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
@@ -309,6 +312,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }, [auth, db, user]);
 
+    const improveReputation = useCallback(async (): Promise<{ success: boolean, message: string }> => {
+        if (!user) return { success: false, message: "يجب تسجيل الدخول أولاً."};
+
+        try {
+            const userAuthToken = await user.getIdToken();
+            const response = await fetch('/api/improve-reputation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userAuthToken }),
+            });
+
+            const result = await response.json();
+            
+            toast({
+                title: result.success ? "نجاح" : "فشل",
+                description: result.message,
+                variant: result.success ? "default" : "destructive",
+            });
+
+            return result;
+
+        } catch (error) {
+            const message = "حدث خطأ في الشبكة.";
+            toast({
+                title: "خطأ",
+                description: message,
+                variant: "destructive",
+            });
+            return { success: false, message };
+        }
+
+    }, [user, toast]);
+
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     if (!auth || !db) return false;
     try {
@@ -476,12 +512,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addVideo,
     deleteVideo,
     deleteCurrentUserAccount,
+    improveReputation,
     login,
     registerAndSendCode,
     verifyRegistrationCodeAndCreateUser,
     loginWithGoogle,
     logout,
-  }), [user, isUserLoading, videos, searchQuery, addVideo, deleteVideo, deleteCurrentUserAccount, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
+  }), [user, isUserLoading, videos, searchQuery, addVideo, deleteVideo, deleteCurrentUserAccount, improveReputation, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
 
   return (
     <AppContext.Provider value={contextValue}>

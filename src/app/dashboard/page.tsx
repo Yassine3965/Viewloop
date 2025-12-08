@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '@/lib/app-provider';
 import { useRouter } from 'next/navigation';
-import { Mail, Calendar, Clock, MapPin, Loader2, PlayCircle, PlusCircle, Star, Sparkles, Gem } from 'lucide-react';
+import { Mail, Calendar, Clock, MapPin, Loader2, PlayCircle, PlusCircle, Star, Sparkles, Gem, ArrowUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,18 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { DeleteAccountDialog } from '@/components/delete-account-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog";
+  
 
 const levelInfo = {
     1: { name: "أساسي", points: 0.05, gems: 0 },
@@ -34,9 +46,12 @@ const reputationInfo: { [key: number]: { text: string; stars: number } } = {
     5: { text: "قوية جداً", stars: 5 },
 };
 
-function ReputationDisplay({ reputation }: { reputation: number }) {
-    const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation || 4)));
+function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImprove: () => void, isImproving: boolean }) {
+    const reputation = user?.reputation ?? 4.5;
+    const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation)));
     const info = reputationInfo[roundedReputation];
+
+    const canImprove = reputation < 5 && user?.gems >= 50;
 
     return (
         <div className="flex flex-col items-center gap-2">
@@ -53,7 +68,35 @@ function ReputationDisplay({ reputation }: { reputation: number }) {
                     />
                 ))}
             </div>
-            <span className="text-sm font-semibold">{info.text}</span>
+            <div className='flex items-center gap-2'>
+                <span className="text-sm font-semibold">{info.text}</span>
+                <span className="text-xs font-mono text-muted-foreground">({reputation.toFixed(1)})</span>
+            </div>
+
+            {reputation < 5 && (
+                 <AlertDialog>
+                 <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" disabled={!canImprove || isImproving}>
+                        <ArrowUp className="ml-1 h-3 w-3" />
+                        تحسين
+                    </Button>
+                 </AlertDialogTrigger>
+                 <AlertDialogContent>
+                   <AlertDialogHeader>
+                     <AlertDialogTitle>تأكيد تحسين السمعة</AlertDialogTitle>
+                     <AlertDialogDescription>
+                       هل أنت متأكد أنك تريد إنفاق <span className="font-bold text-primary">50 جوهرة</span> لزيادة سمعتك بمقدار <span className="font-bold text-primary">0.5</span>؟
+                     </AlertDialogDescription>
+                   </AlertDialogHeader>
+                   <AlertDialogFooter>
+                     <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                     <AlertDialogAction onClick={onImprove} disabled={isImproving}>
+                        {isImproving ? <Loader2 className="h-4 w-4 animate-spin"/> : "تأكيد"}
+                     </AlertDialogAction>
+                   </AlertDialogFooter>
+                 </AlertDialogContent>
+               </AlertDialog>
+            )}
         </div>
     );
 }
@@ -90,8 +133,15 @@ function LevelDisplay({ currentLevel }: { currentLevel: number }) {
 }
 
 export default function DashboardPage() {
-  const { user, isUserLoading, logout } = useApp();
+  const { user, isUserLoading, logout, improveReputation } = useApp();
   const router = useRouter();
+  const [isImproving, setIsImproving] = useState(false);
+
+  const handleImproveReputation = async () => {
+    setIsImproving(true);
+    await improveReputation();
+    setIsImproving(false);
+  }
   
   useEffect(() => {
     if (isUserLoading) return;
@@ -155,7 +205,7 @@ export default function DashboardPage() {
                     {/* Reputation */}
                     <div className="flex flex-col items-center gap-2">
                         <span className="text-sm font-bold text-muted-foreground">السمعة</span>
-                        <ReputationDisplay reputation={user.reputation} />
+                        <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
                     </div>
                 </div>
             </CardContent>
