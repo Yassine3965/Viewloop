@@ -65,50 +65,28 @@ export async function POST(req: Request) {
     let decoded: admin.auth.DecodedIdToken;
     try {
       decoded = await auth.verifyIdToken(userAuthToken);
-      console.log("✅ تم التحقق من التوكن بنجاح:", {
-        userId: decoded.uid,
-        email: decoded.email,
-        tokenIssuedAt: new Date(decoded.iat * 1000),
-        tokenExpiresAt: new Date(decoded.exp * 1000),
-        now: new Date()
-      });
     } catch (err: any) {
-        if (err.code === 'auth/id-token-expired') {
-            console.warn("⚠️ Token is expired, but proceeding. This is expected behavior.");
-            const payloadBase64 = userAuthToken.split('.')[1];
-            const decodedPayload = Buffer.from(payloadBase64, 'base64').toString('utf-8');
-            decoded = JSON.parse(decodedPayload);
-        } else {
-            console.error("❌ فشل التحقق من التوكن:", {
-                errorCode: err.code,
-                errorMessage: err.message,
-                tokenLength: userAuthToken?.length,
-                tokenPrefix: userAuthToken?.substring(0, 20) + "...",
-                currentTime: new Date().toISOString()
-            });
-            
-            let errorType = "INVALID_USER_TOKEN";
-            let message = "رمز المستخدم غير صالح";
-            
-            if (err.code === 'auth/argument-error') {
-                errorType = "INVALID_TOKEN_FORMAT";
-                message = "تنسيق رمز المستخدم غير صالح";
-            } else if (err.code === 'auth/id-token-expired') {
-                errorType = "TOKEN_EXPIRED";
-                message = "انتهت صلاحية رمز المستخدم، يرجى إعادة تسجيل الدخول";
-            }
-            
-            const response = NextResponse.json({ 
-                error: errorType, 
-                message,
-                details: err.code 
-            }, { status: 401 });
-            return addCorsHeaders(response, req);
+        let errorType = "INVALID_USER_TOKEN";
+        let message = "رمز المستخدم غير صالح";
+        
+        if (err.code === 'auth/argument-error') {
+            errorType = "INVALID_TOKEN_FORMAT";
+            message = "تنسيق رمز المستخدم غير صالح";
+        } else if (err.code === 'auth/id-token-expired') {
+            errorType = "TOKEN_EXPIRED";
+            message = "انتهت صلاحية رمز المستخدم، يرجى إعادة تسجيل الدخول";
         }
+        
+        const response = NextResponse.json({ 
+            error: errorType, 
+            message,
+            details: err.code 
+        }, { status: 401 });
+        return addCorsHeaders(response, req);
     }
 
 
-    const userId = decoded.uid || decoded.user_id;
+    const userId = decoded.uid;
     if (!userId) {
         console.error("CRITICAL: Could not extract userId from token.", { decoded });
         return addCorsHeaders(NextResponse.json({ 
