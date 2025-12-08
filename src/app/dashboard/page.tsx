@@ -203,7 +203,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Reputation */}
-                    <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-muted/50">
+                    <div className="flex flex-col items-center gap-2">
                         <span className="text-sm font-bold text-muted-foreground">السمعة</span>
                         <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
                     </div>
