@@ -1,3 +1,4 @@
+
 // /app/api/start-session/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
@@ -91,6 +92,9 @@ export async function POST(req: Request) {
             if (err.code === 'auth/argument-error') {
                 errorType = "INVALID_TOKEN_FORMAT";
                 message = "تنسيق رمز المستخدم غير صالح";
+            } else if (err.code === 'auth/id-token-expired') {
+                errorType = "TOKEN_EXPIRED";
+                message = "انتهت صلاحية رمز المستخدم، يرجى إعادة تسجيل الدخول";
             }
             
             const response = NextResponse.json({ 
