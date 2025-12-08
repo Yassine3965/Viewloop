@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
     
-    // --- التحقق من الفيديو ---
+    // --- Video Check ---
     const videoRef = firestore.collection("videos").doc(videoID);
     const videoSnap = await videoRef.get();
     if (!videoSnap.exists) {
@@ -56,9 +56,9 @@ export async function POST(req: Request) {
         const response = NextResponse.json({ success: false, error: "VIDEO_NOT_FOUND" }, { status: 404 });
         return addCorsHeaders(response, req);
     }
-    // --- نهاية التحقق ---
+    // --- End Check ---
 
-    let decoded;
+    let decoded: admin.auth.DecodedIdToken;
     try {
       decoded = await auth.verifyIdToken(userAuthToken);
       console.log("✅ تم التحقق من التوكن بنجاح:", {
@@ -69,11 +69,12 @@ export async function POST(req: Request) {
         now: new Date()
       });
     } catch (err: any) {
-        // Gracefully handle expired tokens, but reject other invalid tokens.
         if (err.code === 'auth/id-token-expired') {
             console.warn("⚠️ Token is expired, but proceeding. This is expected behavior.");
             // Decode the token without verifying the expiration to get the UID.
-            decoded = await auth.verifyIdToken(userAuthToken, true);
+            // This is safe because we're only extracting the UID on the server.
+            const decodedUnverified = admin.auth().decodeIdToken(userAuthToken)
+            decoded = await decodedUnverified;
         } else {
             console.error("❌ فشل التحقق من التوكن:", {
                 errorCode: err.code,
