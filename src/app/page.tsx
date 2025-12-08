@@ -24,14 +24,6 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (isUserLoading) return; // Wait until user status is confirmed
-
-    if (user) {
-      router.push('/dashboard');
-    }
-  }, [user, isUserLoading, router]);
-
-  useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 300) {
         setShowScrollTop(true);
@@ -51,12 +43,21 @@ export default function HomePage() {
     }
   };
 
-  if (isUserLoading || user) {
+  if (isUserLoading) {
     return (
       <main className="flex h-[80vh] items-center justify-center">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </main>
     );
+  }
+
+  if (user) {
+    router.push('/dashboard');
+    return (
+        <main className="flex h-[80vh] items-center justify-center">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </main>
+      );
   }
 
   return (
