@@ -68,13 +68,33 @@ export async function POST(req: Request) {
 
     const userId = decoded.uid;
     const now = Date.now();
+
+    // Prevent re-watching completed videos
+    const watchHistoryQuery = await firestore.collection("watchHistory")
+        .where('userId', '==', userId)
+        .where('videoId', '==', videoID)
+        .limit(1)
+        .get();
+
+    if (!watchHistoryQuery.empty) {
+        const response = NextResponse.json({ 
+            success: false, 
+            error: "VIDEO_ALREADY_WATCHED",
+            message: "You have already watched this video and received points for it."
+        }, { status: 409 });
+        return addCorsHeaders(response, req);
+    }
     
+    // Invalidate any other existing sessions for this user
     const sessionsRef = firestore.collection("sessions");
-    const activeSessionQuery = await sessionsRef.where('userId', '==', userId).where('status', '==', 'active').limit(1).get();
+    const activeSessionQuery = await sessionsRef.where('userId', '==', userId).where('status', '==', 'active').get();
 
     if (!activeSessionQuery.empty) {
-        const oldSessionDoc = activeSessionQuery.docs[0];
-        await oldSessionDoc.ref.update({ status: 'expired', completedAt: now });
+        const batch = firestore.batch();
+        activeSessionQuery.docs.forEach(doc => {
+            batch.update(doc.ref, { status: 'expired', completedAt: now });
+        });
+        await batch.commit();
     }
     
     const sessionToken = uuidv4();
