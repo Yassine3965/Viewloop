@@ -184,7 +184,7 @@ export default function DashboardPage() {
         
         <Card className="overflow-hidden shadow-lg">
             <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
+                <div className="flex flex-col items-center gap-6">
                     {/* User Info */}
                     <div className="flex flex-col items-center text-center gap-4">
                         <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Reputation & Level */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md">
                         <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-muted/50">
                             <span className="text-sm font-bold text-muted-foreground">السمعة</span>
                             <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
