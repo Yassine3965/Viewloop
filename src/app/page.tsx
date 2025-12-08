@@ -1,14 +1,40 @@
 
+'use client';
+
 import { Button } from '@/components/ui/button';
-import { ArrowRight, PlayCircle, Eye, Star, TrendingUp, ArrowDown } from 'lucide-react';
+import { ArrowRight, PlayCircle, Eye, Star, TrendingUp, ArrowDown, ArrowUp } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
 export default function HomePage() {
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    const heroSection = document.getElementById('hero');
+    if (heroSection) {
+        heroSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <main className="flex-1">
       {/* Hero Section */}
-      <section className="w-full py-20 md:py-32 lg:py-40 bg-card/50">
+      <section id="hero" className="w-full py-20 md:py-32 lg:py-40 bg-card/50 scroll-mt-16">
         <div className="container px-4 md:px-6">
           <div className="flex flex-col justify-center space-y-6 text-center">
               <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
@@ -32,7 +58,7 @@ export default function HomePage() {
                 </Button>
               </div>
               <div className="flex justify-center pt-12 animate-bounce">
-                <Link href="#features" className="scroll-smooth">
+                <Link href="#features" scroll={true} className="scroll-smooth">
                     <ArrowDown className="h-8 w-8 text-muted-foreground cursor-pointer" />
                 </Link>
               </div>
@@ -41,7 +67,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
+      <section id="features" className="w-full py-12 md:py-24 lg:py-32 bg-muted/20 scroll-mt-16">
         <div className="container px-4 md:px-6">
           <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">Viewloop مصمم لزيادة أرباح منشئي المحتوى</h2>
@@ -80,6 +106,20 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Scroll to top button */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={scrollToTop}
+        className={cn(
+          "fixed bottom-8 left-8 z-50 h-12 w-12 rounded-full transition-opacity duration-300",
+          showScrollTop ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        aria-label="العودة إلى الأعلى"
+      >
+        <ArrowUp className="h-6 w-6" />
+      </Button>
     </main>
   );
 }
