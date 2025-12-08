@@ -51,6 +51,9 @@ export default function HomePage() {
     );
   }
 
+  // This is the logic that was redirecting logged-in users.
+  // It has been removed.
+  /*
   if (user) {
     router.push('/dashboard');
     return (
@@ -59,6 +62,7 @@ export default function HomePage() {
         </main>
       );
   }
+  */
 
   return (
     <main className="flex-1">
@@ -79,8 +83,8 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col gap-4 sm:flex-row justify-center">
               <Button asChild size="lg">
-                <Link href="/register">
-                  ابدأ الآن مجانًا
+                <Link href={user ? "/dashboard" : "/register"}>
+                  ابدأ الآن
                   <ArrowRight className="mr-2 h-5 w-5" />
                 </Link>
               </Button>
