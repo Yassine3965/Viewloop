@@ -11,7 +11,7 @@ const POINT_MULTIPLIERS: { [key: number]: number } = {
     1: 0.05, 2: 0.1, 3: 0.2, 4: 0.3, 5: 0.5
 };
 const GEM_RATE_PER_SECOND = 0.01;
-const AD_BONUS_RATE_PER_SECOND = 1.0; // 1 point per second of ad time
+const AD_BONUS_RATE_PER_SECOND = 0.5; // 0.5 points per second of ad time
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
