@@ -104,7 +104,7 @@ function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImpr
 function LevelDisplay({ currentLevel }: { currentLevel: number }) {
     const level = currentLevel || 1;
     return (
-        <div className="flex items-center justify-center gap-2 md:gap-4 p-2 rounded-lg bg-muted/50">
+        <div className="flex items-center justify-center gap-2 md:gap-4 p-2 rounded-lg">
             {Object.entries(levelInfo).map(([levelKey, info]) => (
                 <TooltipProvider key={levelKey}>
                     <Tooltip>
