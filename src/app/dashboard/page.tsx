@@ -35,7 +35,7 @@ const reputationInfo: { [key: number]: { text: string; stars: number } } = {
 };
 
 function ReputationDisplay({ reputation }: { reputation: number }) {
-    const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation || 4.5)));
+    const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation || 4)));
     const info = reputationInfo[roundedReputation];
 
     return (
