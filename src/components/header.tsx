@@ -54,10 +54,6 @@ function UserSection() {
   
   return (
     <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
-            <span className="font-semibold">{user.points ?? 0}</span>
-        </div>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <div className="flex items-center gap-2 cursor-pointer">
@@ -100,6 +96,10 @@ function UserSection() {
                 </DeleteAccountDialog>
             </DropdownMenuContent>
         </DropdownMenu>
+        <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+            <span className="font-semibold">{user.points ?? 0}</span>
+        </div>
     </div>
   );
 }
@@ -121,9 +121,23 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container flex h-16 items-center">
         <div className="flex flex-1 items-center justify-start">
-            <nav>
-                <UserSection />
-            </nav>
+            <Link href="/" className="flex items-center gap-2">
+                <Logo />
+            </Link>
+            <div className='mr-6'>
+                {mounted ? (
+                    <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                    aria-label="تبديل السمة"
+                    >
+                    <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    <span className="sr-only">تبديل السمة</span>
+                    </Button>
+                    ) : <Skeleton className="h-8 w-8" />}
+            </div>
         </div>
 
         {isWatchPage && (
@@ -142,22 +156,9 @@ export function Header() {
         )}
 
         <div className="flex items-center justify-end gap-4" dir="ltr">
-            {mounted ? (
-                <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                aria-label="تبديل السمة"
-                >
-                <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">تبديل السمة</span>
-                </Button>
-                ) : <Skeleton className="h-8 w-8" />}
-            
-            <Link href="/" className="flex items-center gap-2">
-                <Logo />
-            </Link>
+            <nav>
+                <UserSection />
+            </nav>
         </div>
       </div>
     </header>
