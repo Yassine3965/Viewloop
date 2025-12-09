@@ -7,9 +7,6 @@ import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
 
-const MAX_WATCHES_PER_VIDEO_CYCLE = 5;
-const WATCH_CYCLE_HOURS = 24;
-
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
 }
@@ -102,42 +99,20 @@ export async function POST(req: Request) {
 
     const now = Date.now();
 
-    // --- Per-Video Watch Limit Logic ---
+    // --- Prevent re-watching the same video ---
     const watchHistoryQuery = firestore.collection("watchHistory")
         .where('userId', '==', userId)
         .where('videoId', '==', videoID);
-
     const historySnap = await watchHistoryQuery.get();
-    const watchCount = historySnap.size;
-
-    if (watchCount >= MAX_WATCHES_PER_VIDEO_CYCLE) {
-      const sortedHistory = historySnap.docs
-          .map(doc => doc.data())
-          .sort((a, b) => {
-              const timeA = a.completedAt || 0;
-              const timeB = b.completedAt || 0;
-              return timeB - timeA;
-          });
-          
-      const lastWatchedTime = sortedHistory[0]?.completedAt;
-
-      if (lastWatchedTime) {
-          const hoursSinceLastWatch = (now - lastWatchedTime) / (1000 * 60 * 60);
-
-          if (hoursSinceLastWatch < WATCH_CYCLE_HOURS) {
-              const hoursRemaining = Math.ceil(WATCH_CYCLE_HOURS - hoursSinceLastWatch);
-              const response = NextResponse.json({
-                  success: false,
-                  error: "WATCH_LIMIT_REACHED",
-                  message: `لقد وصلت إلى الحد الأقصى للمشاهدات لهذا الفيديو. يرجى المحاولة مرة أخرى بعد ${hoursRemaining} ساعة.`,
-                  retryAfterHours: hoursRemaining,
-              }, { status: 429 });
-              return addCorsHeaders(response, req);
-          }
-      }
+    if (!historySnap.empty) {
+      const response = NextResponse.json({
+          success: false,
+          error: "VIDEO_ALREADY_WATCHED",
+          message: "لقد شاهدت هذا الفيديو بالفعل. لا يمكنك مشاهدته مرة أخرى.",
+      }, { status: 409 }); // 409 Conflict
+      return addCorsHeaders(response, req);
     }
-    // --- End Per-Video Logic ---
-
+    // --- End re-watch check ---
 
     // Server-side debounce to prevent race conditions from duplicate requests
     const recentSessionQuery = await firestore.collection("sessions")
