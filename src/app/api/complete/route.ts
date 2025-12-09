@@ -76,21 +76,24 @@ export async function POST(req: Request) {
           throw new Error("INVALID_SESSION_DATA");
         }
 
+        // If already finalized, just return existing data and exit.
         if (sessionData.status === 'finalized') {
-            // If already finalized, just return existing data and exit.
             points = sessionData.points || 0;
             gems = sessionData.gems || 0;
-            finalStatus = sessionData.status;
+            finalStatus = sessionData.status; // a bit redundant but safe
             penaltyReasons = sessionData.penaltyReasons || [];
             return; // Exit transaction early, no writes needed.
         }
         
+        // This is the core logic change.
+        // We now process the session regardless of its status ('active', 'completed', 'expired').
+        // The final state is determined here.
         finalStatus = sessionData.status;
         penaltyReasons = sessionData.penaltyReasons || [];
         
         const now = Date.now();
 
-        // Check for expired status set by heartbeat logic
+        // Check for expired status set by heartbeat logic or other server processes
         if (sessionData.status === 'expired') {
             finalStatus = 'suspicious';
             if (!penaltyReasons.includes('inactive_too_long')) {
@@ -110,27 +113,26 @@ export async function POST(req: Request) {
         const pointMultiplier = POINT_MULTIPLIERS[currentLevel] || POINT_MULTIPLIERS[1];
         
         // --- POINTS CALCULATION ---
-        // totalWatchedSeconds is the source of truth for time spent.
         const totalWatched = sessionData.totalWatchedSeconds || 0;
-        
-        // No distinction between base and bonus time anymore, just reward for time spent.
         points = totalWatched * pointMultiplier;
 
         // --- GEMS CALCULATION ---
         const baseGems = totalWatched * GEM_RATE_PER_SECOND;
-        const adGems = (sessionData.adHeartbeats || 0) * 1; // 1 gem per ad heartbeat
+        // 1 gem per ad heartbeat (assuming 1 heartbeat = 1 ad segment)
+        const adGems = (sessionData.adHeartbeats || 0) * 1; 
         gems = baseGems + adGems;
 
         // --- REPUTATION & PENALTIES ---
+        // Apply penalties ONLY if the session was flagged as suspicious
         if (finalStatus === 'suspicious') {
-          // Only apply penalty if the session was flagged as suspicious
           points *= 0.1; // 90% penalty
-          gems *= 0.1;
-          reputationChange = -0.5;
+          gems *= 0.1;   // 90% penalty
+          reputationChange = -0.5; // Significant reputation hit
         } else {
-          // Otherwise, it's a good session, even if incomplete.
-          reputationChange = 0.1; // Reward for good behavior
-          finalStatus = 'completed'; // Mark as completed for our records
+          // It's a good session, reward good behavior
+          reputationChange = 0.1; 
+          // If it was just 'active', we now consider it 'completed' for our records.
+          finalStatus = 'completed'; 
         }
         
         points = Math.round(points * 100) / 100;
@@ -138,7 +140,7 @@ export async function POST(req: Request) {
 
         const newReputation = Math.max(0, Math.min(5, (userData.reputation || 4.5) + reputationChange));
         
-        // Only update user if there are points or gems to add
+        // Update user's points, gems, and reputation
         if (points > 0 || gems > 0) {
             transaction.update(userRef, {
                 points: admin.firestore.FieldValue.increment(points),
@@ -148,16 +150,16 @@ export async function POST(req: Request) {
             });
         }
         
-        // Always finalize the session to prevent re-processing
+        // Always finalize the session to prevent re-processing. This is critical.
         transaction.update(sessionRef, {
-            status: "finalized", // A new terminal state
+            status: "finalized", // A new terminal state that indicates processing is done.
             points: points,
             gems: gems,
             completedAt: now,
             penaltyReasons: penaltyReasons,
         });
 
-        // Log the activity to watchHistory
+        // Log the activity to watchHistory for analytics
         transaction.set(firestore.collection("watchHistory").doc(), {
             userId: sessionData.userId,
             videoId: sessionData.videoID,
@@ -176,9 +178,9 @@ export async function POST(req: Request) {
         });
     });
 
-    // Handle case where session was already finalized
+    // This handles the case where the transaction was for an already finalized session.
     if (sessionData?.status === 'finalized') {
-         return addCorsHeaders(NextResponse.json({ success: true, points: sessionData.points, gems: sessionData.gems, status: sessionData.status, penaltyReasons: sessionData.penaltyReasons, message: "Session already finalized." }), req);
+         return addCorsHeaders(NextResponse.json({ success: true, points: sessionData.points, gems: sessionData.gems, status: "finalized", penaltyReasons: sessionData.penaltyReasons, message: "Session was already finalized." }), req);
     }
     
     return addCorsHeaders(NextResponse.json({ 
