@@ -47,10 +47,14 @@ export function WatchSession() {
 
 
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const watchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
 
   const cleanup = useCallback(() => {
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
     heartbeatIntervalRef.current = null;
+    if (watchTimerRef.current) clearInterval(watchTimerRef.current);
+    watchTimerRef.current = null;
   }, []);
 
   const completeSession = useCallback(async (token: string | null) => {
@@ -91,16 +95,63 @@ export function WatchSession() {
   // which is driven by the extension's heartbeats.
   useEffect(() => {
     if (sessionState === 'watching' && currentVideo) {
-      const newProgress = (totalWatchedSeconds / currentVideo.duration) * 100;
-      setProgress(Math.min(newProgress, 100));
+      if (totalWatchedSeconds >= currentVideo.duration) {
+        setProgress(100);
+        if (sessionToken) {
+          completeSession(sessionToken);
+        }
+      } else {
+        const newProgress = (totalWatchedSeconds / currentVideo.duration) * 100;
+        setProgress(Math.min(newProgress, 100));
+      }
     }
   }, [totalWatchedSeconds, currentVideo, sessionState, sessionToken, completeSession]);
 
-  // Heartbeat loop from the frontend is now disabled to prevent conflicts.
-  // The extension is the sole source of heartbeats.
+  // Re-enabled heartbeat from client
   useEffect(() => {
-    // Intentionally left blank.
-  }, [sessionState, sessionToken]);
+    if (sessionState === 'watching' && sessionToken) {
+      cleanup(); // Ensure no old intervals are running
+
+      // This timer increments the local watch time
+      watchTimerRef.current = setInterval(() => {
+        setTotalWatchedSeconds(prev => prev + 1);
+      }, 1000);
+
+      const sendHeartbeat = async () => {
+        if (document.hidden) return; // Don't send heartbeats if tab is not visible
+        
+        try {
+            console.log('Sending heartbeat for token:', sessionToken, 'with time:', totalWatchedSeconds);
+            const res = await fetch('/api/heartbeat-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionToken: sessionToken,
+                    currentTime: totalWatchedSeconds, // Send current client time
+                    mouseMoved: true, // Assume activity from web page
+                    tabIsActive: !document.hidden,
+                    adIsPresent: false, // Cannot detect from web page
+                }),
+            });
+            const data = await res.json();
+            console.log('Heartbeat response:', data);
+            if(data.status === 'completed' || data.status === 'expired' || data.status === 'suspicious') {
+                completeSession(sessionToken);
+            }
+        } catch (error) {
+            console.error('Heartbeat failed:', error);
+        }
+      };
+
+      sendHeartbeat();
+      heartbeatIntervalRef.current = setInterval(sendHeartbeat, 15000);
+
+    } else {
+      cleanup();
+    }
+
+    return cleanup;
+  }, [sessionState, sessionToken, totalWatchedSeconds, cleanup, completeSession]);
 
   // Start session
   useEffect(() => {
