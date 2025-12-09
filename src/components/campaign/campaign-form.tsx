@@ -221,12 +221,11 @@ export default function CampaignForm() {
              الحد الأدنى لمدة المشاهدة هو 30 ثانية.
             </p>
           </div>
-
-          <CardFooter className="flex-col items-stretch gap-4 p-0 pt-4 border-t">
-            <SubmitButton onCalculate={handleCalculateAndConfirm} disabled={isSubmitting} />
-          </CardFooter>
         </form>
       </CardContent>
+      <CardFooter className="flex-col items-stretch gap-4 p-6 pt-4">
+        <SubmitButton onCalculate={handleCalculateAndConfirm} disabled={isSubmitting} />
+      </CardFooter>
     </Card>
 
     <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>

@@ -179,20 +179,20 @@ export default function DashboardPage() {
 
   return (
     <>
-    <main className="flex-1 bg-muted/20 p-8">
+    <main className="flex-1 bg-muted/20 p-4 md:p-8">
       <div className="container mx-auto max-w-6xl space-y-8">
         
         <Card className="overflow-hidden shadow-lg">
             <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     {/* User Info & Levels */}
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-center gap-6">
+                        <div className="flex flex-col sm:flex-row items-center gap-4">
                             <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                                 <AvatarImage src={user.avatar} alt={user.name} />
                                 <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1 items-center sm:items-start">
                                 <h1 className="text-2xl font-bold">{user.name}</h1>
                                 <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit'>
                                     {user.role === 'admin' ? "مسؤول" : "مستخدم"}
@@ -203,17 +203,17 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Reputation */}
-                    <div className="flex flex-col items-center gap-2">
+                    <div className="flex flex-col items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 md:border-r border-dashed w-full md:w-auto md:pr-6">
                         <span className="text-sm font-bold text-muted-foreground">السمعة</span>
                         <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
                     </div>
                 </div>
             </CardContent>
             <CardFooter className='bg-muted/30 p-4 border-t'>
-                <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span>{user.email}</span>
+                        <span className='truncate'>{user.email}</span>
                     </div>
                      <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />

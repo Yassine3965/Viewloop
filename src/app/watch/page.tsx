@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 
 function VideoCard({ video, user, onDelete }: { video: Video, user: UserProfile | null, onDelete: (video: Video) => void }) {
   const isOwner = user && user.id === video.submitterId;
+  const thumbnailUrl = getYoutubeThumbnailUrl(video.url);
 
   const handleWatchClick = () => {
     // URL for the session tracking page
@@ -39,55 +40,61 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: UserProfile 
 
 
   return (
-    <div className="col-span-12 md:col-span-6 lg:col-span-4 xl:col-span-3 group">
-      <Card className="h-full flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 bg-card overflow-hidden">
-        <div 
-          onClick={handleWatchClick}
-          className="relative h-40 2xl:h-56 bg-muted hover:bg-muted/80 flex items-center justify-center cursor-pointer"
-        >
-          <div className="absolute inset-0 flex items-center justify-center">
+    <Card className="h-full flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 bg-card overflow-hidden group">
+      <div 
+        onClick={handleWatchClick}
+        className="relative aspect-video bg-muted hover:bg-muted/80 flex items-center justify-center cursor-pointer"
+      >
+        {thumbnailUrl && (
+            <Image
+                src={thumbnailUrl}
+                alt={video.title}
+                fill
+                className="object-cover"
+            />
+        )}
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
-              className="w-16 h-16 bg-primary/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform hover:scale-110 focus:opacity-100 focus:scale-110"
+              className="w-16 h-16 bg-primary/80 rounded-full flex items-center justify-center text-white"
               aria-label={`Play video: ${video.title}`}
             >
               <Play className="w-8 h-8 fill-white" />
             </Button>
-          </div>
-          {isOwner && (
-             <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-80 hover:opacity-100">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                        <AlertDialogDescription>
-                        سيؤدي هذا إلى حذف حملتك بشكل دائم. لا يمكن التراجع عن هذا الإجراء.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(video)}>
-                        حذف
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-          )}
         </div>
-        <CardContent className="p-4 flex-grow flex flex-col justify-center">
-          <button
-            onClick={handleWatchClick}
-            className="block font-semibold text-base truncate hover:underline text-card-foreground text-right w-full"
-            title={video.title}
-          >
-            {video.title}
-          </button>
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+      <CardContent className="p-4 flex-grow flex flex-col justify-center">
+        <button
+          onClick={handleWatchClick}
+          className="block font-semibold text-base truncate hover:underline text-card-foreground text-right w-full"
+          title={video.title}
+        >
+          {video.title}
+        </button>
+      </CardContent>
+      {isOwner && (
+         <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-80 hover:opacity-100 z-10">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    سيؤدي هذا إلى حذف حملتك بشكل دائم. لا يمكن التراجع عن هذا الإجراء.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(video)}>
+                    حذف
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </Card>
   );
 }
 
@@ -159,7 +166,7 @@ export default function WatchPage() {
       {videos && videos.length > 0 ? (
         <>
         {filteredVideos.length > 0 ? (
-            <div className="grid grid-cols-12 gap-6" dir="ltr">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {filteredVideos.map(video => (
                     <VideoCard key={video.id} video={video} user={user} onDelete={handleDelete} />
                 ))}
