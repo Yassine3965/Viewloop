@@ -28,10 +28,13 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
+  // Signature verification is disabled for this endpoint to allow client-side closing
+  /*
   if (!verifySignature(req, body)) {
       const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
       return addCorsHeaders(response, req);
   }
+  */
 
   try {
     const adminApp = initializeFirebaseAdmin();
@@ -74,11 +77,12 @@ export async function POST(req: Request) {
         }
 
         if (sessionData.status === 'finalized') {
+            // If already finalized, just return existing data and exit.
             points = sessionData.points || 0;
             gems = sessionData.gems || 0;
             finalStatus = sessionData.status;
             penaltyReasons = sessionData.penaltyReasons || [];
-            return; // Exit transaction early
+            return; // Exit transaction early, no writes needed.
         }
         
         finalStatus = sessionData.status;
@@ -86,7 +90,8 @@ export async function POST(req: Request) {
         
         const now = Date.now();
 
-        if (sessionData.status === 'expired' || (sessionData.penaltyReasons && sessionData.penaltyReasons.includes('inactive_too_long'))) {
+        // Check for expired status set by heartbeat logic
+        if (sessionData.status === 'expired') {
             finalStatus = 'suspicious';
             if (!penaltyReasons.includes('inactive_too_long')) {
                 penaltyReasons.push('inactive_too_long');
@@ -105,32 +110,27 @@ export async function POST(req: Request) {
         const pointMultiplier = POINT_MULTIPLIERS[currentLevel] || POINT_MULTIPLIERS[1];
         
         // --- POINTS CALCULATION ---
-        const videoDuration = sessionData.videoDuration || 0;
-        let totalWatched = Math.min(sessionData.totalWatchedSeconds || 0, videoDuration + 60*5); // Cap extra time
+        // totalWatchedSeconds is the source of truth for time spent.
+        const totalWatched = sessionData.totalWatchedSeconds || 0;
         
-        // 1. Base points for watching the video content
-        const baseWatchedSeconds = Math.min(totalWatched, videoDuration);
-        const basePoints = baseWatchedSeconds * pointMultiplier;
-
-        // 2. "Extra time" points for watching ads
-        const bonusSeconds = Math.max(0, totalWatched - videoDuration);
-        const bonusPoints = bonusSeconds * AD_BONUS_RATE_PER_SECOND; 
-        
-        points = (basePoints + bonusPoints);
+        // No distinction between base and bonus time anymore, just reward for time spent.
+        points = totalWatched * pointMultiplier;
 
         // --- GEMS CALCULATION ---
-        const baseGems = baseWatchedSeconds * GEM_RATE_PER_SECOND;
+        const baseGems = totalWatched * GEM_RATE_PER_SECOND;
         const adGems = (sessionData.adHeartbeats || 0) * 1; // 1 gem per ad heartbeat
         gems = baseGems + adGems;
 
         // --- REPUTATION & PENALTIES ---
         if (finalStatus === 'suspicious') {
-          points *= 0.1; // 90% penalty for suspicious sessions
+          // Only apply penalty if the session was flagged as suspicious
+          points *= 0.1; // 90% penalty
           gems *= 0.1;
           reputationChange = -0.5;
         } else {
+          // Otherwise, it's a good session, even if incomplete.
           reputationChange = 0.1; // Reward for good behavior
-          finalStatus = 'completed'; // Ensure final status is correct
+          finalStatus = 'completed'; // Mark as completed for our records
         }
         
         points = Math.round(points * 100) / 100;
@@ -138,13 +138,17 @@ export async function POST(req: Request) {
 
         const newReputation = Math.max(0, Math.min(5, (userData.reputation || 4.5) + reputationChange));
         
-        transaction.update(userRef, {
-            points: admin.firestore.FieldValue.increment(points),
-            gems: admin.firestore.FieldValue.increment(gems),
-            reputation: newReputation,
-            lastUpdated: now
-        });
+        // Only update user if there are points or gems to add
+        if (points > 0 || gems > 0) {
+            transaction.update(userRef, {
+                points: admin.firestore.FieldValue.increment(points),
+                gems: admin.firestore.FieldValue.increment(gems),
+                reputation: newReputation,
+                lastUpdated: now
+            });
+        }
         
+        // Always finalize the session to prevent re-processing
         transaction.update(sessionRef, {
             status: "finalized", // A new terminal state
             points: points,
@@ -153,24 +157,26 @@ export async function POST(req: Request) {
             penaltyReasons: penaltyReasons,
         });
 
+        // Log the activity to watchHistory
         transaction.set(firestore.collection("watchHistory").doc(), {
             userId: sessionData.userId,
             videoId: sessionData.videoID,
             totalWatchedSeconds: sessionData.totalWatchedSeconds,
-            adWatched: sessionData.adWatched || false, // keep for compatibility
+            adWatched: sessionData.adWatched || false,
             pointsEarned: points,
             gemsEarned: gems,
             completedAt: now,
             sessionToken,
             behavioralData: {
-              inactiveHeartbeats: sessionData.inactiveHeartbeats,
-              noMouseMovementHeartbeats: sessionData.noMouseMovementHeartbeats,
-              adHeartbeats: sessionData.adHeartbeats,
+              inactiveHeartbeats: sessionData.inactiveHeartbeats || 0,
+              noMouseMovementHeartbeats: sessionData.noMouseMovementHeartbeats || 0,
+              adHeartbeats: sessionData.adHeartbeats || 0,
               penaltyApplied: finalStatus === 'suspicious'
             }
         });
     });
 
+    // Handle case where session was already finalized
     if (sessionData?.status === 'finalized') {
          return addCorsHeaders(NextResponse.json({ success: true, points: sessionData.points, gems: sessionData.gems, status: sessionData.status, penaltyReasons: sessionData.penaltyReasons, message: "Session already finalized." }), req);
     }
