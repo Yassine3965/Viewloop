@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useApp } from '@/lib/app-provider';
 import { useRouter } from 'next/navigation';
-import { Mail, Calendar, Clock, MapPin, Loader2, PlayCircle, PlusCircle, Star, Sparkles, Gem, ArrowUp } from 'lucide-react';
+import { Mail, Calendar, Clock, MapPin, Loader2, PlayCircle, PlusCircle, Star, Sparkles, Gem, ArrowUp, Waves, HeartPulse, Zap, Flame } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -30,12 +29,12 @@ import {
   } from "@/components/ui/alert-dialog";
   
 
-const levelInfo = {
-    1: { name: "أساسي", points: 0.05, gems: 0 },
-    2: { name: "المستوى 2", points: 0.1, gems: 100 },
-    3: { name: "المستوى 3", points: 0.2, gems: 200 },
-    4: { name: "المستوى 4", points: 0.3, gems: 300 },
-    5: { name: "المستوى 5", points: 0.5, gems: 400 },
+const levelInfo: { [key: number]: { name: string; points: number; gems: number; icon: React.ElementType; color: string; bgColor: string; } } = {
+    1: { name: "أساسي", points: 0.05, gems: 0, icon: Sparkles, color: "text-slate-500", bgColor: "bg-slate-500/10" },
+    2: { name: "Bronze Wave", points: 0.1, gems: 100, icon: Waves, color: "text-amber-600", bgColor: "bg-amber-600/10" },
+    3: { name: "Silver Pulse", points: 0.2, gems: 200, icon: HeartPulse, color: "text-slate-400", bgColor: "bg-slate-400/10" },
+    4: { name: "Golden Storm", points: 0.3, gems: 300, icon: Zap, color: "text-yellow-500", bgColor: "bg-yellow-500/10" },
+    5: { name: "Titan Flame", points: 0.5, gems: 400, icon: Flame, color: "text-red-500", bgColor: "bg-red-500/10" },
 };
 
 const reputationInfo: { [key: number]: { text: string; stars: number } } = {
@@ -105,29 +104,34 @@ function LevelDisplay({ currentLevel }: { currentLevel: number }) {
     const level = currentLevel || 1;
     return (
         <div className="flex items-center justify-center gap-2 md:gap-4 p-2 rounded-lg">
-            {Object.entries(levelInfo).map(([levelKey, info]) => (
-                <TooltipProvider key={levelKey}>
-                    <Tooltip>
-                        <TooltipTrigger>
-                            <div
-                                className={cn(
-                                    "flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all",
-                                    Number(levelKey) === level
-                                        ? "bg-primary/20 text-primary scale-110"
-                                        : "opacity-60"
-                                )}
-                            >
-                                <Sparkles className="h-6 w-6" />
-                                <span className="text-xs font-bold">{info.name}</span>
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{info.points} نقطة/ثانية</p>
-                            {Number(levelKey) > 1 && <p>يتطلب {info.gems} جوهرة</p>}
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            ))}
+            {Object.entries(levelInfo).map(([levelKey, info]) => {
+                const Icon = info.icon;
+                return (
+                    <TooltipProvider key={levelKey}>
+                        <Tooltip>
+                            <TooltipTrigger>
+                                <div
+                                    className={cn(
+                                        "flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all",
+                                        Number(levelKey) === level
+                                            ? `${info.bgColor} ${info.color} scale-110 shadow-lg`
+                                            : "opacity-50 grayscale"
+                                    )}
+                                >
+                                    <Icon className={cn("h-6 w-6", info.color)} />
+                                    <span className={cn("text-xs font-bold", Number(levelKey) === level ? info.color : 'text-muted-foreground')}>
+                                        {info.name}
+                                    </span>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{info.points} نقطة/ثانية</p>
+                                {Number(levelKey) > 1 && <p>يتطلب {info.gems} جوهرة</p>}
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                );
+            })}
         </div>
     );
 }
@@ -190,7 +194,7 @@ export default function DashboardPage() {
                         <div className="flex flex-col sm:flex-row items-center gap-4">
                             <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                                 <AvatarImage src={user.avatar} alt={user.name} />
-                                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback>{user.name.trim().charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col gap-1 items-center sm:items-start">
                                 <h1 className="text-2xl font-bold">{user.name}</h1>
