@@ -186,7 +186,7 @@ export default function DashboardPage() {
             <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     {/* User Info & Levels */}
-                    <div className="flex flex-col items-center gap-6">
+                    <div className="flex flex-col items-center gap-6 flex-1">
                         <div className="flex flex-col sm:flex-row items-center gap-4">
                             <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
                                 <AvatarImage src={user.avatar} alt={user.name} />
@@ -203,7 +203,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Reputation */}
-                    <div className="flex flex-col items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 md:border-r border-dashed w-full md:w-auto md:pr-6">
+                    <div className="flex flex-col items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 md:border-r border-dashed w-full md:w-auto md:px-6">
                         <span className="text-sm font-bold text-muted-foreground">السمعة</span>
                         <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
                     </div>

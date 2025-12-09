@@ -160,7 +160,7 @@ export default function CampaignForm() {
 
   return (
     <>
-    <Card>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>إنشاء حملة جديدة</CardTitle>
         <CardDescription>
