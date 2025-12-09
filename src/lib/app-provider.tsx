@@ -43,7 +43,6 @@ interface AppContextState {
     isUserLoading: boolean;
     videos: Video[];
     searchQuery: string;
-    remainingWatches: number | null;
     setSearchQuery: (query: string) => void;
     addVideo: (video: Omit<Video, 'id' | 'submissionDate'>) => Promise<{ success: boolean, message: string }>;
     deleteVideo: (video: Video) => Promise<{ success: boolean, message: string }>;
@@ -72,7 +71,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [videos, setVideos] = useState<Video[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [awardedPoints, setAwardedPoints] = useState(0);
-  const [remainingWatches, setRemainingWatches] = useState<number | null>(null);
   
   // Videos listener
   useEffect(() => {
@@ -91,39 +89,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     return () => unsubscribe();
   }, [db]);
-
-  // User stats listener
-  useEffect(() => {
-    if (!user) {
-        setRemainingWatches(null);
-        return;
-    }
-
-    const fetchUserStats = async () => {
-        if (!user) return;
-        try {
-            const token = await user.getIdToken();
-            const response = await fetch('/api/user-stats', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userAuthToken: token }),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    setRemainingWatches(data.remainingWatches);
-                }
-            }
-        } catch (error) {
-            console.error("Failed to fetch user stats:", error);
-        }
-    };
-
-    fetchUserStats();
-    const interval = setInterval(fetchUserStats, 60000); // Refresh every minute
-
-    return () => clearInterval(interval);
-}, [user]);
 
 
   // Auth state listener and extension token bridge
@@ -557,7 +522,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isUserLoading,
     videos,
     searchQuery,
-    remainingWatches,
     setSearchQuery,
     addVideo,
     deleteVideo,
@@ -568,7 +532,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     verifyRegistrationCodeAndCreateUser,
     loginWithGoogle,
     logout,
-  }), [user, isUserLoading, videos, searchQuery, remainingWatches, addVideo, deleteVideo, deleteCurrentUserAccount, improveReputation, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
+  }), [user, isUserLoading, videos, searchQuery, addVideo, deleteVideo, deleteCurrentUserAccount, improveReputation, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
 
   return (
     <AppContext.Provider value={contextValue}>

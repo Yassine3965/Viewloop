@@ -23,7 +23,7 @@ import { DeleteAccountDialog } from './delete-account-dialog';
 import { Input } from './ui/input';
 
 function UserSection() {
-  const { user, isUserLoading, logout, remainingWatches } = useApp();
+  const { user, isUserLoading, logout } = useApp();
   const router = useRouter();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -103,10 +103,6 @@ function UserSection() {
         <div className="flex items-center gap-2" title="المجوهرات">
             <Gem className="h-5 w-5 text-sky-400 fill-sky-400" />
             <span className="font-semibold">{user.gems ?? 0}</span>
-        </div>
-        <div className="flex items-center gap-2" title="الفيديوهات المتبقية">
-            <PlayCircle className="h-5 w-5 text-green-500" />
-            <span className="font-semibold">{remainingWatches ?? '-'}</span>
         </div>
     </div>
   );

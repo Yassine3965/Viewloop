@@ -9,8 +9,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 const MAX_WATCHES_PER_VIDEO_CYCLE = 5;
 const WATCH_CYCLE_HOURS = 24;
-const DAILY_WATCH_LIMIT = 100;
-const DAILY_LIMIT_HOURS = 24;
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -103,35 +101,6 @@ export async function POST(req: Request) {
     }
 
     const now = Date.now();
-    const dailyLimitCutoff = now - (1000 * 60 * 60 * DAILY_LIMIT_HOURS);
-
-    // --- Daily Watch Limit Logic ---
-    const dailyWatchQuery = firestore.collection("watchHistory")
-        .where('userId', '==', userId)
-        .where('completedAt', '>=', dailyLimitCutoff);
-
-    const dailyHistorySnap = await dailyWatchQuery.get();
-    const dailyWatchCount = dailyHistorySnap.size;
-
-    if (dailyWatchCount >= DAILY_WATCH_LIMIT) {
-        const sortedDailyHistory = dailyHistorySnap.docs
-            .map(doc => doc.data())
-            .sort((a, b) => a.completedAt - b.completedAt); // Sort ascending to find the oldest
-        
-        const firstWatchedInCycle = sortedDailyHistory[0]?.completedAt;
-        const timeToWaitMs = (firstWatchedInCycle + (1000 * 60 * 60 * DAILY_LIMIT_HOURS)) - now;
-        const hoursRemaining = Math.ceil(timeToWaitMs / (1000 * 60 * 60));
-        
-        const response = NextResponse.json({
-            success: false,
-            error: "DAILY_WATCH_LIMIT_REACHED",
-            message: `لقد وصلت إلى الحد الأقصى للمشاهدات اليومية (100 فيديو). يرجى المحاولة مرة أخرى بعد ${hoursRemaining} ساعة.`,
-            retryAfterHours: hoursRemaining,
-        }, { status: 429 });
-        return addCorsHeaders(response, req);
-    }
-    // --- End Daily Limit Logic ---
-
 
     // --- Per-Video Watch Limit Logic ---
     const watchHistoryQuery = firestore.collection("watchHistory")
