@@ -3,6 +3,7 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import { ClientBoundary } from '@/components/client-boundary';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import '@/firebase/client'; // <-- Import here to ensure early initialization
 
 export const metadata: Metadata = {
   title: 'ViewLoop',

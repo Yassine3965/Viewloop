@@ -1,8 +1,8 @@
 'use client';
 
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBDRLk64HrmlsRKn0BqC3kdmvapOoA_u6g",
@@ -15,9 +15,22 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
 
+// This code runs immediately when the module is imported, BEFORE any component renders.
+if (typeof window !== 'undefined') {
+  // Ensure we don't overwrite it if it's already there.
+  if (!(window as any).firebase) {
+    // Create the structure expected by the content_bridge.js script
+    (window as any).firebase = {
+      app: app,
+      apps: [app],
+      initializeApp: () => app,
+      auth: () => auth, // Return the initialized auth instance
+    };
+  }
+}
 
 export { app, auth, db };
