@@ -19,7 +19,8 @@ const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : get
 const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 
-// This code runs immediately when the module is imported, BEFORE any component renders.
+// This code runs immediately when the module is imported.
+// It sets up the bridge for the content script.
 if (typeof window !== 'undefined') {
   // Ensure we don't overwrite it if it's already there.
   if (!(window as any).firebase) {
@@ -28,8 +29,13 @@ if (typeof window !== 'undefined') {
       app: app,
       apps: [app],
       initializeApp: () => app,
-      auth: () => auth, // Return the initialized auth instance
+      // The bridge expects auth() to be a function that returns the auth instance
+      auth: () => auth, 
     };
+
+    // Dispatch a custom event to notify the content script that Firebase is ready.
+    // This solves the race condition.
+    window.dispatchEvent(new CustomEvent('firebaseReady'));
   }
 }
 
