@@ -2,7 +2,7 @@
 // /app/api/start-session/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
+import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
@@ -22,14 +22,6 @@ export async function POST(req: Request) {
     const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
     return addCorsHeaders(response, req);
   }
-
-  // Signature verification is disabled for this endpoint to allow client-side closing
-  /*
-  if (!verifySignature(req, body)) {
-      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
-      return addCorsHeaders(response, req);
-  }
-  */
 
   try {
     const adminApp = initializeFirebaseAdmin();
@@ -54,7 +46,7 @@ export async function POST(req: Request) {
     // --- Video Check ---
     const videoRef = firestore.collection("videos").doc(videoID);
     const videoSnap = await videoRef.get();
-    if (!videoSnap.exists()) {
+    if (!videoSnap.exists) {
         console.warn(`Attempt to start session for non-existent video: ${videoID}`);
         const response = NextResponse.json({ success: false, error: "VIDEO_NOT_FOUND" }, { status: 404 });
         return addCorsHeaders(response, req);
