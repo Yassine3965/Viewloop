@@ -15,7 +15,7 @@ import { Textarea } from './ui/textarea';
 type SessionState = 'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done';
 
 interface FinalState {
-    status: 'suspicious' | 'completed';
+    status: 'suspicious' | 'completed' | 'finalized';
     points: number;
     gems: number;
     penaltyReasons: string[];
@@ -45,21 +45,14 @@ export function WatchSession() {
   const [appealText, setAppealText] = useState('');
   const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
 
-
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const watchTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-
   const cleanup = useCallback(() => {
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
     heartbeatIntervalRef.current = null;
-    if (watchTimerRef.current) clearInterval(watchTimerRef.current);
-    watchTimerRef.current = null;
   }, []);
 
-  const completeSession = useCallback(async (token: string | null) => {
+  const completeSession = useCallback(async (token: string) => {
     if (!token) return;
-    // Prevent multiple completions
     if (sessionState === 'completing' || sessionState === 'done') return;
 
     setSessionState('completing');
@@ -69,9 +62,7 @@ export function WatchSession() {
       const response = await fetch('/api/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionToken: token,
-        }),
+        body: JSON.stringify({ sessionToken: token }),
       });
       const data = await response.json();
       if (data.success) {
@@ -91,8 +82,16 @@ export function WatchSession() {
     }
   }, [cleanup, sessionState]);
 
-  // This effect now primarily listens for the server to change the session status
-  // which is driven by the extension's heartbeats.
+  useEffect(() => {
+    const findVideo = videos.find(v => v.id === videoId);
+    if (findVideo) {
+      setCurrentVideo(findVideo);
+    } else if (videos.length > 0) {
+      setErrorMessage("الفيديو المطلوب غير موجود.");
+      setSessionState('error');
+    }
+  }, [videos, videoId]);
+
   useEffect(() => {
     if (sessionState === 'watching' && currentVideo) {
       if (totalWatchedSeconds >= currentVideo.duration) {
@@ -107,97 +106,52 @@ export function WatchSession() {
     }
   }, [totalWatchedSeconds, currentVideo, sessionState, sessionToken, completeSession]);
 
-  // Re-enabled heartbeat from client
   useEffect(() => {
-    if (sessionState === 'watching' && sessionToken) {
-      cleanup(); // Ensure no old intervals are running
+    const handleHeartbeat = async (token: string) => {
+      try {
+        const res = await fetch('/api/heartbeat-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionToken: token }),
+        });
+        const data = await res.json();
 
-      // This timer increments the local watch time
-      watchTimerRef.current = setInterval(() => {
-        setTotalWatchedSeconds(prev => prev + 1);
-      }, 1000);
-
-      const sendHeartbeat = async () => {
-        if (document.hidden) return; // Don't send heartbeats if tab is not visible
-        
-        try {
-            console.log('Sending heartbeat for token:', sessionToken, 'with time:', totalWatchedSeconds);
-            const res = await fetch('/api/heartbeat-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionToken: sessionToken,
-                    currentTime: totalWatchedSeconds, // Send current client time
-                    mouseMoved: true, // Assume activity from web page
-                    tabIsActive: !document.hidden,
-                    adIsPresent: false, // Cannot detect from web page
-                }),
-            });
-            const data = await res.json();
-            console.log('Heartbeat response:', data);
-            if(data.status === 'completed' || data.status === 'expired' || data.status === 'suspicious') {
-                completeSession(sessionToken);
-            }
-        } catch (error) {
-            console.error('Heartbeat failed:', error);
+        if (data.totalWatchedSeconds !== undefined) {
+          setTotalWatchedSeconds(data.totalWatchedSeconds);
         }
-      };
 
-      sendHeartbeat();
-      heartbeatIntervalRef.current = setInterval(sendHeartbeat, 15000);
+        if (data.status === 'completed' || data.status === 'expired' || data.status === 'suspicious') {
+          completeSession(token);
+        }
+      } catch (error) {
+        console.error('Heartbeat from session page failed:', error);
+      }
+    };
+    
+    const url = new URL(window.location.href);
+    const videoIdFromUrl = url.searchParams.get('videoId');
 
-    } else {
-      cleanup();
+    if (user && videoIdFromUrl && videos.length > 0 && sessionState === 'idle') {
+      const video = videos.find(v => v.id === videoIdFromUrl);
+      if (video) {
+        setCurrentVideo(video);
+        setSessionState('watching');
+        // This page no longer starts the session, it just listens.
+        // The session is started from the main watch page.
+        // We need a way to get the session token. For now, let's assume it's not available here directly
+        // and this page is more of a visual indicator.
+      } else {
+        setErrorMessage("الفيديو المطلوب غير موجود.");
+        setSessionState('error');
+      }
     }
 
     return cleanup;
-  }, [sessionState, sessionToken, totalWatchedSeconds, cleanup, completeSession]);
-
-  // Start session
-  useEffect(() => {
-    if (!videoId || !user || videos.length === 0 || sessionState !== 'idle') return;
-
-    const video = videos.find(v => v.id === videoId);
-    if (!video) {
-      setErrorMessage("الفيديو المطلوب غير موجود.");
-      setSessionState('error');
-      return;
-    }
-    
-    setCurrentVideo(video);
-    setSessionState('starting');
-
-    const start = async () => {
-      try {
-        const userAuthToken = await user.getIdToken();
-        const response = await fetch('/api/start-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            videoID: videoId,
-            userAuthToken: userAuthToken,
-          }),
-        });
-
-        const data = await response.json();
-        if (data.success && data.sessionToken) {
-          setSessionToken(data.sessionToken);
-          setSessionState('watching');
-        } else {
-          throw new Error(data.message || 'Failed to start session');
-        }
-      } catch (err: any) {
-        setErrorMessage('فشل في بدء الجلسة: ' + err.message);
-        setSessionState('error');
-      }
-    };
-    start();
-  }, [videoId, videos, user, sessionState]);
+  }, [sessionState, videos, user, cleanup, completeSession]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (sessionState === 'watching' && sessionToken) {
-        // Use sendBeacon for reliability on page close.
         navigator.sendBeacon('/api/complete', JSON.stringify({ sessionToken }));
       }
     };
@@ -208,12 +162,11 @@ export function WatchSession() {
     };
   }, [sessionState, sessionToken, cleanup]);
 
-
-  if (sessionState === 'idle' || sessionState === 'starting') {
+  if (sessionState === 'idle' || sessionState === 'starting' || !currentVideo) {
     return (
       <div className="flex h-screen items-center justify-center bg-background p-4 flex-col gap-4 text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-muted-foreground">{sessionState === 'idle' ? 'جارٍ تحميل جلسة المشاهدة...' : 'جارٍ بدء الجلسة...'}</p>
+        <p className="text-muted-foreground">جارٍ تحميل جلسة المشاهدة...</p>
       </div>
     );
   }
@@ -307,21 +260,6 @@ export function WatchSession() {
       );
   }
 
-  if (!currentVideo) {
-    return (
-      <div className="container py-8 text-center">
-        <Alert variant="destructive" className="max-w-md mx-auto">
-          <XCircle className="h-4 w-4" />
-          <AlertTitle>الفيديو غير موجود</AlertTitle>
-          <AlertDescription>لم يتم العثور على الفيديو المطلوب.</AlertDescription>
-        </Alert>
-        <Button onClick={() => window.close()} className="mt-4">
-          إغلاق
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="container py-8 h-screen flex items-center justify-center">
       <div className="w-full max-w-sm">
@@ -349,7 +287,7 @@ export function WatchSession() {
           </div>
         </div>
 
-        {sessionState === 'watching' && (
+        {sessionState === 'watching' && sessionToken && (
           <div className="mt-6">
             <Button variant="destructive" className="w-full" onClick={() => completeSession(sessionToken)}>
               <XCircle className="mr-2 h-4 w-4" /> إنهاء مبكر وإغلاق
