@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     // --- Video Check ---
     const videoRef = firestore.collection("videos").doc(videoID);
     const videoSnap = await videoRef.get();
-    if (!videoSnap.exists) {
+    if (!videoSnap.exists()) {
         console.warn(`Attempt to start session for non-existent video: ${videoID}`);
         const response = NextResponse.json({ success: false, error: "VIDEO_NOT_FOUND" }, { status: 404 });
         return addCorsHeaders(response, req);
@@ -103,20 +103,20 @@ export async function POST(req: Request) {
 
     // --- Prevent re-watching the same video ---
     // This check is temporarily disabled for testing purposes.
-    /*
     const watchHistoryQuery = firestore.collection("watchHistory")
         .where('userId', '==', userId)
         .where('videoId', '==', videoID);
     const historySnap = await watchHistoryQuery.get();
     if (!historySnap.empty) {
+      /*
       const response = NextResponse.json({
           success: false,
           error: "VIDEO_ALREADY_WATCHED",
           message: "لقد شاهدت هذا الفيديو بالفعل. لا يمكنك مشاهدته مرة أخرى.",
       }, { status: 409 }); // 409 Conflict
       return addCorsHeaders(response, req);
+      */
     }
-    */
     // --- End re-watch check ---
 
     
@@ -153,9 +153,12 @@ export async function POST(req: Request) {
     
     await firestore.collection("sessions").doc(sessionToken).set(sessionDoc);
 
+    const videoWithId = { id: videoSnap.id, ...videoData };
+
     return addCorsHeaders(NextResponse.json({
       success: true,
       sessionToken,
+      video: videoWithId
     }), req);
 
   } catch (err: any) {

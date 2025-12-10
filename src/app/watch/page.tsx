@@ -28,20 +28,23 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
   const isOwner = user && user.id === video.submitterId;
   const thumbnailUrl = getYoutubeThumbnailUrl(video.url);
   const { toast } = useToast();
-
-  const handleWatchClick = () => {
+  
+  const handleWatchClick = (e: React.MouseEvent) => {
     if (!user) {
+        e.preventDefault();
         toast({ title: "خطأ", description: "يجب تسجيل الدخول لبدء المشاهدة.", variant: "destructive" });
-        return;
     }
-    const sessionUrl = `/watch/session?videoId=${video.id}`;
-    window.open(sessionUrl, '_blank');
   };
+
+  const sessionUrl = `/watch/session?videoId=${video.id}`;
 
   return (
     <Card className="h-full flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 bg-card overflow-hidden group">
-      <div 
+      <Link 
+        href={sessionUrl}
         onClick={handleWatchClick}
+        target="_blank"
+        rel="noopener noreferrer"
         className="relative aspect-video bg-muted hover:bg-muted/80 flex items-center justify-center cursor-pointer"
       >
         {thumbnailUrl && (
@@ -53,22 +56,24 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
             />
         )}
         <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
+            <div
               className="w-16 h-16 bg-primary/80 rounded-full flex items-center justify-center text-white"
-              aria-label={`Play video: ${video.title}`}
             >
               <Play className="w-8 h-8 fill-white" />
-            </Button>
+            </div>
         </div>
-      </div>
+      </Link>
       <CardContent className="p-4 flex-grow flex flex-col justify-center">
-        <button
+        <Link
+          href={sessionUrl}
           onClick={handleWatchClick}
+          target="_blank"
+          rel="noopener noreferrer"
           className="block font-semibold text-base truncate hover:underline text-card-foreground text-right w-full"
           title={video.title}
         >
           {video.title}
-        </button>
+        </Link>
       </CardContent>
       {isOwner && (
          <AlertDialog>
