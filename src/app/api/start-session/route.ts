@@ -119,22 +119,6 @@ export async function POST(req: Request) {
     */
     // --- End re-watch check ---
 
-    // Server-side debounce to prevent race conditions from duplicate requests
-    const recentSessionQuery = await firestore.collection("sessions")
-        .where("userId", "==", userId)
-        .where("videoID", "==", videoID)
-        .where("createdAt", ">=", now - 2000) // Check for sessions created in the last 2 seconds
-        .limit(1)
-        .get();
-
-    if (!recentSessionQuery.empty) {
-        console.warn(`Duplicate session request for user ${userId} and video ${videoID}. Returning existing session.`);
-        return addCorsHeaders(NextResponse.json({
-            success: true,
-            sessionToken: recentSessionQuery.docs[0].id,
-            note: "EXISTING_SESSION_RETURNED"
-        }), req);
-    }
     
     // Invalidate any other existing sessions for this user
     const sessionsRef = firestore.collection("sessions");
