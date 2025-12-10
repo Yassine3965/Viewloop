@@ -2,95 +2,49 @@
 (() => {
   'use strict';
   
-  console.log('🚀 ViewLoop Bridge FINAL v1.0');
-  
-  // منع التحميل المزدوج
-  if (window.__viewloopFinalBridgeLoaded) {
-    console.log('⚠️ Bridge (final) already loaded');
-    return;
-  }
+  if (window.__viewloopFinalBridgeLoaded) return;
   window.__viewloopFinalBridgeLoaded = true;
-  
-  // 🔥 الوظيفة الأساسية: الحصول على التوكن
+
+  console.log('🚀 ViewLoop Final Bridge v1.1 Loaded');
+
   function getToken() {
-    // الأولوية: userAuthToken
-    const token = localStorage.getItem('userAuthToken');
-    if (token && token.includes('.')) {
-      return token;
-    }
-    return null;
+    return localStorage.getItem('userAuthToken');
   }
-  
-  // 🔥 معالجة رسائل الامتداد
+
+  function setupYouTubeTokenSharing(token) {
+    if (!token) return;
+    try {
+      sessionStorage.setItem('viewloop_auth_token', token);
+      console.log('✅ Token shared to sessionStorage for YouTube.');
+    } catch (e) {
+      console.error('Could not share token', e);
+    }
+  }
+
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      console.log('📩 Bridge (final) message:', request.type);
-      
-      // 1. PING - اختبار الاتصال
       if (request.type === 'PING') {
-        sendResponse({
-          type: 'PONG',
-          status: 'ready',
-          bridge: 'final',
-          timestamp: Date.now(),
-          hasToken: !!getToken()
-        });
+        sendResponse({ type: 'PONG', source: 'final_bridge' });
         return true;
       }
       
-      // 2. REQUEST_AUTH_TOKEN - طلب التوكن
-      if (request.type === 'REQUEST_AUTH_TOKEN' || request.type === 'GET_FRESH_FIREBASE_TOKEN') {
+      if (request.type === 'REQUEST_AUTH_TOKEN' || request.type === 'GET_TOKEN_FOR_YOUTUBE') {
         const token = getToken();
-        const response = {
-          success: !!token,
-          timestamp: Date.now(),
-          source: 'localStorage/userAuthToken'
-        };
-        
         if (token) {
-          response.authToken = token;
+          setupYouTubeTokenSharing(token);
+          sendResponse({ success: true, token: token, source: 'final_bridge' });
         } else {
-          response.error = 'NO_TOKEN';
-          response.message = 'No userAuthToken found in localStorage';
+          sendResponse({ success: false, error: 'NO_TOKEN' });
         }
-        
-        sendResponse(response);
         return true;
       }
-      
-      // 3. أنواع أخرى
-      sendResponse({
-        success: false,
-        error: 'UNKNOWN_TYPE',
-        receivedType: request.type
-      });
-      return true;
+
     });
-    
-    console.log('✅ Chrome message handlers ready (final)');
   }
-  
-  // 🔥 تقرير الحالة
-  const token = getToken();
-  console.log('📊 Bridge (final) status:', {
-    token: token ? '✅ Found' : '❌ Not found',
-    firebase: window.firebase ? '✅ Available' : '❌ Not available',
-    firebaseType: window.firebase?.__bridgeInitialized ? 'REAL' : 'PLACEHOLDER'
-  });
-  
-  // 🔥 جعل بعض الوظائف متاحة للتصحيح
-  window.ViewLoopBridge = {
-    version: 'final-1.0',
-    getToken: getToken,
-    debug: function() {
-      return {
-        tokenExists: !!token,
-        firebaseReady: !!window.firebase?.__bridgeInitialized,
-        localStorageKeys: Object.keys(localStorage).filter(k => 
-          k.includes('token') || k.includes('auth')
-        )
-      };
-    }
-  };
-  
+
+  const existingToken = getToken();
+  if (existingToken) {
+    setTimeout(() => setupYouTubeTokenSharing(existingToken), 500);
+  }
+
 })();

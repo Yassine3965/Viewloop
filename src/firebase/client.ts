@@ -14,34 +14,12 @@ const firebaseConfig = {
   measurementId: "G-LZY93HSKZR"
 };
 
-// Initialize Firebase
-const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app);
-
-// Helper function to create a backward-compatible auth object for the content script bridge
+// Helper function to create a backward-compatible auth object
 function createCompatibleAuth(authInstance: Auth) {
-  const authWrapper = () => {
-    return {
-      currentUser: authInstance.currentUser,
-      onAuthStateChanged: authInstance.onAuthStateChanged.bind(authInstance),
-      signOut: authInstance.signOut.bind(authInstance),
-      getIdToken: (forceRefresh = false): Promise<string> => {
-        if (!authInstance.currentUser) {
-          return Promise.reject('No user is currently signed in.');
-        }
-        return authInstance.currentUser.getIdToken(forceRefresh);
-      }
-    };
-  };
-
-  Object.defineProperty(authWrapper, 'currentUser', {
-    get: () => authInstance.currentUser
-  });
-  
+  const authWrapper = () => authInstance;
+  Object.defineProperty(authWrapper, 'currentUser', { get: () => authInstance.currentUser });
   (authWrapper as any).onAuthStateChanged = authInstance.onAuthStateChanged.bind(authInstance);
   (authWrapper as any).signOut = authInstance.signOut.bind(authInstance);
-
   return authWrapper;
 }
 
@@ -53,7 +31,9 @@ if (typeof window !== 'undefined') {
     if (!win.firebase || win.firebase.__isPlaceholder) {
       console.log('⚡ Firebase immediate initialization for bridge...');
       
-      // Use existing instances
+      const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+      const auth = getAuth(app);
+      
       win.firebase = {
         app: app,
         apps: getApps(),
@@ -66,6 +46,13 @@ if (typeof window !== 'undefined') {
       console.log('✅ Firebase is ready immediately!');
       
       setTimeout(() => {
+        const token = localStorage.getItem('userAuthToken');
+        if (token && chrome.runtime && chrome.runtime.id) {
+           chrome.runtime.sendMessage(chrome.runtime.id, {
+             type: 'SHARE_TOKEN_TO_YOUTUBE',
+             token: token
+           });
+        }
         window.dispatchEvent(new CustomEvent('firebaseReady'));
       }, 10);
     }
@@ -78,30 +65,9 @@ if (typeof window !== 'undefined') {
   }
 }
 
-
-// This code runs when the module is imported on the client-side.
-if (typeof window !== 'undefined') {
-  const win = window as any;
-
-  // Only initialize if the real bridge isn't already there.
-  // This avoids issues with React strict mode or HMR.
-  if (!win.firebase || win.firebase.__isPlaceholder) {
-    console.log('🚀 Initializing REAL Firebase Bridge for content script...');
-    
-    const compatibleAuth = createCompatibleAuth(auth);
-
-    win.firebase = {
-      app: app,
-      apps: getApps(),
-      initializeApp: () => app,
-      auth: compatibleAuth,
-      __bridgeInitialized: true // Flag to prevent re-initialization
-    };
-
-    console.log('✅ Real Firebase Bridge initialized successfully.');
-    // Dispatch a custom event to notify the content script that Firebase is ready.
-    window.dispatchEvent(new CustomEvent('firebaseReady'));
-  }
-}
+// Standard initialization for the app itself
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
 
 export { app, auth, db };
