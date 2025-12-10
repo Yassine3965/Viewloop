@@ -22,61 +22,28 @@ import {
 import { useApp } from '@/lib/app-provider';
 import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<typeof useApp>['user'], onDelete: (video: Video) => void }) {
   const isOwner = user && user.id === video.submitterId;
   const thumbnailUrl = getYoutubeThumbnailUrl(video.url);
   const { toast } = useToast();
-  const [isStartingSession, startSessionTransition] = useTransition();
+  const router = useRouter();
 
-  const handleWatchClick = async () => {
+  const handleWatchClick = () => {
     if (!user) {
         toast({ title: "خطأ", description: "يجب تسجيل الدخول لبدء المشاهدة.", variant: "destructive" });
         return;
     }
-
-    startSessionTransition(async () => {
-        try {
-            const userAuthToken = await user.getIdToken();
-            const response = await fetch('/api/start-session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    videoID: video.id,
-                    userAuthToken: userAuthToken,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.sessionToken) {
-                // Construct the YouTube URL with the session token in the hash
-                const youtubeUrlWithToken = `${video.url}#VIEWLOOP_TOKEN=${data.sessionToken}`;
-                
-                // Open YouTube video with the token
-                window.open(youtubeUrlWithToken, '_blank');
-
-                // Open the session tracking page in a new background tab
-                const sessionUrl = `/watch/session?videoId=${video.id}`;
-                window.open(sessionUrl, '_blank');
-
-            } else {
-                throw new Error(data.message || 'فشل في بدء الجلسة');
-            }
-        } catch (err: any) {
-            toast({
-                title: 'فشل بدء الجلسة',
-                description: err.message,
-                variant: 'destructive',
-            });
-        }
-    });
+    // Just open the session page, which will handle the rest.
+    const sessionUrl = `/watch/session?videoId=${video.id}`;
+    window.open(sessionUrl, '_blank');
   };
 
   return (
     <Card className="h-full flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 bg-card overflow-hidden group">
       <div 
-        onClick={!isStartingSession ? handleWatchClick : undefined}
+        onClick={handleWatchClick}
         className="relative aspect-video bg-muted hover:bg-muted/80 flex items-center justify-center cursor-pointer"
       >
         {thumbnailUrl && (
@@ -91,18 +58,16 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
             <Button
               className="w-16 h-16 bg-primary/80 rounded-full flex items-center justify-center text-white"
               aria-label={`Play video: ${video.title}`}
-              disabled={isStartingSession}
             >
-              {isStartingSession ? <Loader2 className="w-8 h-8 animate-spin" /> : <Play className="w-8 h-8 fill-white" />}
+              <Play className="w-8 h-8 fill-white" />
             </Button>
         </div>
       </div>
       <CardContent className="p-4 flex-grow flex flex-col justify-center">
         <button
-          onClick={!isStartingSession ? handleWatchClick : undefined}
-          className="block font-semibold text-base truncate hover:underline text-card-foreground text-right w-full disabled:cursor-not-allowed"
+          onClick={handleWatchClick}
+          className="block font-semibold text-base truncate hover:underline text-card-foreground text-right w-full"
           title={video.title}
-          disabled={isStartingSession}
         >
           {video.title}
         </button>
