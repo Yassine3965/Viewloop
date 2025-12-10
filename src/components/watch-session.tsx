@@ -111,9 +111,9 @@ export function WatchSession() {
                 setSessionData(data.session);
 
                 if (data.session.status === 'completed' || data.session.status === 'expired' || data.session.status === 'suspicious') {
-                    if (sessionState !== 'completing' && sessionState !== 'done') {
-                        completeSession(sessionToken);
-                    }
+                    // The redundant check that caused the build error has been removed here.
+                    // If we are in the 'watching' state and the server says it's over, we complete it.
+                    completeSession(sessionToken);
                 }
             }
         } catch (error: any) {
