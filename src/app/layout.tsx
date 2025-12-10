@@ -41,32 +41,33 @@ export default function RootLayout({
         
         console.log('🛡️ ViewLoop Bridge Controller v2.0');
         
-        // 1. If the extension bridge is already loaded, we don't need the local one.
+        // 1. إذا كان الامتداد محملاً، لا نحتاج جسراً إضافياً
         if (window.__viewloopExtensionLoaded) {
-          console.log('✅ Chrome extension bridge detected, using it directly.');
+          console.log('✅ امتداد Chrome محمّل، استخدامه مباشرة');
           
-          // Just ensure Firebase is initialized for it
+          // فقط تأكد من أن Firebase مهيأ
           if (!window.firebase || !window.firebase.__bridgeInitialized) {
-            console.log('⚡ Initializing Firebase for the extension...');
-            // The main client.ts will handle this, this is just a log.
+            console.log('⚡ تهيئة Firebase للامتداد...');
+            // The main firebase/client.ts will handle the actual initialization
           }
           
-          return; // Do not load the local bridge
+          return; // لا تحمّل جسراً إضافياً
         }
         
-        // 2. If the extension is NOT loaded, load the local fallback bridge.
-        console.log('🌐 Chrome extension not detected, loading local fallback bridge...');
+        // 2. إذا لم يكن الامتداد محملاً، حمّل الجسر المحلي
+        console.log('🌐 امتداد Chrome غير محمّل، تحميل الجسر المحلي...');
         
-        // Clean up any old bridge scripts that might have been injected
+        // تنظيف أي جسور قديمة
         const oldScripts = document.querySelectorAll('script[src*="content_bridge"]');
         oldScripts.forEach(script => script.remove());
         
-        // Load the minimal local bridge
+        // تحميل الجسر المحلي المبسط
         setTimeout(() => {
+          if(window.__viewloopMinBridgeLoaded) return; // do not load it twice
           const script = document.createElement('script');
           script.src = '/js/content_bridge.min.js';
           script.async = true;
-          script.onload = () => console.log('✅ Local fallback bridge loaded.');
+          script.onload = () => console.log('✅ الجسر المحلي محمّل');
           document.body.appendChild(script);
         }, 500);
         
@@ -74,6 +75,7 @@ export default function RootLayout({
     `,
           }}
         />
+        <script src="/js/extension-compat.js" defer></script>
       </head>
       <body className="font-body antialiased">
         <Providers>
