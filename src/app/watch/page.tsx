@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Video, UserProfile } from '@/lib/types';
+import type { Video } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Play, Loader2, Trash2, Search } from 'lucide-react';
@@ -28,14 +28,12 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
   const isOwner = user && user.id === video.submitterId;
   const thumbnailUrl = getYoutubeThumbnailUrl(video.url);
   const { toast } = useToast();
-  const router = useRouter();
 
   const handleWatchClick = () => {
     if (!user) {
         toast({ title: "خطأ", description: "يجب تسجيل الدخول لبدء المشاهدة.", variant: "destructive" });
         return;
     }
-    // Just open the session page, which will handle the rest.
     const sessionUrl = `/watch/session?videoId=${video.id}`;
     window.open(sessionUrl, '_blank');
   };
