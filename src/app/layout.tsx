@@ -39,79 +39,55 @@ export default function RootLayout({
         (function() {
           'use strict';
           
-          // 🚨 منع جميع الجسور القديمة
-          if (window.__viewloopBridgeLoaded || window.__viewloopFinalBridgeLoaded) {
-            console.log('🚫 جسر محمّل مسبقاً، تخطي...');
-            return;
-          }
+          console.log('🛡️ ViewLoop Bridge Controller Starting...');
           
-          // 🔧 تنظيف الجسور القديمة
-          function cleanupOldBridges() {
-            // 1. إزالة السكريبتات القديمة
-            const scripts = document.querySelectorAll('script');
+          window.__viewloopController = {
+            version: '1.0',
+            oldBridgeBlocked: false,
+            newBridgeLoaded: false
+          };
+          
+          function cleanOldBridges() {
+            console.log('🧹 تنظيف الجسور القديمة...');
+            
+            const scripts = document.querySelectorAll('script[src*="content_bridge"]');
             scripts.forEach(script => {
-              if (script.src && script.src.includes('content_bridge') && !script.src.includes('final')) {
-                console.log('🗑️ إزالة جسر قديم:', script.src);
+              if (!script.src.includes('final.js')) {
+                console.log('🗑️ Removing:', script.src);
                 script.remove();
               }
             });
             
-            // 2. منع التهيئة المزدوجة
-            window.__viewloopBridgeLoaded = true;
-            window.__viewloopCleanupDone = true;
+            delete window.__viewloopBridgeLoaded;
+            window.__viewloopController.oldBridgeBlocked = true;
           }
           
-          // 🚀 تحميل الجسر النهائي
-          function loadFinalBridge() {
-            console.log('📦 تحميل ViewLoop Bridge النهائي...');
+          function loadNewBridge() {
+            if (window.__viewloopController.newBridgeLoaded || window.__viewloopFinalBridgeLoaded) {
+              console.log('ℹ️ الجسر الجديد محمّل مسبقاً');
+              return;
+            }
             
-            // تنظيف أولاً
-            cleanupOldBridges();
+            console.log('📦 تحميل ViewLoop Bridge الجديد...');
+            window.__viewloopController.newBridgeLoaded = true;
             
-            // تحميل الجسر الجديد
             const script = document.createElement('script');
             script.src = '/js/content_bridge.final.js';
             script.async = true;
-            
-            script.onload = function() {
-              console.log('✅ ViewLoop Bridge النهائي محمّل بنجاح');
-              
-              // إرسال حدث أن الجسر جاهز
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('viewloopBridgeReady'));
-              }, 100);
-            };
-            
-            script.onerror = function(error) {
-              console.error('❌ فشل تحميل الجسر النهائي:', error);
-            };
+            script.onload = () => console.log('✅ الجسر الجديد محمّل');
+            script.onerror = (e) => console.error('❌ فشل التحميل:', e);
             
             document.body.appendChild(script);
           }
           
-          // ⏳ توقيت التحميل: بعد Firebase مباشرة
-          if (window.firebase && window.firebase.__bridgeInitialized) {
-            console.log('⚡ Firebase جاهز، تحميل الجسر...');
-            setTimeout(loadFinalBridge, 500);
-          } else {
-            // انتظر Firebase
-            const waitForFirebase = setInterval(() => {
-              if (window.firebase && window.firebase.__bridgeInitialized) {
-                clearInterval(waitForFirebase);
-                console.log('🎯 Firebase أصبح جاهزاً، تحميل الجسر...');
-                setTimeout(loadFinalBridge, 300);
-              }
-            }, 100);
-            
-            // وقت انتهاء الطلب
-            setTimeout(() => {
-              clearInterval(waitForFirebase);
-              if (!window.__viewloopBridgeLoaded) {
-                console.log('⚠️ انتظار Firebase انتهى، تحميل الجسر مباشرة');
-                loadFinalBridge();
-              }
-            }, 3000);
-          }
+          cleanOldBridges();
+          
+          setTimeout(() => {
+            loadNewBridge();
+            setTimeout(cleanOldBridges, 2000);
+          }, 800);
+          
+          console.log('✅ Bridge Controller active');
           
         })();
       `,
