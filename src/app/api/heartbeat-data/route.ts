@@ -107,7 +107,8 @@ export async function POST(req: Request) {
     const newInactiveHeartbeats = tabIsActive === false ? (sessionData.inactiveHeartbeats || 0) + 1 : 0;
     const newNoMouseMovementHeartbeats = mouseMoved === false ? (sessionData.noMouseMovementHeartbeats || 0) + 1 : 0;
 
-    if (newNoMouseMovementHeartbeats >= 4 && newInactiveHeartbeats === 0) {
+    if (newNoMouseMovementHeartbeats >= 4 && newInactiveHeartbeats === 0) { // Approx 60 seconds of no mouse movement
+        updates.status = 'suspicious';
         if (!sessionData.penaltyReasons || !sessionData.penaltyReasons.includes('no_mouse_activity')) {
             updates.penaltyReasons = admin.firestore.FieldValue.arrayUnion('no_mouse_activity');
         }
@@ -115,6 +116,9 @@ export async function POST(req: Request) {
 
     if (newInactiveHeartbeats >= 6) { // ~90 seconds of inactivity
         updates.status = 'expired';
+        if (!sessionData.penaltyReasons || !sessionData.penaltyReasons.includes('inactive_too_long')) {
+            updates.penaltyReasons = admin.firestore.FieldValue.arrayUnion('inactive_too_long');
+        }
     }
 
     // --- The self-healing completion logic ---
