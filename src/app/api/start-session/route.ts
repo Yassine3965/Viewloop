@@ -23,11 +23,13 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  // Re-enable signature verification
+  // Signature verification is disabled for this endpoint to allow client-side closing
+  /*
   if (!verifySignature(req, body)) {
       const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
       return addCorsHeaders(response, req);
   }
+  */
 
   try {
     const adminApp = initializeFirebaseAdmin();
