@@ -19,7 +19,7 @@ const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : get
 const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 
-// Helper function to create a compatible auth object for the content script bridge
+// Helper function to create a backward-compatible auth object for the content script bridge
 function createCompatibleAuth(authInstance: Auth) {
   const authWrapper = () => {
       return {
@@ -40,6 +40,13 @@ function createCompatibleAuth(authInstance: Auth) {
     get: () => authInstance.currentUser
   });
   
+  (authWrapper as any).getIdToken = (forceRefresh = false): Promise<string> => {
+    if (!authInstance.currentUser) {
+        return Promise.reject('No user is currently signed in.');
+    }
+    return authInstance.currentUser.getIdToken(forceRefresh);
+  };
+  
   return authWrapper;
 }
 
@@ -48,9 +55,10 @@ function createCompatibleAuth(authInstance: Auth) {
 // It sets up the bridge for the content script.
 if (typeof window !== 'undefined') {
   // Ensure we don't overwrite it if it's already there and properly initialized
-  if (!(window as any).firebase || !(window as any).firebase.__bridgeInitialized) {
+  const win = window as any;
+  if (!win.firebase || !win.firebase.__bridgeInitialized) {
     
-    (window as any).firebase = {
+    win.firebase = {
       app: app,
       apps: getApps(),
       initializeApp: () => app,
