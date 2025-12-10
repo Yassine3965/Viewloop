@@ -38,8 +38,14 @@ import { PointsAwardedModal } from '@/components/points-awarded-modal';
 import { getYoutubeVideoId } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
+// Define a more specific user type for the context
+type AppUser = UserProfile & {
+    getIdToken: () => Promise<string>;
+    emailVerified: boolean;
+};
+
 interface AppContextState {
-    user: (UserProfile & { getIdToken: () => Promise<string>, emailVerified: boolean }) | null;
+    user: AppUser | null;
     isUserLoading: boolean;
     videos: Video[];
     searchQuery: string;
@@ -149,7 +155,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           (userSnap) => {
             if (userSnap.exists()) {
                 const userProfileData = userSnap.data() as UserProfile;
-                const userProfile = {
+                const userProfile: AppUser = {
                     ...userProfileData,
                     id: userSnap.id,
                     getIdToken: () => authUser.getIdToken(),

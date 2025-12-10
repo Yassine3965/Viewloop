@@ -23,7 +23,7 @@ import { useApp } from '@/lib/app-provider';
 import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-function VideoCard({ video, user, onDelete }: { video: Video, user: UserProfile | null, onDelete: (video: Video) => void }) {
+function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<typeof useApp>['user'], onDelete: (video: Video) => void }) {
   const isOwner = user && user.id === video.submitterId;
   const thumbnailUrl = getYoutubeThumbnailUrl(video.url);
   const { toast } = useToast();
