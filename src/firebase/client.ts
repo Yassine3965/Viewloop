@@ -22,6 +22,7 @@ const db: Firestore = getFirestore(app);
 // Helper function to create a backward-compatible auth object for the content script bridge
 function createCompatibleAuth(authInstance: Auth) {
   const authWrapper = () => {
+      // This makes it callable like `firebase.auth()`
       return {
           currentUser: authInstance.currentUser,
           onAuthStateChanged: authInstance.onAuthStateChanged.bind(authInstance),
@@ -35,11 +36,14 @@ function createCompatibleAuth(authInstance: Auth) {
       };
   };
   
-  // Also attach properties directly for different access patterns
+  // Also attach properties directly for property access like `firebase.auth.currentUser`
   Object.defineProperty(authWrapper, 'currentUser', {
     get: () => authInstance.currentUser
   });
   
+  (authWrapper as any).onAuthStateChanged = authInstance.onAuthStateChanged.bind(authInstance);
+  (authWrapper as any).signOut = authInstance.signOut.bind(authInstance);
+
   (authWrapper as any).getIdToken = (forceRefresh = false): Promise<string> => {
     if (!authInstance.currentUser) {
         return Promise.reject('No user is currently signed in.');
@@ -50,21 +54,24 @@ function createCompatibleAuth(authInstance: Auth) {
   return authWrapper;
 }
 
-
 // This code runs immediately when the module is imported.
 // It sets up the bridge for the content script.
 if (typeof window !== 'undefined') {
-  // Ensure we don't overwrite it if it's already there and properly initialized
   const win = window as any;
+  // Ensure we don't overwrite it if it's already there and properly initialized
   if (!win.firebase || !win.firebase.__bridgeInitialized) {
     
+    // Create the compatible auth object
+    const compatibleAuth = createCompatibleAuth(auth);
+
+    // Expose the firebase object in the format the bridge expects
     win.firebase = {
       app: app,
       apps: getApps(),
       initializeApp: () => app,
       // The bridge expects auth to be a function that returns an object
       // with currentUser, onAuthStateChanged, etc.
-      auth: createCompatibleAuth(auth),
+      auth: compatibleAuth,
       __bridgeInitialized: true // Flag to prevent re-initialization
     };
 
