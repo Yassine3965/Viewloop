@@ -40,8 +40,16 @@ export function FirebaseClientProvider({
         const instances = initializeFirebase();
         setFirebase(instances);
 
-        // Expose the initialized app to the window for the extension bridge.
-        (window as any).firebaseApp = instances.app;
+        // Expose the initialized app to the window for the extension bridge,
+        // matching the structure the bridge expects.
+        if (!(window as any).firebase) {
+          (window as any).firebase = {
+            app: instances.app,
+            apps: [instances.app],
+            initializeApp: () => instances.app,
+            auth: () => instances.auth,
+          };
+        }
     }
   }, []);
 
