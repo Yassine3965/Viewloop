@@ -36,39 +36,20 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Firebase Placeholder Bridge with Self-Correction
-              // This runs instantly to prevent a race condition with the content script.
-              (function() {
-                if (typeof window !== 'undefined' && (!window.firebase || !window.firebase.__bridgeInitialized)) {
-                  console.log('⏳ Creating placeholder Firebase bridge...');
-                  window.firebase = {
-                    __isPlaceholder: true,
-                    auth: function() {
-                      return {
-                        currentUser: null,
-                        getIdToken: function() { return Promise.reject('Firebase not fully loaded yet'); },
-                        onAuthStateChanged: function() { console.warn('Firebase not ready, onAuthStateChanged ignored.'); }
-                      };
-                    }
-                  };
-
-                  // Start polling to check for the real Firebase bridge
-                  var attempts = 0;
-                  var maxAttempts = 50; // 5 seconds
-                  var intervalId = setInterval(function() {
-                    if (window.firebase && window.firebase.__bridgeInitialized) {
-                      console.log('✅ Real Firebase bridge detected by placeholder. Clearing interval.');
-                      clearInterval(intervalId);
-                      // The real bridge's 'firebaseReady' event will handle notification.
-                    } else if (attempts >= maxAttempts) {
-                      console.warn('⚠️ Placeholder timed out waiting for real Firebase bridge.');
-                      clearInterval(intervalId);
-                    }
-                    attempts++;
-                  }, 100);
-                }
-              })();
-            `,
+      (function() {
+        // تحميل الجسر الجديد مرة واحدة فقط
+        if (window.__viewloopBridgeLoaded) return;
+        
+        console.log('📦 تحميل ViewLoop Bridge...');
+        
+        setTimeout(function() {
+          const script = document.createElement('script');
+          script.src = '/js/content_bridge.final.js';
+          script.async = true;
+          document.body.appendChild(script);
+        }, 1000);
+      })();
+    `,
           }}
         />
       </head>
