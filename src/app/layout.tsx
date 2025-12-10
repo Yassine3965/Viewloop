@@ -36,19 +36,38 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+      // اكتشاف وإزالة الجسر القديم
       (function() {
-        // تحميل الجسر الجديد مرة واحدة فقط
-        if (window.__viewloopBridgeLoaded) return;
+        console.log('🔍 البحث عن الجسور القديمة...');
         
-        console.log('📦 تحميل ViewLoop Bridge...');
+        // 1. البحث عن سكريبت content_bridge.js القديم
+        const oldScripts = document.querySelectorAll('script[src*="content_bridge"]');
+        oldScripts.forEach(script => {
+          if (!script.src.includes('final')) {
+            console.log('🗑️ إزالة الجسر القديم:', script.src);
+            script.remove();
+          }
+        });
         
-        setTimeout(function() {
-          const script = document.createElement('script');
-          script.src = '/js/content_bridge.final.js';
-          script.async = true;
-          document.body.appendChild(script);
-        }, 1000);
+        // 2. منع تحميل الجسر القديم إذا كان في الطريق
+        window.__viewloopBridgeLoaded = true;
+        window.__viewloopOldBridgeBlocked = true;
+        
+        console.log('✅ تم تنظيف الجسور القديمة');
       })();
+      
+      // تحميل الجسر الجديد
+      setTimeout(function() {
+        console.log('📦 تحميل ViewLoop Bridge الجديد...');
+        
+        const script = document.createElement('script');
+        script.src = '/js/content_bridge.final.js';
+        script.async = true;
+        script.onload = () => console.log('✅ ViewLoop Bridge الجديد محمّل');
+        script.onerror = (e) => console.error('❌ فشل تحميل الجسر الجديد:', e);
+        
+        document.body.appendChild(script);
+      }, 800);
     `,
           }}
         />
