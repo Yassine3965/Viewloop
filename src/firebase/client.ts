@@ -45,6 +45,40 @@ function createCompatibleAuth(authInstance: Auth) {
   return authWrapper;
 }
 
+// ⚡ Immediate initialization for the bridge
+if (typeof window !== 'undefined') {
+  const initImmediately = () => {
+    const win = window as any;
+
+    if (!win.firebase || win.firebase.__isPlaceholder) {
+      console.log('⚡ Firebase immediate initialization for bridge...');
+      
+      // Use existing instances
+      win.firebase = {
+        app: app,
+        apps: getApps(),
+        initializeApp: () => app,
+        auth: createCompatibleAuth(auth),
+        __bridgeInitialized: true,
+        __initializedImmediately: true
+      };
+      
+      console.log('✅ Firebase is ready immediately!');
+      
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('firebaseReady'));
+      }, 10);
+    }
+  };
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initImmediately);
+  } else {
+    initImmediately();
+  }
+}
+
+
 // This code runs when the module is imported on the client-side.
 if (typeof window !== 'undefined') {
   const win = window as any;
