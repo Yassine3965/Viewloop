@@ -32,6 +32,29 @@ export default function RootLayout({
           rel="icon"
           href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='hsl(205, 80%, 50%)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><polygon points='10 8 16 12 10 16 10 8'></polygon></svg>"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Firebase Placeholder Bridge
+              // This runs instantly to prevent a race condition with the content script.
+              (function() {
+                if (typeof window !== 'undefined' && !window.firebase) {
+                  console.log('⏳ Creating placeholder Firebase bridge...');
+                  window.firebase = {
+                    __isPlaceholder: true,
+                    auth: function() {
+                      return {
+                        currentUser: null,
+                        getIdToken: function() { return Promise.reject('Firebase not fully loaded yet'); },
+                        onAuthStateChanged: function() { console.warn('Firebase not ready, onAuthStateChanged ignored.'); }
+                      };
+                    }
+                  };
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="font-body antialiased">
         <Providers>
