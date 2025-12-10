@@ -36,61 +36,42 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-        (function() {
-          'use strict';
+      (function() {
+        'use strict';
+        
+        console.log('🛡️ ViewLoop Bridge Controller v2.0');
+        
+        // 1. If the extension bridge is already loaded, we don't need the local one.
+        if (window.__viewloopExtensionLoaded) {
+          console.log('✅ Chrome extension bridge detected, using it directly.');
           
-          console.log('🛡️ ViewLoop Bridge Controller Starting...');
-          
-          window.__viewloopController = {
-            version: '1.0',
-            oldBridgeBlocked: false,
-            newBridgeLoaded: false
-          };
-          
-          function cleanOldBridges() {
-            console.log('🧹 تنظيف الجسور القديمة...');
-            
-            const scripts = document.querySelectorAll('script[src*="content_bridge"]');
-            scripts.forEach(script => {
-              if (!script.src.includes('final.js')) {
-                console.log('🗑️ Removing:', script.src);
-                script.remove();
-              }
-            });
-            
-            delete window.__viewloopBridgeLoaded;
-            window.__viewloopController.oldBridgeBlocked = true;
+          // Just ensure Firebase is initialized for it
+          if (!window.firebase || !window.firebase.__bridgeInitialized) {
+            console.log('⚡ Initializing Firebase for the extension...');
+            // The main client.ts will handle this, this is just a log.
           }
           
-          function loadNewBridge() {
-            if (window.__viewloopController.newBridgeLoaded || window.__viewloopFinalBridgeLoaded) {
-              console.log('ℹ️ الجسر الجديد محمّل مسبقاً');
-              return;
-            }
-            
-            console.log('📦 تحميل ViewLoop Bridge الجديد...');
-            window.__viewloopController.newBridgeLoaded = true;
-            
-            const script = document.createElement('script');
-            script.src = '/js/content_bridge.final.js';
-            script.async = true;
-            script.onload = () => console.log('✅ الجسر الجديد محمّل');
-            script.onerror = (e) => console.error('❌ فشل التحميل:', e);
-            
-            document.body.appendChild(script);
-          }
-          
-          cleanOldBridges();
-          
-          setTimeout(() => {
-            loadNewBridge();
-            setTimeout(cleanOldBridges, 2000);
-          }, 800);
-          
-          console.log('✅ Bridge Controller active');
-          
-        })();
-      `,
+          return; // Do not load the local bridge
+        }
+        
+        // 2. If the extension is NOT loaded, load the local fallback bridge.
+        console.log('🌐 Chrome extension not detected, loading local fallback bridge...');
+        
+        // Clean up any old bridge scripts that might have been injected
+        const oldScripts = document.querySelectorAll('script[src*="content_bridge"]');
+        oldScripts.forEach(script => script.remove());
+        
+        // Load the minimal local bridge
+        setTimeout(() => {
+          const script = document.createElement('script');
+          script.src = '/js/content_bridge.min.js';
+          script.async = true;
+          script.onload = () => console.log('✅ Local fallback bridge loaded.');
+          document.body.appendChild(script);
+        }, 500);
+        
+      })();
+    `,
           }}
         />
       </head>
