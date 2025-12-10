@@ -36,39 +36,85 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-      // اكتشاف وإزالة الجسر القديم
-      (function() {
-        console.log('🔍 البحث عن الجسور القديمة...');
-        
-        // 1. البحث عن سكريبت content_bridge.js القديم
-        const oldScripts = document.querySelectorAll('script[src*="content_bridge"]');
-        oldScripts.forEach(script => {
-          if (!script.src.includes('final')) {
-            console.log('🗑️ إزالة الجسر القديم:', script.src);
-            script.remove();
+        (function() {
+          'use strict';
+          
+          // 🚨 منع جميع الجسور القديمة
+          if (window.__viewloopBridgeLoaded || window.__viewloopFinalBridgeLoaded) {
+            console.log('🚫 جسر محمّل مسبقاً، تخطي...');
+            return;
           }
-        });
-        
-        // 2. منع تحميل الجسر القديم إذا كان في الطريق
-        window.__viewloopBridgeLoaded = true;
-        window.__viewloopOldBridgeBlocked = true;
-        
-        console.log('✅ تم تنظيف الجسور القديمة');
-      })();
-      
-      // تحميل الجسر الجديد
-      setTimeout(function() {
-        console.log('📦 تحميل ViewLoop Bridge الجديد...');
-        
-        const script = document.createElement('script');
-        script.src = '/js/content_bridge.final.js';
-        script.async = true;
-        script.onload = () => console.log('✅ ViewLoop Bridge الجديد محمّل');
-        script.onerror = (e) => console.error('❌ فشل تحميل الجسر الجديد:', e);
-        
-        document.body.appendChild(script);
-      }, 800);
-    `,
+          
+          // 🔧 تنظيف الجسور القديمة
+          function cleanupOldBridges() {
+            // 1. إزالة السكريبتات القديمة
+            const scripts = document.querySelectorAll('script');
+            scripts.forEach(script => {
+              if (script.src && script.src.includes('content_bridge') && !script.src.includes('final')) {
+                console.log('🗑️ إزالة جسر قديم:', script.src);
+                script.remove();
+              }
+            });
+            
+            // 2. منع التهيئة المزدوجة
+            window.__viewloopBridgeLoaded = true;
+            window.__viewloopCleanupDone = true;
+          }
+          
+          // 🚀 تحميل الجسر النهائي
+          function loadFinalBridge() {
+            console.log('📦 تحميل ViewLoop Bridge النهائي...');
+            
+            // تنظيف أولاً
+            cleanupOldBridges();
+            
+            // تحميل الجسر الجديد
+            const script = document.createElement('script');
+            script.src = '/js/content_bridge.final.js';
+            script.async = true;
+            
+            script.onload = function() {
+              console.log('✅ ViewLoop Bridge النهائي محمّل بنجاح');
+              
+              // إرسال حدث أن الجسر جاهز
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('viewloopBridgeReady'));
+              }, 100);
+            };
+            
+            script.onerror = function(error) {
+              console.error('❌ فشل تحميل الجسر النهائي:', error);
+            };
+            
+            document.body.appendChild(script);
+          }
+          
+          // ⏳ توقيت التحميل: بعد Firebase مباشرة
+          if (window.firebase && window.firebase.__bridgeInitialized) {
+            console.log('⚡ Firebase جاهز، تحميل الجسر...');
+            setTimeout(loadFinalBridge, 500);
+          } else {
+            // انتظر Firebase
+            const waitForFirebase = setInterval(() => {
+              if (window.firebase && window.firebase.__bridgeInitialized) {
+                clearInterval(waitForFirebase);
+                console.log('🎯 Firebase أصبح جاهزاً، تحميل الجسر...');
+                setTimeout(loadFinalBridge, 300);
+              }
+            }, 100);
+            
+            // وقت انتهاء الطلب
+            setTimeout(() => {
+              clearInterval(waitForFirebase);
+              if (!window.__viewloopBridgeLoaded) {
+                console.log('⚠️ انتظار Firebase انتهى، تحميل الجسر مباشرة');
+                loadFinalBridge();
+              }
+            }, 3000);
+          }
+          
+        })();
+      `,
           }}
         />
       </head>
