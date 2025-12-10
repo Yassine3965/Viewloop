@@ -11,8 +11,6 @@ import { Loader2, XCircle, AlertTriangle, CheckCircle, MonitorPlay, ShieldAlert,
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
-import { doc, onSnapshot, FirestoreError } from 'firebase/firestore';
-import { useFirebase } from '@/firebase/provider';
 
 type SessionState = 'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done';
 
@@ -32,13 +30,12 @@ const reasonTranslations: { [key: string]: string } = {
 export function WatchSession() {
   const searchParams = useSearchParams();
   const { user } = useApp();
-  const { db } = useFirebase();
   const { toast } = useToast();
 
   const videoId = searchParams.get('videoId');
 
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
-  const [sessionData, setSessionData] = useState<Session | null>(null);
+  const [sessionData, setSessionData] = useState<Partial<Session> | null>(null);
   const [progress, setProgress] = useState(0);
   const [sessionState, setSessionState] = useState<SessionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -49,14 +46,15 @@ export function WatchSession() {
   const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
 
   const youtubeTabRef = useRef<Window | null>(null);
-  const cleanupRef = useRef<() => void>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const completeSession = useCallback(async (token: string, isBeacon = false) => {
     if (!token || sessionState === 'completing' || sessionState === 'done') return;
   
     setSessionState('completing');
-    if (cleanupRef.current) {
-        cleanupRef.current();
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
   
     const payload = JSON.stringify({ sessionToken: token });
@@ -90,35 +88,55 @@ export function WatchSession() {
     }
   }, [sessionState]);
 
-  // Effect to listen to session document changes in Firestore
+  // Effect to poll session status from the server
   useEffect(() => {
-    if (!db || !sessionToken) return;
+    if (sessionState !== 'watching' || !sessionToken || !user) return;
 
-    const sessionRef = doc(db, 'sessions', sessionToken);
-    const unsubscribe = onSnapshot(sessionRef, 
-        (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.data() as Session;
-                setSessionData(data);
+    const pollStatus = async () => {
+        try {
+            const userAuthToken = await user.getIdToken();
+            const response = await fetch('/api/session-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionToken, userAuthToken }),
+            });
 
-                if (data.status === 'completed' || data.status === 'expired' || data.status === 'suspicious') {
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.success && data.session) {
+                setSessionData(data.session);
+
+                if (data.session.status === 'completed' || data.session.status === 'expired' || data.session.status === 'suspicious') {
                     if (sessionState !== 'completing' && sessionState !== 'done') {
                         completeSession(sessionToken);
                     }
                 }
             }
-        },
-        (error: FirestoreError) => {
-            console.error("Error listening to session:", error);
-            setErrorMessage("فقد الاتصال بجلسة المشاهدة.");
-            setSessionState('error');
+        } catch (error: any) {
+            console.error("Error polling session status:", error);
+            if(error.message === 'INVALID_SESSION') {
+                setErrorMessage("انتهت صلاحية الجلسة أو أنها غير صالحة.");
+                setSessionState('error');
+            }
         }
-    );
+    };
+    
+    // Poll immediately on start
+    pollStatus();
+    // Then poll every 3 seconds
+    intervalRef.current = setInterval(pollStatus, 3000);
 
-    cleanupRef.current = unsubscribe;
+    return () => {
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+        }
+    };
 
-    return () => unsubscribe();
-  }, [db, sessionToken, completeSession, sessionState]);
+  }, [sessionState, sessionToken, user, completeSession]);
 
   // Effect to update progress bar based on sessionData
   useEffect(() => {
@@ -192,8 +210,8 @@ export function WatchSession() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
         window.removeEventListener('beforeunload', handleBeforeUnload);
-        if (cleanupRef.current) {
-            cleanupRef.current();
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
         }
     };
   }, [sessionState, sessionToken, completeSession]);
@@ -227,7 +245,6 @@ export function WatchSession() {
         youtubeTabRef.current.close();
     }
     
-    // User earned nothing
     if (finalState.points <= 0 && finalState.gems <= 0) {
         return (
             <div className="container py-8 text-center flex items-center justify-center h-screen">
@@ -245,7 +262,6 @@ export function WatchSession() {
         );
     }
     
-    // Suspicious session
     if (finalState.status === 'suspicious') {
         return (
             <div className="container py-8 text-center flex items-center justify-center h-screen">
@@ -288,7 +304,6 @@ export function WatchSession() {
         );
     }
 
-      // Successful session with points
       return (
         <div className="container py-8 text-center flex items-center justify-center h-screen">
             <div className='w-full max-w-sm'>
