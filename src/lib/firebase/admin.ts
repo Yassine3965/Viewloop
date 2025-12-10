@@ -1,7 +1,6 @@
 // src/lib/firebase/admin.ts
 import admin from 'firebase-admin';
 import crypto from 'crypto';
-import { NextRequest } from 'next/server';
 
 let isInitialized = false;
 
@@ -58,7 +57,7 @@ export function verifySignature(req: Request, body: any): boolean {
         return false;
     }
     
-    // Reconstruct the payload exactly as it was on the client
+    // Reconstruct the payload exactly as it was on the client in the background script
     const requestData = {
       method: req.method,
       url: req.url,
@@ -78,9 +77,6 @@ export function verifySignature(req: Request, body: any): boolean {
 
         if (!areEqual) {
             console.warn('Signature verification failed: Mismatch.');
-            console.log('Server Payload:', JSON.stringify(requestData));
-            console.log('Received Signature:', signature);
-            console.log('Expected Signature:', expectedSignature);
         }
 
         return areEqual;

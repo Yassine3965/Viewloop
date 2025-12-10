@@ -5,6 +5,9 @@ import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
+const AD_BONUS_RATE_PER_SECOND = 0.5; // 0.5 points per second
+const GEMS_FOR_AD = 1; // 1 Gem bonus for watching any ad
+
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
 }
@@ -37,14 +40,12 @@ export async function POST(req: Request) {
   }
   
   try {
-    const { sessionToken } = body;
-    if (!sessionToken) {
+    const { sessionToken, adDuration } = body;
+    if (!sessionToken || typeof adDuration !== 'number' || adDuration <= 0) {
       const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
     
-    const gemsForAd = 1; // 1 Gem bonus
-
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionSnap = await sessionRef.get();
 
@@ -66,6 +67,8 @@ export async function POST(req: Request) {
             message: "This ad has already been processed for this session."
           }, { status: 200 }), req);
     }
+    
+    const pointsForAd = adDuration * AD_BONUS_RATE_PER_SECOND;
 
     await firestore.runTransaction(async (transaction) => {
       const userRef = firestore.collection("users").doc(sessionData.userId);
@@ -75,14 +78,21 @@ export async function POST(req: Request) {
         throw new Error("User not found during transaction");
       }
       
-      transaction.update(userRef, { gems: admin.firestore.FieldValue.increment(gemsForAd) });
-      transaction.update(sessionRef, { adWatched: true });
+      transaction.update(userRef, { 
+        points: admin.firestore.FieldValue.increment(pointsForAd),
+        gems: admin.firestore.FieldValue.increment(GEMS_FOR_AD) 
+      });
+      transaction.update(sessionRef, { 
+        adWatched: true,
+        adHeartbeats: admin.firestore.FieldValue.increment(Math.ceil(adDuration / 15)) // Assuming 15s per heartbeat
+      });
     });
 
     return addCorsHeaders(NextResponse.json({
       success: true,
-      message: `تم منح ${gemsForAd} جوهرة لمشاهدة الإعلان.`,
-      gemsAdded: gemsForAd
+      message: `تم منح ${pointsForAd.toFixed(2)} نقطة و ${GEMS_FOR_AD} جوهرة لمشاهدة الإعلان.`,
+      pointsAdded: pointsForAd,
+      gemsAdded: GEMS_FOR_AD
     }), req);
 
   } catch (err: any) {
