@@ -39,16 +39,19 @@ import { getYoutubeVideoId } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 // Define a more specific user type for the context
-type AppUser = UserProfile & {
+export type AppUser = UserProfile & {
     getIdToken: () => Promise<string>;
     emailVerified: boolean;
 };
 
-interface AppContextState {
+interface AppState {
     user: AppUser | null;
     isUserLoading: boolean;
     videos: Video[];
     searchQuery: string;
+}
+
+interface AppDispatch {
     setSearchQuery: (query: string) => void;
     addVideo: (video: Omit<Video, 'id' | 'submissionDate'>) => Promise<{ success: boolean, message: string }>;
     deleteVideo: (video: Video) => Promise<{ success: boolean, message: string }>;
@@ -61,7 +64,9 @@ interface AppContextState {
     logout: () => Promise<void>;
 }
 
-const AppContext = createContext<AppContextState | undefined>(undefined);
+const AppStateContext = createContext<AppState | undefined>(undefined);
+const AppDispatchContext = createContext<AppDispatch | undefined>(undefined);
+
 
 const getInitialAvatar = (name: string): string => {
     const sanitizedName = encodeURIComponent(name.trim());
@@ -72,7 +77,8 @@ const getInitialAvatar = (name: string): string => {
 export function AppProvider({ children }: { children: ReactNode }) {
   const { auth, db } = useFirebase();
   const { toast } = useToast();
-  const [user, setUser] = useState<AppContextState['user']>(null);
+  
+  const [user, setUser] = useState<AppUser | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -211,7 +217,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [auth, db]);
 
   const addVideo = useCallback(async (videoData: Omit<Video, 'id' | 'submissionDate'>): Promise<{ success: boolean, message: string }> => {
-    if (!user || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
+    const currentUser = user;
+    if (!currentUser || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
   
     const youtubeVideoId = getYoutubeVideoId(videoData.url);
     if (!youtubeVideoId) {
@@ -254,8 +261,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [user, db]);
 
   const deleteVideo = useCallback(async (video: Video): Promise<{ success: boolean, message: string }> => {
-    if (!user || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
-    if (user.id !== video.submitterId) return { success: false, message: "ليس لديك إذن لحذف هذا الفيديو." };
+    const currentUser = user;
+    if (!currentUser || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
+    if (currentUser.id !== video.submitterId) return { success: false, message: "ليس لديك إذن لحذف هذا الفيديو." };
 
     // The video ID from the app is the YouTube video ID, which is the document ID.
     const videoRef = doc(db, 'videos', video.id);
@@ -309,10 +317,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             } else if (error.code === 'permission-denied'){
                  message = "ليس لديك الإذن الكافي لحذف هذا الحساب.";
             }
-
+            
+            const currentUser = user;
             const userDocSnap = await getDoc(userDocRef);
-            if (!userDocSnap.exists() && user) {
-                const { getIdToken, emailVerified, ...profileData } = user;
+            if (!userDocSnap.exists() && currentUser) {
+                const { getIdToken, emailVerified, ...profileData } = currentUser;
                 await setDoc(userDocRef, profileData);
             }
             return { success: false, message };
@@ -320,10 +329,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, [auth, db, user]);
 
     const improveReputation = useCallback(async (): Promise<{ success: boolean, message: string }> => {
-        if (!user) return { success: false, message: "يجب تسجيل الدخول أولاً."};
+        const currentUser = user;
+        if (!currentUser) return { success: false, message: "يجب تسجيل الدخول أولاً."};
 
         try {
-            const userAuthToken = await user.getIdToken();
+            const userAuthToken = await currentUser.getIdToken();
             const response = await fetch('/api/improve-reputation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -523,11 +533,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   }, [auth]);
 
-  const contextValue = useMemo(() => ({
+  const stateContextValue = useMemo(() => ({
     user,
     isUserLoading,
     videos,
     searchQuery,
+  }), [user, isUserLoading, videos, searchQuery]);
+  
+  const dispatchContextValue = useMemo(() => ({
     setSearchQuery,
     addVideo,
     deleteVideo,
@@ -538,24 +551,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     verifyRegistrationCodeAndCreateUser,
     loginWithGoogle,
     logout,
-  }), [user, isUserLoading, videos, searchQuery, addVideo, deleteVideo, deleteCurrentUserAccount, improveReputation, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
+  }), [addVideo, deleteVideo, deleteCurrentUserAccount, improveReputation, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout]);
 
   return (
-    <AppContext.Provider value={contextValue}>
-      {children}
-      <PointsAwardedModal 
-        open={awardedPoints > 0}
-        points={awardedPoints}
-        onConfirm={() => setAwardedPoints(0)}
-      />
-    </AppContext.Provider>
+    <AppStateContext.Provider value={stateContextValue}>
+      <AppDispatchContext.Provider value={dispatchContextValue}>
+        {children}
+        <PointsAwardedModal 
+          open={awardedPoints > 0}
+          points={awardedPoints}
+          onConfirm={() => setAwardedPoints(0)}
+        />
+      </AppDispatchContext.Provider>
+    </AppStateContext.Provider>
   );
 }
 
-export const useApp = (): AppContextState => {
-  const context = useContext(AppContext);
+export const useAppState = (): AppState => {
+  const context = useContext(AppStateContext);
   if (context === undefined) {
-    throw new Error('useApp must be used within an AppProvider component.');
+    throw new Error('useAppState must be used within an AppProvider component.');
   }
   return context;
 };
+
+export const useAppDispatch = (): AppDispatch => {
+    const context = useContext(AppDispatchContext);
+    if (context === undefined) {
+      throw new Error('useAppDispatch must be used within an AppProvider component.');
+    }
+    return context;
+};
+
+export const useApp = (): AppState & AppDispatch => {
+    return {
+        ...useAppState(),
+        ...useAppDispatch()
+    }
+}
