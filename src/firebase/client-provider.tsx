@@ -39,6 +39,9 @@ export function FirebaseClientProvider({
     if (typeof window !== 'undefined') {
         const instances = initializeFirebase();
         setFirebase(instances);
+
+        // Expose the initialized app to the window for the extension bridge.
+        (window as any).firebaseApp = instances.app;
     }
   }, []);
 
