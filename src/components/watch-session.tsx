@@ -4,13 +4,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useApp } from '@/lib/app-provider';
-import type { Video } from '@/lib/types';
+import type { Video, Session } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from './ui/progress';
 import { Loader2, XCircle, AlertTriangle, CheckCircle, MonitorPlay, ShieldAlert, Send, Gem, Star } from 'lucide-react';
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
+import { doc, onSnapshot, FirestoreError } from 'firebase/firestore';
+import { useFirebase } from '@/firebase/provider';
 
 type SessionState = 'idle' | 'starting' | 'watching' | 'completing' | 'error' | 'done';
 
@@ -30,36 +32,32 @@ const reasonTranslations: { [key: string]: string } = {
 export function WatchSession() {
   const searchParams = useSearchParams();
   const { user } = useApp();
+  const { db } = useFirebase();
   const { toast } = useToast();
 
   const videoId = searchParams.get('videoId');
 
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
+  const [sessionData, setSessionData] = useState<Session | null>(null);
   const [progress, setProgress] = useState(0);
   const [sessionState, setSessionState] = useState<SessionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [totalWatchedSeconds, setTotalWatchedSeconds] = useState(0);
   const [finalState, setFinalState] = useState<FinalState | null>(null);
   const [showAppealForm, setShowAppealForm] = useState(false);
   const [appealText, setAppealText] = useState('');
   const [isSubmittingAppeal, setIsSubmittingAppeal] = useState(false);
 
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const youtubeTabRef = useRef<Window | null>(null);
-
-  const cleanup = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
-    }
-  }, []);
+  const cleanupRef = useRef<() => void>();
 
   const completeSession = useCallback(async (token: string, isBeacon = false) => {
     if (!token || sessionState === 'completing' || sessionState === 'done') return;
   
     setSessionState('completing');
-    cleanup();
+    if (cleanupRef.current) {
+        cleanupRef.current();
+    }
   
     const payload = JSON.stringify({ sessionToken: token });
   
@@ -90,53 +88,48 @@ export function WatchSession() {
       setErrorMessage('فشل في إنهاء الجلسة. ' + error.message);
       setSessionState('error');
     }
-  }, [cleanup, sessionState]);
+  }, [sessionState]);
 
+  // Effect to listen to session document changes in Firestore
   useEffect(() => {
-    if (sessionState === 'watching' && currentVideo && sessionToken) {
-        if (totalWatchedSeconds >= currentVideo.duration) {
-            setProgress(100);
-            completeSession(sessionToken);
-        } else {
-            const newProgress = (totalWatchedSeconds / currentVideo.duration) * 100;
-            setProgress(Math.min(newProgress, 100));
-        }
-    }
-  }, [totalWatchedSeconds, currentVideo, sessionState, sessionToken, completeSession]);
+    if (!db || !sessionToken) return;
 
+    const sessionRef = doc(db, 'sessions', sessionToken);
+    const unsubscribe = onSnapshot(sessionRef, 
+        (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data() as Session;
+                setSessionData(data);
+
+                if (data.status === 'completed' || data.status === 'expired' || data.status === 'suspicious') {
+                    if (sessionState !== 'completing' && sessionState !== 'done') {
+                        completeSession(sessionToken);
+                    }
+                }
+            }
+        },
+        (error: FirestoreError) => {
+            console.error("Error listening to session:", error);
+            setErrorMessage("فقد الاتصال بجلسة المشاهدة.");
+            setSessionState('error');
+        }
+    );
+
+    cleanupRef.current = unsubscribe;
+
+    return () => unsubscribe();
+  }, [db, sessionToken, completeSession, sessionState]);
+
+  // Effect to update progress bar based on sessionData
   useEffect(() => {
-    const handleHeartbeat = async (token: string) => {
-        try {
-            const res = await fetch('/api/heartbeat-data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken: token }),
-            });
-            const data = await res.json();
-    
-            if (data.totalWatchedSeconds !== undefined) {
-            setTotalWatchedSeconds(data.totalWatchedSeconds);
-            }
-    
-            if (data.status === 'completed' || data.status === 'expired' || data.status === 'suspicious') {
-                completeSession(token);
-            }
-        } catch (error) {
-            console.error('Heartbeat from session page failed:', error);
-            // Consider ending the session if heartbeats fail consistently
-        }
-    };
-    
-    if (sessionState === 'watching' && sessionToken) {
-        heartbeatIntervalRef.current = setInterval(() => {
-            handleHeartbeat(sessionToken);
-        }, 15 * 1000); // Send heartbeat every 15 seconds
+    if (sessionData && currentVideo && currentVideo.duration > 0) {
+        const watchedSeconds = sessionData.totalWatchedSeconds || 0;
+        const newProgress = (watchedSeconds / currentVideo.duration) * 100;
+        setProgress(Math.min(newProgress, 100));
     }
-  
-    return cleanup;
-  }, [sessionState, sessionToken, cleanup, completeSession]);
+  }, [sessionData, currentVideo]);
 
-
+  // Effect to start the whole flow
   useEffect(() => {
     async function startFlow() {
         if (sessionState !== 'idle' || !user || !videoId) {
@@ -186,6 +179,7 @@ export function WatchSession() {
   }, [sessionState, user, videoId, toast]);
 
 
+  // Effect for page unload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
         if (sessionState === 'watching' && sessionToken) {
@@ -198,9 +192,11 @@ export function WatchSession() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
         window.removeEventListener('beforeunload', handleBeforeUnload);
-        cleanup();
+        if (cleanupRef.current) {
+            cleanupRef.current();
+        }
     };
-  }, [sessionState, sessionToken, cleanup, completeSession]);
+  }, [sessionState, sessionToken, completeSession]);
 
   if (sessionState === 'idle' || sessionState === 'starting' || !currentVideo) {
     return (
@@ -348,7 +344,7 @@ export function WatchSession() {
           <Progress value={progress} className="w-full h-3" />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>المشاهدة لمدة {currentVideo.duration} ثانية</span>
-            <span>{Math.round(totalWatchedSeconds)} / {currentVideo.duration} ث</span>
+            <span>{Math.round(sessionData?.totalWatchedSeconds || 0)} / {currentVideo.duration} ث</span>
           </div>
         </div>
 
