@@ -102,6 +102,8 @@ export async function POST(req: Request) {
     const now = Date.now();
 
     // --- Prevent re-watching the same video ---
+    // This check is temporarily disabled for testing purposes.
+    /*
     const watchHistoryQuery = firestore.collection("watchHistory")
         .where('userId', '==', userId)
         .where('videoId', '==', videoID);
@@ -114,6 +116,7 @@ export async function POST(req: Request) {
       }, { status: 409 }); // 409 Conflict
       return addCorsHeaders(response, req);
     }
+    */
     // --- End re-watch check ---
 
     // Server-side debounce to prevent race conditions from duplicate requests
