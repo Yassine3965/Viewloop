@@ -23,7 +23,8 @@ import { DeleteAccountDialog } from './delete-account-dialog';
 import { Input } from './ui/input';
 
 function UserSection() {
-  const { user, isUserLoading, logout } = useApp();
+  const { user, isUserLoading } = useApp();
+  const { logout } = useApp();
   const router = useRouter();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -44,7 +45,7 @@ function UserSection() {
   if (!user) {
     return (
         <Button asChild variant="outline">
-            <Link href="/login">
+            <Link href="/login" prefetch={false}>
                 <LogIn className="ml-2 h-4 w-4" />
                 <span>تسجيل الدخول</span>
             </Link>
@@ -73,7 +74,7 @@ function UserSection() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                    <Link href="/dashboard">
+                    <Link href="/dashboard" prefetch={false}>
                     <LayoutDashboard className="ml-2 h-4 w-4" />
                     <span>لوحة التحكم</span>
                     </Link>
@@ -112,7 +113,7 @@ function UserSection() {
 export function Header() {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
-  const { user, searchQuery, setSearchQuery } = useApp();
+  const { searchQuery, setSearchQuery } = useApp();
   const pathname = usePathname();
 
   const isWatchPage = pathname === '/watch';
@@ -125,7 +126,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container flex h-16 items-center">
         <div className="flex flex-1 items-center justify-start">
-            <Link href="/" aria-label="ViewLoop Home">
+            <Link href="/" aria-label="ViewLoop Home" prefetch={false}>
                 <Logo />
             </Link>
             <div className='mr-6'>
