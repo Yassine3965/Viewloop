@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useApp } from '@/lib/app-provider';
 import type { Video } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +29,7 @@ const reasonTranslations: { [key: string]: string } = {
 
 export function WatchSession() {
   const searchParams = useSearchParams();
-  const { videos, user } = useApp();
+  const { user } = useApp();
   const { toast } = useToast();
 
   const videoId = searchParams.get('videoId');
@@ -138,19 +139,11 @@ export function WatchSession() {
 
   useEffect(() => {
     async function startFlow() {
-        if (sessionState !== 'idle' || !user || !videoId || videos.length === 0) {
+        if (sessionState !== 'idle' || !user || !videoId) {
             return;
         }
 
         setSessionState('starting');
-
-        const videoToWatch = videos.find(v => v.id === videoId);
-        if (!videoToWatch) {
-            setErrorMessage("الفيديو المطلوب غير موجود.");
-            setSessionState('error');
-            return;
-        }
-        setCurrentVideo(videoToWatch);
 
         try {
             const userAuthToken = await user.getIdToken();
@@ -162,11 +155,12 @@ export function WatchSession() {
 
             const data = await response.json();
 
-            if (data.success && data.sessionToken) {
+            if (data.success && data.sessionToken && data.video) {
+                setCurrentVideo(data.video as Video);
                 setSessionToken(data.sessionToken);
                 setSessionState('watching');
                 
-                const youtubeUrlWithToken = `${videoToWatch.url}#VIEWLOOP_TOKEN=${data.sessionToken}`;
+                const youtubeUrlWithToken = `${data.video.url}#VIEWLOOP_TOKEN=${data.sessionToken}`;
                 youtubeTabRef.current = window.open(youtubeUrlWithToken, '_blank');
 
                 if (!youtubeTabRef.current) {
@@ -189,7 +183,7 @@ export function WatchSession() {
 
     startFlow();
 
-  }, [sessionState, user, videos, videoId, toast]);
+  }, [sessionState, user, videoId, toast]);
 
 
   useEffect(() => {
@@ -236,6 +230,26 @@ export function WatchSession() {
     if (youtubeTabRef.current && !youtubeTabRef.current.closed) {
         youtubeTabRef.current.close();
     }
+    
+    // User earned nothing
+    if (finalState.points <= 0 && finalState.gems <= 0) {
+        return (
+            <div className="container py-8 text-center flex items-center justify-center h-screen">
+                <div className='w-full max-w-sm'>
+                    <div className="bg-card rounded-lg shadow-lg border p-6 text-center">
+                        <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold mb-2">لم يتم كسب أي نقاط</h2>
+                        <p className="text-muted-foreground mb-6">لم تشاهد الفيديو لوقت كافٍ لكسب أي نقاط أو مجوهرات. حاول المشاهدة لفترة أطول في المرة القادمة!</p>
+                        <Button onClick={() => window.close()} className="w-full mt-6" variant="secondary">
+                            موافق، إغلاق
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    
+    // Suspicious session
     if (finalState.status === 'suspicious') {
         return (
             <div className="container py-8 text-center flex items-center justify-center h-screen">
@@ -277,6 +291,8 @@ export function WatchSession() {
             </div>
         );
     }
+
+      // Successful session with points
       return (
         <div className="container py-8 text-center flex items-center justify-center h-screen">
             <div className='w-full max-w-sm'>
