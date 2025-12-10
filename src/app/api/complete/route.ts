@@ -171,7 +171,6 @@ export async function POST(req: Request) {
             sessionToken,
             behavioralData: {
               inactiveHeartbeats: sessionData.inactiveHeartbeats || 0,
-              noMouseMovementHeartbeats: sessionData.noMouseMovementHeartbeats || 0,
               adHeartbeats: sessionData.adHeartbeats || 0,
               penaltyApplied: finalStatus === 'suspicious'
             }

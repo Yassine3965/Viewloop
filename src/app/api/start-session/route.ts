@@ -137,7 +137,6 @@ export async function POST(req: Request) {
       adWatched: false, // Legacy, can be removed later
       status: "active",
       inactiveHeartbeats: 0,
-      noMouseMovementHeartbeats: 0,
       adHeartbeats: 0,
       penaltyReasons: [],
       videoDuration: videoData.duration,

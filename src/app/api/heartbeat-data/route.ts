@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   }
   
   try {
-    const { sessionToken, mouseMoved, tabIsActive, adIsPresent, currentTime } = body;
+    const { sessionToken, tabIsActive, adIsPresent, currentTime } = body;
     if (!sessionToken) {
       const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
       return addCorsHeaders(response, req);
@@ -85,15 +85,6 @@ export async function POST(req: Request) {
         }
     }
 
-    if (mouseMoved === false) {
-      updates.noMouseMovementHeartbeats = admin.firestore.FieldValue.increment(1);
-    } else {
-      // Reset counter on movement.
-      if (sessionData.noMouseMovementHeartbeats > 0) {
-        updates.noMouseMovementHeartbeats = 0;
-      }
-    }
-
     if (adIsPresent === true) {
       updates.adHeartbeats = admin.firestore.FieldValue.increment(1);
     }
@@ -105,14 +96,6 @@ export async function POST(req: Request) {
     
     // --- Update Status based on behavior ---
     const newInactiveHeartbeats = tabIsActive === false ? (sessionData.inactiveHeartbeats || 0) + 1 : 0;
-    const newNoMouseMovementHeartbeats = mouseMoved === false ? (sessionData.noMouseMovementHeartbeats || 0) + 1 : 0;
-
-    if (newNoMouseMovementHeartbeats >= 4 && newInactiveHeartbeats === 0) { // Approx 60 seconds of no mouse movement
-        updates.status = 'suspicious';
-        if (!sessionData.penaltyReasons || !sessionData.penaltyReasons.includes('no_mouse_activity')) {
-            updates.penaltyReasons = admin.firestore.FieldValue.arrayUnion('no_mouse_activity');
-        }
-    }
 
     if (newInactiveHeartbeats >= 6) { // ~90 seconds of inactivity
         updates.status = 'expired';

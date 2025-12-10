@@ -1,6 +1,6 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { TrendingUp, ChevronsUp, Gem, Star, ShieldCheck, Tv, MousePointerClick } from "lucide-react";
+import { TrendingUp, ChevronsUp, Gem, Star, ShieldCheck, Tv } from "lucide-react";
 
 export default function HowToEarnMorePage() {
   return (
@@ -81,7 +81,7 @@ export default function HowToEarnMorePage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground text-center">
-                تجنب ترك التبويبة غير نشطة أو عدم تحريك الماوس لفترات طويلة. النظام يراقب هذه السلوكيات، والحفاظ على سمعة جيدة يضمن حصولك على كامل نقاطك.
+                تجنب ترك التبويبة غير نشطة لفترة طويلة. النظام يراقب هذا السلوك، والحفاظ على سمعة جيدة يضمن حصولك على كامل نقاطك.
             </p>
           </CardContent>
         </Card>
@@ -90,7 +90,7 @@ export default function HowToEarnMorePage() {
         <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-                  <MousePointerClick className="h-8 w-8 text-primary" />
+                  <TrendingUp className="h-8 w-8 text-primary" />
                 </div>
                 <CardTitle>5. كن نشطًا</CardTitle>
                 <CardDescription>
@@ -99,7 +99,7 @@ export default function HowToEarnMorePage() {
             </CardHeader>
             <CardContent>
                 <p className="text-sm text-muted-foreground text-center">
-                    النظام يتأكد من أنك تشاهد الفيديو بالفعل عن طريق تتبع حركة الماوس ونشاط التبويبة. التفاعل المستمر يضمن عدم تطبيق أي عقوبات على أرباحك.
+                    النظام يتأكد من أنك تشاهد الفيديو بالفعل عن طريق تتبع نشاط التبويبة. التفاعل المستمر يضمن عدم تطبيق أي عقوبات على أرباحك.
                 </p>
             </CardContent>
         </Card>

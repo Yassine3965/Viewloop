@@ -23,7 +23,6 @@ interface FinalState {
 
 const reasonTranslations: { [key: string]: string } = {
     'inactive_too_long': 'تم ترك التبويبة غير نشطة لفترة طويلة.',
-    'no_mouse_activity': 'لم يتم رصد أي حركة للماوس لفترة طويلة.',
     'heartbeat_missing': 'انقطع الاتصال بالخادم.'
 };
 

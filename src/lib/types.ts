@@ -21,7 +21,6 @@ export type Session = {
     points: number;
     gems: number;
     inactiveHeartbeats: number;
-    noMouseMovementHeartbeats: number;
     adHeartbeats: number;
     penaltyReasons: string[];
 };
