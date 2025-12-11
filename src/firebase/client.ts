@@ -47,8 +47,9 @@ if (typeof window !== 'undefined') {
       
       setTimeout(() => {
         const token = localStorage.getItem('userAuthToken');
-        if (token && chrome.runtime && chrome.runtime.id) {
-           chrome.runtime.sendMessage(chrome.runtime.id, {
+        // FIX: Check for window.chrome before using it
+        if (token && window.chrome && window.chrome.runtime && window.chrome.runtime.id) {
+           window.chrome.runtime.sendMessage(window.chrome.runtime.id, {
              type: 'SHARE_TOKEN_TO_YOUTUBE',
              token: token
            });
