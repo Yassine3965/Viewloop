@@ -1,0 +1,10 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-image",
+      "description": "Abstract network of lines and dots, representing connections and views.",
+      "imageUrl": "https://images.unsplash.com/photo-1690029670784-155329105e58?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8YWJzdHJhY3QlMjBuZXR3b3JrfGVufDB8fHx8MTc2NDMzMDc2MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract network"
+    }
+  ]
+}

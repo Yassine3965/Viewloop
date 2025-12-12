@@ -1,0 +1,79 @@
+
+/**
+ * This ruleset enforces a strict user-ownership model for user profiles,
+ * while allowing for public read access to the shared video library.
+ * The security model is designed for high performance and strong authorization
+ * by leveraging path-based ownership.
+ *
+ * Core Philosophy:
+ * A user has complete control over their own data document at /users/{userId}.
+ * They can read and update their own profile. No other user can access this data.
+ * The top-level /videos collection is treated as a public library, readable by
+ * anyone but writable only by the original submitter.
+ * The /sessions, /watchHistory, and /short_lived_tokens collections are server-only.
+ *
+ * Key Security Decisions:
+ * - User Listing Disabled: To protect user privacy, it is impossible to list all
+ *   documents in the `/users` collection.
+ * - Strict Ownership: All user-specific data is locked down to the user
+ *   identified in the document path for reads and updates.
+ * - Immutable Fields: Critical fields like 'role' and 'createdAt' on a user document cannot be
+ *   changed by any client-side request to prevent privilege escalation.
+ * - Public Content: The `/videos` collection is publicly readable. Writes are protected.
+ * - Server-Only Collections: `/sessions`, `/watchHistory`, and `/short_lived_tokens` are locked down 
+ *   and can only be accessed by the trusted server-side admin SDK, preventing any client manipulation.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------------
+    // Helper Functions
+    // ----------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ----------------------------------------------------------------------
+    // Collection Rules
+    // ----------------------------------------------------------------------
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Prevent listing all users
+      // Allow user creation only if the user is creating their own document
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId)
+                       // Prevent tampering with sensitive fields
+                       && request.resource.data.role == resource.data.role
+                       && request.resource.data.email == resource.data.email
+                       && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId); // Allow users to delete their own accounts
+    }
+
+    match /videos/{videoId} {
+      allow get, list: if true; // Allow anyone to see videos
+      allow create: if isSignedIn() && request.resource.data.submitterId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.submitterId == request.auth.uid;
+    }
+
+    match /sessions/{sessionId} {
+      // Server-only collection. Disallow all client access.
+      allow read, write: if false;
+    }
+
+    match /watchHistory/{historyId} {
+      // Server-only collection. Disallow all client access.
+      allow read, write: if false;
+    }
+    
+    match /short_lived_tokens/{tokenId} {
+      // Server-only collection for an additional security layer.
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,89 @@
+
+import type { Metadata } from 'next';
+import './globals.css';
+import { Providers } from '@/components/providers';
+import { ClientBoundary } from '@/components/client-boundary';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
+import '@/firebase/client'; // <-- Import here to ensure early initialization
+
+export const metadata: Metadata = {
+  title: 'ViewLoop',
+  description: 'عزز مشاهداتك، دون عناء',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          rel="icon"
+          href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='hsl(205, 80%, 50%)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><polygon points='10 8 16 12 10 16 10 8'></polygon></svg>"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+      (function() {
+        'use strict';
+        
+        console.log('🛡️ ViewLoop Bridge Controller v2.0');
+        
+        // 1. إذا كان الامتداد محملاً، لا نحتاج جسراً إضافياً
+        if (window.__viewloopExtensionLoaded) {
+          console.log('✅ امتداد Chrome محمّل، استخدامه مباشرة');
+          
+          // فقط تأكد من أن Firebase مهيأ
+          if (!window.firebase || !window.firebase.__bridgeInitialized) {
+            console.log('⚡ تهيئة Firebase للامتداد...');
+            // The main firebase/client.ts will handle the actual initialization
+          }
+          
+          return; // لا تحمّل جسراً إضافياً
+        }
+        
+        // 2. إذا لم يكن الامتداد محملاً، حمّل الجسر المحلي
+        console.log('🌐 امتداد Chrome غير محمّل، تحميل الجسر المحلي...');
+        
+        // تنظيف أي جسور قديمة
+        const oldScripts = document.querySelectorAll('script[src*="content_bridge"]');
+        oldScripts.forEach(script => script.remove());
+        
+        // تحميل الجسر المحلي المبسط
+        setTimeout(() => {
+          if(window.__viewloopMinBridgeLoaded) return; // do not load it twice
+          const script = document.createElement('script');
+          script.src = '/js/content_bridge.min.js';
+          script.async = true;
+          script.onload = () => console.log('✅ الجسر المحلي محمّل');
+          document.body.appendChild(script);
+        }, 500);
+        
+      })();
+    `,
+          }}
+        />
+        <script src="/js/extension-compat.js" defer></script>
+      </head>
+      <body className="font-body antialiased">
+        <Providers>
+          <FirebaseClientProvider>
+            <ClientBoundary>{children}</ClientBoundary>
+          </FirebaseClientProvider>
+        </Providers>
+      </body>
+    </html>
+  );
+}

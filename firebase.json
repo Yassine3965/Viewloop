@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "source": ".",
+    "rewrites": [
+      {
+        "source": "**",
+        "apphosting": {
+          "backendId": "viewloop-app",
+          "region": "us-central1"
+        }
+      }
+    ]
+  }
+}
