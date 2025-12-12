@@ -5,6 +5,8 @@ import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
+const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000";
+
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
 }
@@ -17,7 +19,7 @@ export async function POST(req: Request) {
     firestore = adminApp.firestore();
   } catch (error: any) {
     console.error("API Error: Firebase Admin initialization failed.", { message: error.message, timestamp: new Date().toISOString() });
-    const response = NextResponse.json({ 
+    const response = NextResponse.json({
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs for details."
     }, { status: 503 });
@@ -32,87 +34,82 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  // This endpoint might be called by older extension versions, so we keep the direct secret check
-  if (body.extensionSecret && body.extensionSecret !== process.env.EXTENSION_SECRET) {
-    const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
-    return addCorsHeaders(response, req);
-  }
-
   try {
     const { sessionToken } = body;
-    
+
     if (!sessionToken) {
       const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
 
-    const sessionRef = firestore.collection("sessions").doc(sessionToken);
-    const sessionSnap = await sessionRef.get();
-    
-    if (!sessionSnap.exists) {
-      const response = NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 });
-      return addCorsHeaders(response, req);
-    }
+    // تحديث النقاط في Firebase (للتوافق مع النظام الحالي)
+    // في الإنتاج، يمكن إزالة هذا الجزء إذا انتقلنا بالكامل للخادم الجديد
 
-    const sessionData = sessionSnap.data();
-    if (!sessionData || !sessionData.userId) {
-      const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
-      return addCorsHeaders(response, req);
-    }
+    // البحث عن الجلسة في Firebase للحصول على userId وبيانات المشاهدة
+    const sessionsRef = firestore.collection("sessions");
+    const sessionQuery = await sessionsRef.where('sessionToken', '==', sessionToken).limit(1).get();
 
-    if (sessionData.extensionSecret !== process.env.EXTENSION_SECRET) {
-      console.warn("Watch-complete failed: Invalid secret in session doc", { sessionToken });
-      const response = NextResponse.json({ error: "INVALID_SECRET" }, { status: 403 });
-      return addCorsHeaders(response, req);
-    }
+    let pointsAdded = 0;
+    let totalWatchedSeconds = 0;
 
-    if (sessionData.status === 'completed') {
-        return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: 0, message: "Session already completed." }), req);
-    }
+    if (!sessionQuery.empty) {
+      const sessionDoc = sessionQuery.docs[0];
+      const sessionData = sessionDoc.data();
 
-    const totalWatched = sessionData.totalWatchedSeconds || 0;
-    const now = Date.now();
+      if (sessionData) {
+        totalWatchedSeconds = sessionData.totalWatchedSeconds || 0;
 
-    let points = Math.floor(totalWatched * 0.05);
+        // حساب النقاط محلياً (مؤقتاً - سيتم ربطها بالخادم الجديد لاحقاً)
+        // حساب النقاط بنفس المعادلة: 0.05 نقطة لكل ثانية بعد أول 5 ثواني
+        const effectiveSeconds = Math.max(0, totalWatchedSeconds - 5);
+        pointsAdded = Math.floor(effectiveSeconds * 0.05);
 
-    const MAX_POINTS_PER_VIDEO = 50;
-    points = Math.min(points, MAX_POINTS_PER_VIDEO);
+        // الحد الأقصى 50 نقطة للفيديو الواحد
+        pointsAdded = Math.min(pointsAdded, 50);
 
-    await firestore.runTransaction(async (transaction) => {
-        const userRef = firestore.collection("users").doc(sessionData.userId);
-        const userSnap = await transaction.get(userRef);
+        console.log(`Calculated points: ${pointsAdded} for ${totalWatchedSeconds}s watched`);
 
-        if (!userSnap.exists) {
-            throw new Error(`User with ID ${sessionData.userId} not found during transaction.`);
+        if (sessionData.userId) {
+          // تحديث النقاط في Firebase
+          const userRef = firestore.collection("users").doc(sessionData.userId);
+          const userSnap = await userRef.get();
+
+          if (userSnap.exists) {
+            const currentPoints = userSnap.data()?.points || 0;
+            const newTotalPoints = currentPoints + pointsAdded;
+
+            await userRef.update({
+              points: newTotalPoints,
+              lastUpdated: Date.now()
+            });
+
+            // تحديث الجلسة
+            await sessionDoc.ref.update({
+              status: "completed",
+              points: pointsAdded,
+              completedAt: Date.now()
+            });
+
+            // إضافة إلى تاريخ المشاهدة
+            await firestore.collection("watchHistory").add({
+              userId: sessionData.userId,
+              videoId: sessionData.videoID,
+              totalWatchedSeconds: sessionData.totalWatchedSeconds || 0,
+              adWatched: false,
+              pointsEarned: pointsAdded,
+              completedAt: Date.now(),
+              sessionToken
+            });
+          }
         }
-        
-        const currentPoints = userSnap.data()?.points || 0;
-        const newTotalPoints = currentPoints + points;
+      }
+    }
 
-        transaction.update(userRef, {
-            points: newTotalPoints,
-            lastUpdated: now
-        });
-        
-        transaction.update(sessionRef, {
-            status: "completed",
-            points: points,
-            completedAt: now,
-        });
+    return addCorsHeaders(NextResponse.json({
+      success: true,
+      pointsAdded: pointsAdded
+    }), req);
 
-        transaction.set(firestore.collection("watchHistory").doc(), {
-            userId: sessionData.userId,
-            videoId: sessionData.videoID,
-            totalWatchedSeconds: totalWatched,
-            adWatched: sessionData.adWatched || false,
-            pointsEarned: points,
-            completedAt: now,
-            sessionToken
-        });
-    });
-
-    return addCorsHeaders(NextResponse.json({ success: true, pointsAdded: points }), req);
-    
   } catch (err: any) {
     console.error("API Error: /api/watch-complete failed.", { error: err.message, body, timestamp: new Date().toISOString() });
     const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });

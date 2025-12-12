@@ -1,178 +1,251 @@
+// =====================================================
+//      SECURE VIEWLOOP SERVER — Anti-Cheat Points System
+// =====================================================
+
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
+const crypto = require('crypto');
 
 const app = express();
 app.use(express.json());
 
-// هام: يجب أن يكون هذا المفتاح السري مطابقًا للمفتاح المستخدم في الإضافة
-// ويجب تخزينه بشكل آمن في بيئة الإنتاج (environment variable)
-const HMAC_SECRET_KEY = 'YOUR_SUPER_SECRET_KEY'; 
-const EXPECTED_EXTENSION_ID = 'YOUR_CHROME_EXTENSION_ID'; // استبدل بمعرف الإضافة الخاص بك
+// أسرار الأمان
+const EXTENSION_SECRET = '6B65FDC657B5D8CF4D5AB28C92CF2';
 
-// CORS configuration to allow requests only from the specified website and extension
+// قاعدة بيانات آمنة للجلسات
+const secureSessions = new Map(); // sessionId -> sessionData
+const processedSessions = new Set(); // sessionIds التي تم معالجتها
+
+// CORS configuration
 const corsOptions = {
-  origin: function (origin, callback) {
-    // يسمح بالطلبات من موقع الويب الخاص بك والإضافة
-    // في بيئة الإنتاج، يجب أن تكون أكثر تحديدًا
-    const allowedOrigins = ['https://viewloop.vercel.app', `chrome-extension://${EXPECTED_EXTENSION_ID}`];
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+  origin: ['https://viewloop.vercel.app', 'http://localhost:3000'],
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'X-Signature', 'X-Timestamp', 'X-Request-ID']
+};
+app.use(require('cors')(corsOptions));
+
+// Middleware للتحقق من التوقيعات
+const verifySignature = (req, res, next) => {
+  try {
+    const signature = req.get('X-Signature');
+
+    if (!signature) {
+      return res.status(401).json({ error: 'Missing signature' });
     }
+
+    // التحقق من التوقيع
+    const dataToSign = JSON.stringify(req.body);
+    const expectedSignature = crypto.createHmac('sha256', EXTENSION_SECRET)
+      .update(dataToSign)
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: 'Security verification failed' });
   }
 };
-app.use(cors(corsOptions));
 
 
-// قاعدة بيانات وهمية لتخزين جلسات المشاهدة النشطة
-// في تطبيق حقيقي، ستستخدم قاعدة بيانات مثل Redis أو MongoDB
-const activeSessions = new Map();
+// ==========================
+// SECURE API ENDPOINTS
+// ==========================
 
-// Middleware للتحقق من أصل الطلب (Extension ID)
-const verifyOrigin = (req, res, next) => {
-    const origin = req.get('origin');
-    // يتم تعيين Origin تلقائيًا بواسطة Chrome للطلبات من الإضافات
-    if (origin !== `chrome-extension://${EXPECTED_EXTENSION_ID}`) {
-        // 403 Forbidden: إذا لم يكن الطلب من الإضافة المسموح بها
-        return res.status(403).json({ error: 'Forbidden: Invalid request origin.' });
-    }
-    next();
-};
+// 1. استقبال دفعات النبضات مع التحقق من الأمان
+app.post('/heartbeat-batch', verifySignature, (req, res) => {
+    const { sessionId, videoId, heartbeats, timestamp } = req.body;
 
-
-// 1. نقطة النهاية لبدء جلسة مشاهدة جديدة
-app.post('/start-session', (req, res) => {
-    const { videoID, userID } = req.body;
-
-    if (!videoID || !userID) {
-        return res.status(400).json({ error: 'videoID and userID are required.' });
+    if (!sessionId || !heartbeats || !Array.isArray(heartbeats)) {
+        return res.status(400).json({ error: 'Invalid heartbeat batch data' });
     }
 
-    // --[Security Check: Anti-Cheat]--
-    // التحقق مما إذا كان المستخدم لديه بالفعل جلسة نشطة
-    for (const [token, session] of activeSessions.entries()) {
-        if (session.userID === userID) {
-            return res.status(409).json({ error: 'User already has an active watching session.' });
+    // إنشاء الجلسة إذا لم تكن موجودة
+    if (!secureSessions.has(sessionId)) {
+        secureSessions.set(sessionId, {
+            sessionId: sessionId,
+            videoId: videoId,
+            startTime: timestamp,
+            heartbeats: [],
+            validHeartbeats: 0,
+            invalidHeartbeats: 0,
+            status: 'active'
+        });
+    }
+
+    const session = secureSessions.get(sessionId);
+
+    // التحقق من أن الفيديو مطابق
+    if (session.videoId !== videoId) {
+        return res.status(400).json({ error: 'Video ID mismatch' });
+    }
+
+    // معالجة دفعة النبضات
+    let validCount = 0;
+    let invalidCount = 0;
+
+    heartbeats.forEach(heartbeat => {
+        if (validateHeartbeatData(session, heartbeat)) {
+            session.heartbeats.push(heartbeat);
+            validCount++;
+        } else {
+            invalidCount++;
+            console.log(`🚨 Invalid heartbeat:`, heartbeat);
+        }
+    });
+
+    session.validHeartbeats += validCount;
+    session.invalidHeartbeats += invalidCount;
+
+    console.log(`✅ Processed heartbeat batch: ${validCount} valid, ${invalidCount} invalid`);
+
+    res.json({
+        success: true,
+        processed: validCount + invalidCount,
+        valid: validCount,
+        invalid: invalidCount
+    });
+});
+
+// 2. حساب النقاط النهائي مع التحقق من الأمان
+app.post('/calculate-points', verifySignature, (req, res) => {
+    const { sessionId, videoId, points, sessionData } = req.body;
+
+    if (!sessionId || processedSessions.has(sessionId)) {
+        return res.status(400).json({ error: 'Invalid request or session already processed' });
+    }
+
+    const session = secureSessions.get(sessionId);
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // إعادة حساب النقاط من جانب الخادم
+    const serverCalculatedPoints = calculatePointsSecurely(session);
+
+    // حفظ النقاط النهائية
+    const finalPoints = serverCalculatedPoints;
+    session.finalPoints = finalPoints;
+    session.processed = true;
+
+    processedSessions.add(sessionId);
+
+    // تنظيف بعد 5 دقائق
+    setTimeout(() => {
+        secureSessions.delete(sessionId);
+    }, 300000);
+
+    console.log(`🏆 Points awarded for session ${sessionId}: ${finalPoints.totalPoints}`);
+
+    res.json({
+        success: true,
+        pointsAwarded: finalPoints.totalPoints,
+        breakdown: finalPoints,
+        sessionId: sessionId
+    });
+});
+
+// 3. التحقق من صحة الفيديو
+app.post('/check-video', (req, res) => {
+    const { videoId } = req.body;
+
+    if (!videoId) {
+        return res.status(400).json({ error: 'Video ID required' });
+    }
+
+    // في الإنتاج، تحقق من قاعدة البيانات
+    res.json({
+        authorized: true,
+        exists: true,
+        message: 'Video authorized for watching'
+    });
+});
+
+
+
+// دوال مساعدة آمنة
+function validateHeartbeatData(session, heartbeat) {
+    // التحقق من البيانات الأساسية
+    if (!heartbeat.timestamp || !heartbeat.videoTime) {
+        return false;
+    }
+
+    // التحقق من التسلسل الزمني
+    const timeSinceLast = heartbeat.timestamp - (session.lastHeartbeat || session.startTime);
+    if (timeSinceLast < 3000) { // أقل من 3 ثواني
+        return false;
+    }
+
+    // التحقق من النشاط
+    if (!heartbeat.tabActive || !heartbeat.mouseActive) {
+        if (heartbeat.videoPlaying) {
+            return false;
         }
     }
 
-    // --[Security: Session Token]--
-    // إنشاء رمز جلسة فريد ومؤقت
-    const sessionToken = jwt.sign({ userID, videoID, type: 'session' }, HMAC_SECRET_KEY, { expiresIn: '3h' }); // صلاحية الرمز 3 ساعات كحد أقصى
-    const server_start_time = Date.now(); // milliseconds
+    // التحقق من وقت الفيديو
+    if (heartbeat.videoTime < 0 || heartbeat.videoTime > 36000) {
+        return false;
+    }
 
-    // تخزين بيانات الجلسة
-    activeSessions.set(sessionToken, {
-        userID,
-        videoID,
-        server_start_time,
-        last_heartbeat_time: server_start_time,
-        accumulated_watch_time: 0, // الوقت المتراكم بالثواني
-        heartbeat_count: 0
+    return true;
+}
+
+function calculatePointsSecurely(session) {
+    const validSeconds = session.validSeconds || 0;
+    const adSeconds = session.adSeconds || 0;
+
+    // نقاط الفيديو (بعد أول 5 ثواني)
+    const videoWatchSeconds = Math.max(0, validSeconds - 5);
+    const videoPoints = videoWatchSeconds * 0.05;
+
+    // نقاط الإعلانات
+    let adPoints = 0;
+    if (adSeconds > 0) {
+        adPoints = Math.floor(adSeconds / 60) * 15; // 15 نقطة لكل دقيقة إعلان
+    }
+
+    return {
+        videoPoints: Math.round(videoPoints * 100) / 100,
+        adPoints: adPoints,
+        totalPoints: Math.round((videoPoints + adPoints) * 100) / 100,
+        validSeconds: validSeconds,
+        adSeconds: adSeconds
+    };
+}
+
+// 9. نقطة النهاية لإحصائيات الجلسة (محدثة)
+app.get('/session-stats/:sessionId', (req, res) => {
+    const { sessionId } = req.params;
+
+    const session = secureSessions.get(sessionId);
+    if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+
+    res.json({
+        sessionId: session.sessionId,
+        videoId: session.videoId,
+        userId: session.userId,
+        startTime: session.startTime,
+        validHeartbeats: session.validHeartbeats,
+        invalidHeartbeats: session.invalidHeartbeats,
+        adSeconds: session.adSeconds,
+        status: session.status,
+        finalPoints: session.finalPoints || null
     });
-
-    console.log(`Session started for user ${userID} on video ${videoID}`);
-    res.json({ sessionToken });
 });
 
-// 2. نقطة النهاية لاستقبال النبضات (Heartbeat)
-app.post('/heartbeat', verifyOrigin, (req, res) => {
-    const { sessionToken } = req.body;
-
-    if (!sessionToken) {
-        return res.status(400).json({ error: 'Session token is required.' });
-    }
-
-    // --[Security: Token Validation]--
-    // التحقق من صحة الرمز
-    try {
-        jwt.verify(sessionToken, HMAC_SECRET_KEY);
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid or expired session token.' });
-    }
-
-    const session = activeSessions.get(sessionToken);
-
-    // التحقق من وجود الجلسة
-    if (!session) {
-        return res.status(404).json({ error: 'Session not found or has been completed.' });
-    }
-
-    const currentTime = Date.now();
-
-    // --[Security Check: Server-Side Time Validation]--
-    // حساب الفاصل الزمني منذ النبضة الأخيرة على الخادم
-    const timeSinceLastHeartbeat = (currentTime - session.last_heartbeat_time) / 1000; // بالثواني
-
-    // --[Security Check: Anti-Speed Hacking]--
-    // يجب أن يكون الفاصل الزمني حوالي 10 ثوانٍ. نسمح بهامش صغير (e.g., 9-12 seconds).
-    if (timeSinceLastHeartbeat < 9) {
-        // إذا أرسل العميل النبضات بسرعة كبيرة، فهذه علامة على الغش
-        activeSessions.delete(sessionToken); // إنهاء الجلسة
-        return res.status(400).json({ error: 'Heartbeat received too frequently. Session terminated.' });
-    }
-    
-    // نسمح بحد أقصى 12 ثانية لتجنب المشاكل الناتجة عن بطء الشبكة
-    const effective_watch_time = Math.min(timeSinceLastHeartbeat, 12);
-
-
-    // تحديث بيانات الجلسة
-    session.accumulated_watch_time += effective_watch_time;
-    session.last_heartbeat_time = currentTime;
-    session.heartbeat_count++;
-    
-    console.log(`Heartbeat for user ${session.userID}. Accumulated time: ${session.accumulated_watch_time.toFixed(2)}s`);
-
-    res.json({ status: 'ok' });
+// 10. نقطة النهاية للصحة
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        activeSessions: secureSessions.size,
+        processedSessions: processedSessions.size
+    });
 });
-
-// 3. نقطة النهاية لإكمال الجلسة ومنح النقاط
-app.post('/complete', verifyOrigin, (req, res) => {
-    const { sessionToken, videoDuration } = req.body; // videoDuration comes from the client, in seconds
-
-    if (!sessionToken || !videoDuration) {
-        return res.status(400).json({ error: 'Session token and videoDuration are required.' });
-    }
-    
-    try {
-        jwt.verify(sessionToken, HMAC_SECRET_KEY);
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid or expired session token.' });
-    }
-
-    const session = activeSessions.get(sessionToken);
-
-    if (!session) {
-        return res.status(404).json({ error: 'Session not found or already completed.' });
-    }
-
-    // --[Security Check: Final Validation]--
-    // التحقق مما إذا كان الوقت المتراكم يطابق مدة الفيديو (بنسبة تسامح، مثلا 95%)
-    // هذا يمنع المستخدم من إرسال طلب "complete" في وقت مبكر.
-    const requiredWatchTime = videoDuration * 0.95; 
-
-    if (session.accumulated_watch_time >= requiredWatchTime) {
-        // ---[Award Points Logic Here]---
-        // هنا تقوم باستدعاء نظام النقاط الخاص بك لمنح المستخدم نقاطه
-        // مثلا: awardPoints(session.userID, calculatePoints(videoDuration));
-        console.log(`User ${session.userID} completed video ${session.videoID} and earned points.`);
-        
-        // حذف الجلسة بعد اكتمالها بنجاح
-        activeSessions.delete(sessionToken);
-
-        res.json({ success: true, message: 'Video completed successfully. Points awarded.' });
-    } else {
-        // إذا لم يتم استيفاء شرط المشاهدة
-        activeSessions.delete(sessionToken); // حذف الجلسة الفاشلة
-        res.status(400).json({ 
-            success: false, 
-            message: `Watch time requirement not met. Watched: ${session.accumulated_watch_time.toFixed(2)}s, Required: ${requiredWatchTime.toFixed(2)}s.`
-        });
-    }
-});
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
