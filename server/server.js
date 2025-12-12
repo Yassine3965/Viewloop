@@ -162,6 +162,34 @@ app.post('/check-video', (req, res) => {
     });
 });
 
+// 4. بدء الجلسة
+app.post('/start-session', (req, res) => {
+    const { videoID, userID } = req.body;
+
+    if (!videoID) {
+        return res.status(400).json({ error: 'Video ID required' });
+    }
+
+    // إنشاء رمز جلسة فريد
+    const sessionToken = crypto.randomBytes(16).toString('hex');
+
+    // حفظ الجلسة في الذاكرة
+    secureSessions.set(sessionToken, {
+        sessionId: sessionToken,
+        videoId: videoID,
+        userId: userID || 'anonymous',
+        startTime: Date.now(),
+        heartbeats: [],
+        validHeartbeats: 0,
+        invalidHeartbeats: 0,
+        status: 'active'
+    });
+
+    console.log(`🆕 Session started: ${sessionToken} for video ${videoID}`);
+
+    res.json({ sessionToken });
+});
+
 
 
 // دوال مساعدة آمنة
