@@ -146,7 +146,41 @@ app.post('/calculate-points', verifySignature, (req, res) => {
     });
 });
 
-// 3. التحقق من صحة الفيديو
+// 3. بدء الجلسة
+app.post('/start-session', (req, res) => {
+    const { videoID, userID } = req.body;
+
+    if (!videoID) {
+        return res.status(400).json({ error: 'Video ID required' });
+    }
+
+    // إنشاء رمز جلسة فريد
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+
+    // حفظ الجلسة في الذاكرة
+    secureSessions.set(sessionToken, {
+        sessionId: sessionToken,
+        videoId: videoID,
+        userId: userID || 'anonymous',
+        startTime: Date.now(),
+        heartbeats: [],
+        validHeartbeats: 0,
+        invalidHeartbeats: 0,
+        validSeconds: 0,
+        adSeconds: 0,
+        status: 'active'
+    });
+
+    console.log(`🚀 Started new session: ${sessionToken} for video ${videoID}`);
+
+    res.json({
+        success: true,
+        sessionToken: sessionToken,
+        message: 'Session started successfully'
+    });
+});
+
+// 4. التحقق من صحة الفيديو
 app.post('/check-video', (req, res) => {
     const { videoId } = req.body;
 
