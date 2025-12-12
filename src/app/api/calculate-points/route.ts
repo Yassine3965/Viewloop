@@ -1,8 +1,8 @@
 // /app/api/calculate-points/route.ts - Final points calculation
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { handleOptions, addCorsHeaders } from "@/lib/cors";
-import crypto from 'crypto';
+import { handleOptions, addCorsHeaders } from "../../../lib/cors";
+import { createHmac } from 'crypto';
 
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  const expectedSignature = crypto.createHmac('sha256', EXTENSION_SECRET)
+  const expectedSignature = createHmac('sha256', EXTENSION_SECRET)
     .update(JSON.stringify(body))
     .digest('hex');
 
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   }
 }
 
-function calculatePointsSecurely(session) {
+function calculatePointsSecurely(session: any) {
   const validSeconds = session.validSeconds || session.validHeartbeats * 5 || 0;
   const videoWatchSeconds = Math.max(0, validSeconds - 5);
   const videoPoints = videoWatchSeconds * 0.05;

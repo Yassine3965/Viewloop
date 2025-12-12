@@ -1,8 +1,8 @@
 // /app/api/heartbeat-batch/route.ts - New secure heartbeat processing
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { handleOptions, addCorsHeaders } from "@/lib/cors";
-import crypto from 'crypto';
+import { handleOptions, addCorsHeaders } from "../../../lib/cors";
+import { createHmac } from 'crypto';
 
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  const expectedSignature = crypto.createHmac('sha256', EXTENSION_SECRET)
+  const expectedSignature = createHmac('sha256', EXTENSION_SECRET)
     .update(JSON.stringify(body))
     .digest('hex');
 
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
   }
 }
 
-function validateHeartbeat(session, heartbeat) {
+function validateHeartbeat(session: any, heartbeat: any) {
   // Basic validation
   if (!heartbeat.timestamp || !heartbeat.videoTime) {
     return false;
