@@ -4,43 +4,81 @@ import crypto from 'crypto';
 
 let isInitialized = false;
 
-export function initializeFirebaseAdmin() {
-  if (!isInitialized) {
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-    const extensionSecret = process.env.EXTENSION_SECRET;
+let firebaseApp: admin.app.App | null = null;
 
-    if (!projectId || !clientEmail || !privateKey || !extensionSecret) {
-        const missingVars = [];
-        if (!projectId) missingVars.push('FIREBASE_PROJECT_ID');
-        if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
-        if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
-        if (!extensionSecret) missingVars.push('EXTENSION_SECRET');
-
-        const errorMessage = `Firebase Admin initialization failed. Missing required environment variables: ${missingVars.join(', ')}.`;
-        console.error(`❌ [Firebase Admin] ${errorMessage}`);
-        throw new Error(errorMessage);
-    }
-
-    try {
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId,
-          clientEmail,
-          privateKey: privateKey.replace(/\\n/g, '\n'),
-        }),
-      });
-
-      isInitialized = true;
-
-    } catch (error: any) {
-      console.error("❌ [Firebase Admin] INIT ERROR:", error.message);
-      throw new Error(`Firebase Admin initialization failed: ${error.message}`);
-    }
+export function initializeFirebaseAdmin(): admin.app.App {
+  // إذا كان التطبيق مهيئاً بالفعل، أرجع النسخة الموجودة
+  if (firebaseApp) {
+    return firebaseApp;
   }
-  
-  return admin;
+
+  // تحقق من متغيرات البيئة
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !privateKey) {
+    const missingVars = [];
+    if (!projectId) missingVars.push('FIREBASE_PROJECT_ID');
+    if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
+    if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
+
+    const errorMessage = `Missing Firebase environment variables: ${missingVars.join(', ')}`;
+    console.error('❌ Firebase Admin init failed:', errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  try {
+    // إصلاح تنسيق المفتاح الخاص
+    const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
+
+    console.log('🔐 Initializing Firebase Admin SDK...');
+
+    // إنشاء التطبيق
+    firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey: formattedPrivateKey
+      }),
+      databaseURL: `https://${projectId}.firebaseio.com`
+    });
+
+    console.log('✅ Firebase Admin initialized successfully');
+
+    return firebaseApp;
+
+  } catch (error: any) {
+    console.error('❌ Failed to initialize Firebase Admin:', error.message);
+    throw error;
+  }
+}
+
+// دالة مساعدة للتحقق من التوكن
+export async function verifyFirebaseToken(token: string) {
+  try {
+    const app = initializeFirebaseAdmin();
+    const decoded = await app.auth().verifyIdToken(token);
+
+    console.log('✅ Token verified for user:', {
+      uid: decoded.uid,
+      email: decoded.email?.substring(0, 20) + '...'
+    });
+
+    return decoded;
+  } catch (error: any) {
+    console.error('❌ Token verification failed:', {
+      error: error.message,
+      code: error.code
+    });
+    throw error;
+  }
+}
+
+// دالة للحصول على Firestore
+export function getFirestore(): admin.firestore.Firestore {
+  const app = initializeFirebaseAdmin();
+  return app.firestore();
 }
 
 

@@ -27,6 +27,12 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
+    // التحقق من صحة videoID (يجب أن يكون 11 حرفاً)
+    if (videoID.length !== 11) {
+      const response = NextResponse.json({ error: "INVALID_VIDEO_ID" }, { status: 400 });
+      return addCorsHeaders(response, req);
+    }
+
     // إرسال الطلب إلى الخادم الجديد
     const serverResponse = await fetch(`${SERVER_URL}/start-session`, {
       method: 'POST',

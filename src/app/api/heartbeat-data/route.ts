@@ -1,128 +1,380 @@
-
-// /app/api/heartbeat-data/route.ts
+// /app/api/heartbeat-data/route.ts - النسخة المبسطة والمصححة
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
+import { verifyFirebaseToken, getFirestore } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
-import admin from 'firebase-admin';
 
-const HEARTBEAT_INTERVAL_SEC = 15;
+const HEARTBEAT_INTERVAL_SEC = 5;
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
 }
 
 export async function POST(req: Request) {
-  let firestore: admin.firestore.Firestore;
-
-  let body;
   try {
-    body = await req.json();
-  } catch (e) {
-    const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
-    return addCorsHeaders(response, req);
-  }
+    const body = await req.json();
 
-  // Signature verification is temporarily disabled for debugging.
-  // Re-enable this in production.
-  /*
-  if (!verifySignature(req, body)) {
-      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
-      return addCorsHeaders(response, req);
-  }
-  */
+    const {
+      sessionId,
+      videoId,
+      timestamp,
+      videoTime,
+      isPlaying,
+      tabActive,
+      windowFocused,
+      mouseActive,
+      lastMouseMove,
+      sessionDuration,
+      totalHeartbeats,
+      userId,
+      authToken
+    } = body;
 
-  try {
-    const adminApp = initializeFirebaseAdmin();
-    firestore = adminApp.firestore();
-  } catch (error: any) {
-    const response = NextResponse.json({ 
-      error: "SERVER_NOT_READY",
-      message: "Firebase Admin initialization failed. Check server logs for details."
-    }, { status: 503 });
-    return addCorsHeaders(response, req);
-  }
-  
-  try {
-    const { sessionToken, tabIsActive, adIsPresent, currentTime } = body;
-    if (!sessionToken) {
-      const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
-      return addCorsHeaders(response, req);
+    // 1. التحقق من التوكن
+    if (!authToken) {
+      return addCorsHeaders(NextResponse.json({
+        error: "MISSING_AUTH_TOKEN",
+        message: "Firebase authentication token is required"
+      }, { status: 401 }), req);
     }
 
-    const sessionRef = firestore.collection("sessions").doc(sessionToken);
+    let decodedToken;
+    try {
+      decodedToken = await verifyFirebaseToken(authToken);
+    } catch (error: any) {
+      return addCorsHeaders(NextResponse.json({
+        error: "INVALID_TOKEN",
+        message: error.message
+      }, { status: 401 }), req);
+    }
+
+    const verifiedUserId = decodedToken.uid;
+
+    // 2. التحقق من userId
+    if (userId && userId !== verifiedUserId) {
+      return addCorsHeaders(NextResponse.json({
+        error: "USER_ID_MISMATCH",
+        message: "User ID mismatch"
+      }, { status: 403 }), req);
+    }
+
+    // 3. التحقق من videoId
+    if (!videoId || videoId.length !== 11) {
+      return addCorsHeaders(NextResponse.json({
+        error: "INVALID_VIDEO_ID",
+        message: "Invalid YouTube video ID"
+      }, { status: 400 }), req);
+    }
+
+    // 4. الحصول على Firestore
+    const firestore = getFirestore();
+
+    // 5. إنشاء أو تحديث الجلسة
+    const sessionRef = firestore.collection("sessions").doc(
+      sessionId || `session_${Date.now()}_${verifiedUserId}`
+    );
+
     const sessionSnap = await sessionRef.get();
-
-    if (!sessionSnap.exists) {
-      const response = NextResponse.json({ error: "INVALID_SESSION" }, { status: 404 });
-      return addCorsHeaders(response, req);
-    }
-
-    const sessionData = sessionSnap.data();
-    if (!sessionData) {
-      const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
-      return addCorsHeaders(response, req);
-    }
-    
-    if (sessionData.status !== "active") {
-      const response = NextResponse.json({ error: "SESSION_NOT_ACTIVE" }, { status: 400 });
-      return addCorsHeaders(response, req);
-    }
-
     const now = Date.now();
-    
-    const updates: { [key: string]: any } = {
-      lastHeartbeatAt: now,
+
+    let sessionData: any = sessionSnap.exists ? sessionSnap.data() : {
+      userId: verifiedUserId,
+      videoId,
+      startTime: timestamp || now,
+      status: "active",
+      heartbeats: [],
+      validHeartbeats: 0,
+      fraudSignals: [],
+      totalPoints: 0,
+      videoPoints: 0,
+      adPoints: 0,
+      validSeconds: 0,
+      adSeconds: 0,
+      lastActivity: now,
+      createdAt: firestore.FieldValue.serverTimestamp()
     };
 
-    // --- Merge data from extension and web page ---
-    if (tabIsActive === false) {
-      updates.inactiveHeartbeats = admin.firestore.FieldValue.increment(1);
-    } else {
-        // Reset counter when tab becomes active again.
-        if (sessionData.inactiveHeartbeats > 0) {
-            updates.inactiveHeartbeats = 0;
+    if (!sessionSnap.exists) {
+      await sessionRef.set(sessionData);
+    }
+
+    // 6. التحقق من صحة الجلسة
+    if (sessionData.status === "fraud_detected" || sessionData.status === "completed") {
+      return addCorsHeaders(NextResponse.json({
+        error: "SESSION_INVALID",
+        message: "Session is no longer active"
+      }, { status: 400 }), req);
+    }
+
+    // 7. التحقق من ملكية الجلسة
+    if (sessionData.userId !== verifiedUserId) {
+      return addCorsHeaders(NextResponse.json({
+        error: "SESSION_OWNERSHIP_MISMATCH",
+        message: "Session ownership mismatch"
+      }, { status: 403 }), req);
+    }
+
+    // 8. كشف التلاعب
+    const fraudSignals = detectFraudNew({
+      sessionData,
+      currentHeartbeat: {
+        timestamp: timestamp || now,
+        videoTime: videoTime || 0,
+        isPlaying: isPlaying || false,
+        tabActive: tabActive || false,
+        windowFocused: windowFocused || false,
+        mouseActive: mouseActive || false,
+        lastMouseMove: lastMouseMove || now
+      },
+      now
+    });
+
+    // 9. التحقق من صحة النبضة
+    const isValidHeartbeat = (
+      isPlaying &&
+      tabActive &&
+      windowFocused &&
+      mouseActive &&
+      (now - (lastMouseMove || now)) < 30000
+    );
+
+    // 10. تحديث الجلسة
+    const updates: any = {
+      lastHeartbeatAt: now,
+      lastActivity: now
+    };
+
+    // إضافة النبضة
+    const newHeartbeat = {
+      timestamp: timestamp || now,
+      videoTime: videoTime || 0,
+      isPlaying: isPlaying || false,
+      tabActive: tabActive || false,
+      windowFocused: windowFocused || false,
+      mouseActive: mouseActive || false,
+      lastMouseMove: lastMouseMove || now,
+      sessionDuration: sessionDuration || 0,
+      totalHeartbeats: totalHeartbeats || 0,
+      isValid: isValidHeartbeat,
+      receivedAt: now
+    };
+
+    updates.heartbeats = firestore.FieldValue.arrayUnion(newHeartbeat);
+
+    if (isValidHeartbeat) {
+      updates.validHeartbeats = firestore.FieldValue.increment(1);
+      updates.validSeconds = firestore.FieldValue.increment(HEARTBEAT_INTERVAL_SEC);
+    }
+
+    // كشف الإعلانات
+    if (sessionData.heartbeats?.length > 0 && isValidHeartbeat) {
+      const lastValidHb = sessionData.heartbeats
+        .filter((h: any) => h.isValid)
+        .pop();
+
+      if (lastValidHb) {
+        const timeGap = (timestamp || now) - lastValidHb.timestamp;
+
+        if (timeGap > 15000 && timeGap <= 90000) {
+          const adSeconds = Math.floor(timeGap / 1000);
+          const extraAdSeconds = Math.max(0, adSeconds - 5);
+
+          if (extraAdSeconds > 0) {
+            updates.adSeconds = firestore.FieldValue.increment(extraAdSeconds);
+            const adPoints = Math.floor(extraAdSeconds / 15) * 15;
+            updates.adPoints = firestore.FieldValue.increment(adPoints);
+          }
         }
+      }
     }
 
-    if (adIsPresent === true) {
-      updates.adHeartbeats = admin.firestore.FieldValue.increment(1);
-    }
-    
-    // --- Determine Watched Time ---
-    // Trust the currentTime from the extension as the source of truth.
-    let newTotalWatchedSeconds = currentTime !== undefined ? currentTime : (sessionData.totalWatchedSeconds || 0);
-    updates.totalWatchedSeconds = newTotalWatchedSeconds;
-    
-    // --- Update Status based on behavior ---
-    const newInactiveHeartbeats = tabIsActive === false ? (sessionData.inactiveHeartbeats || 0) + 1 : 0;
+    // إضافة إشارات التلاعب
+    if (fraudSignals.length > 0) {
+      updates.fraudSignals = firestore.FieldValue.arrayUnion(...fraudSignals);
 
-    if (newInactiveHeartbeats >= 6) { // ~90 seconds of inactivity
-        updates.status = 'expired';
-        if (!sessionData.penaltyReasons || !sessionData.penaltyReasons.includes('inactive_too_long')) {
-            updates.penaltyReasons = admin.firestore.FieldValue.arrayUnion('inactive_too_long');
-        }
-    }
+      const highRiskFraud = fraudSignals.some((signal: any) =>
+        ['INACTIVE_TAB', 'TIME_MANIPULATION', 'TOO_MANY_INVALID'].includes(signal.type)
+      );
 
-    // --- The self-healing completion logic ---
-    const videoDuration = sessionData.videoDuration;
-    if (videoDuration && newTotalWatchedSeconds >= videoDuration) {
-        updates.status = 'completed';
+      if (highRiskFraud) {
+        updates.status = 'fraud_detected';
+        updates.fraudDetectedAt = now;
+      }
     }
-    // --- End of self-healing logic ---
-
 
     await sessionRef.update(updates);
-    
-    return addCorsHeaders(NextResponse.json({ 
-        success: true, 
-        totalWatchedSeconds: newTotalWatchedSeconds,
-        status: updates.status || sessionData.status,
-        adHeartbeats: (sessionData.adHeartbeats || 0) + (adIsPresent ? 1 : 0)
+
+    // 11. حساب النقاط
+    const updatedSession = await sessionRef.get();
+    const updatedData = updatedSession.data();
+    const points = calculatePointsNew(updatedData);
+
+    // 12. تحديث نقاط المستخدم
+    if (points.totalPoints > 0 && updatedData?.status !== 'fraud_detected') {
+      const userRef = firestore.collection("users").doc(verifiedUserId);
+      await userRef.set({
+        userId: verifiedUserId,
+        totalPoints: firestore.FieldValue.increment(points.totalPoints),
+        lastActivity: now,
+        sessionsCount: firestore.FieldValue.increment(1),
+        updatedAt: firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    // 13. إرجاع الرد
+    return addCorsHeaders(NextResponse.json({
+      success: true,
+      sessionId: sessionRef.id,
+      userId: verifiedUserId,
+      heartbeatReceived: true,
+      isValid: isValidHeartbeat,
+      points: {
+        videoPoints: points.videoPoints,
+        adPoints: points.adPoints,
+        totalPoints: points.totalPoints,
+        validSeconds: points.validSeconds,
+        adSeconds: points.adSeconds
+      },
+      fraudSignals: fraudSignals.length,
+      sessionStatus: updatedData?.status || 'active',
+      nextHeartbeatIn: 5000
     }), req);
 
-  } catch (err: any) {
-    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
-    return addCorsHeaders(response, req);
+  } catch (error: any) {
+    console.error('Heartbeat processing error:', error);
+
+    return addCorsHeaders(NextResponse.json({
+      error: "SERVER_ERROR",
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 }), req);
+  }
+}
+
+// 🕵️ كشف تلاعب جديد حسب قواعدك
+function detectFraudNew({ sessionData, currentHeartbeat, now }: any) {
+  const signals = [];
+  const heartbeats = sessionData.heartbeats || [];
+
+  // 1. ⭐ قاعدة: إذا pause أكثر من 10 مرات
+  const recentPauses = heartbeats.filter((h: any) => !h.isPlaying).length;
+  if (recentPauses > 10) {
+    signals.push({
+      type: 'TOO_MANY_PAUSES',
+      severity: 'medium',
+      description: 'Too many pauses detected (your rule)',
+      timestamp: now
+    });
+  }
+
+  // 2. ⭐ قاعدة: تبويب غير نشط أثناء التشغيل
+  if (!currentHeartbeat.tabActive && currentHeartbeat.isPlaying) {
+    signals.push({
+      type: 'INACTIVE_TAB',
+      severity: 'high',
+      description: 'Tab inactive while video playing (your rule)',
+      timestamp: now
+    });
+  }
+
+  // 3. ⭐ قاعدة: عدم نشاط الفأرة أثناء التشغيل
+  if (!currentHeartbeat.mouseActive && currentHeartbeat.isPlaying) {
+    signals.push({
+      type: 'NO_MOUSE_ACTIVITY',
+      severity: 'high',
+      description: 'No mouse activity in last 30 seconds (your rule)',
+      timestamp: now
+    });
+  }
+
+  // 4. ⭐ قاعدة: نبضات غير صالحة كثيرة
+  const invalidCount = heartbeats.filter((h: any) => !h.isValid).length;
+  const validCount = heartbeats.filter((h: any) => h.isValid).length;
+
+  if (invalidCount > validCount * 0.3 && validCount > 0) { // ⭐ إذا 30% من النبضات غير صالحة
+    signals.push({
+      type: 'TOO_MANY_INVALID',
+      severity: 'medium',
+      description: 'Too many invalid heartbeats',
+      timestamp: now
+    });
+  }
+
+  // 5. ⭐ قاعدة: تلاعب في الوقت
+  if (heartbeats.length > 1) {
+    const lastValid = heartbeats.filter((h: any) => h.isValid).pop();
+    if (lastValid) {
+      const expectedTime = lastValid.videoTime + (HEARTBEAT_INTERVAL_SEC * 2); // ⭐ توقع زيادة 10 ثواني كحد أقصى
+      if (currentHeartbeat.videoTime > expectedTime + 10) {
+        signals.push({
+          type: 'TIME_MANIPULATION',
+          severity: 'high',
+          description: 'Time jump detected (possible seeking)',
+          timestamp: now
+        });
+      }
+    }
+  }
+
+  return signals;
+}
+
+// 🧮 حساب نقاط جديد حسب قواعدك
+function calculatePointsNew(sessionData: any) {
+  if (!sessionData) return { videoPoints: 0, adPoints: 0, totalPoints: 0, validSeconds: 0, adSeconds: 0 };
+
+  const validSeconds = sessionData.validSeconds || 0;
+  const adSeconds = sessionData.adSeconds || 0;
+
+  // ⭐⭐ قاعدة الفيديو: 0.05 نقطة لكل ثانية بعد أول 5 ثواني
+  const videoWatchSeconds = Math.max(0, validSeconds - 5);
+  const videoPoints = videoWatchSeconds * 0.05;
+
+  // ⭐⭐ قاعدة الإعلان: محسوبة مسبقاً في adPoints
+  const adPoints = sessionData.adPoints || 0;
+
+  return {
+    videoPoints: Math.round(videoPoints * 100) / 100, // ⭐ تقريب لمكانين عشريين
+    adPoints: Math.round(adPoints * 100) / 100,
+    totalPoints: Math.round((videoPoints + adPoints) * 100) / 100,
+    validSeconds: validSeconds,
+    adSeconds: adSeconds
+  };
+}
+
+// ✅ دالة مساعدة لإنهاء الجلسة
+export async function completeSession(sessionId: string, userId: string, authToken: string, reason: string = 'completed') {
+  try {
+    // التحقق من التوكن
+    const decodedToken = await verifyFirebaseToken(authToken);
+    if (decodedToken.uid !== userId) {
+      throw new Error('User ID does not match token');
+    }
+
+    const firestore = getFirestore();
+    const sessionRef = firestore.collection("sessions").doc(sessionId);
+    const sessionSnap = await sessionRef.get();
+
+    if (!sessionSnap.exists) return null;
+
+    const sessionData = sessionSnap.data();
+
+    // التحقق من ملكية الجلسة
+    if (sessionData?.userId !== userId) {
+      throw new Error('Session does not belong to this user');
+    }
+
+    const finalPoints = calculatePointsNew(sessionData);
+
+    await sessionRef.update({
+      status: reason,
+      endTime: Date.now(),
+      finalPoints: finalPoints
+    });
+
+    return finalPoints;
+  } catch (error) {
+    console.error('Error completing session:', error);
+    return null;
   }
 }
