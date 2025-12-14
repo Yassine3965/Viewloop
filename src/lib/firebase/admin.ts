@@ -33,8 +33,8 @@ export function initializeFirebaseAdmin(): admin.app.App {
     } else {
       // إنشاء التطبيق
       firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+        credential: admin.credential.cert(serviceAccount)
+        // databaseURL not needed for Firestore
       });
       console.log('✅ Firebase Admin initialized successfully');
     }
