@@ -33,27 +33,8 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
-    // إرسال الطلب إلى الخادم الجديد
-    const serverResponse = await fetch(`${SERVER_URL}/start-session`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        videoID: videoID,
-        userID: userAuthToken || 'anonymous'
-      })
-    });
-
-    const serverData = await serverResponse.json();
-
-    if (!serverResponse.ok) {
-      const response = NextResponse.json({
-        error: serverData.error || "SERVER_ERROR",
-        message: serverData.message
-      }, { status: serverResponse.status });
-      return addCorsHeaders(response, req);
-    }
+    // إنشاء sessionToken محلياً للاختبار (بدلاً من الخادم)
+    const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // إضافة بيانات الفيديو (في الإنتاج، يمكن الحصول عليها من Firebase)
     const videoData = {
@@ -65,7 +46,7 @@ export async function POST(req: Request) {
 
     return addCorsHeaders(NextResponse.json({
       success: true,
-      sessionToken: serverData.sessionToken,
+      sessionToken: sessionToken,
       video: videoData
     }), req);
 
