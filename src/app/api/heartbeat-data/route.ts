@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getFirestore } from "@/lib/firebase/admin";
 import { FieldValue } from 'firebase-admin/firestore';
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
-import { createHmac } from 'crypto';
+import { createHmac, createHash } from 'crypto';
 
 const HEARTBEAT_INTERVAL_SEC = 5;
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
@@ -23,11 +23,15 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "MISSING_SIGNATURE" }, { status: 401 }), req);
     }
 
-    const expectedSignature = createHmac('sha256', EXTENSION_SECRET)
-      .update(JSON.stringify(body))
+    // استخدام نفس خوارزمية الإضافة: SHA256(dataString + secret)
+    const dataString = JSON.stringify(body);
+    const combined = dataString + EXTENSION_SECRET;
+    const expectedSignature = createHash('sha256')
+      .update(combined)
       .digest('hex');
 
     if (signature !== expectedSignature) {
+      console.log('Signature mismatch:', { received: signature, expected: expectedSignature });
       return addCorsHeaders(NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 401 }), req);
     }
 
