@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     // إضافة بيانات الفيديو (في الإنتاج، يمكن الحصول عليها من Firebase)
     const videoData = {
       id: videoID,
+      url: `https://www.youtube.com/watch?v=${videoID}`,
       duration: 300, // افتراضي، يمكن تحسينه لاحقاً
       title: `Video ${videoID}`,
       thumbnail: `https://img.youtube.com/vi/${videoID}/maxresdefault.jpg`
