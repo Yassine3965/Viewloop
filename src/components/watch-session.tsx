@@ -170,7 +170,7 @@ export function WatchSession() {
                 setSessionToken(data.sessionToken);
                 setSessionState('watching');
                 
-                const youtubeUrlWithToken = `${data.video.url}#VIEWLOOP_SESSION=${data.sessionToken}`;
+                const youtubeUrlWithToken = `${data.video.url}&autoplay=1&mute=1&sessionToken=${data.sessionToken}`;
                 youtubeTabRef.current = window.open(youtubeUrlWithToken, '_blank');
 
                 if (!youtubeTabRef.current) {
