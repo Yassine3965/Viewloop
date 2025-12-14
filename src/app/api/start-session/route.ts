@@ -3,6 +3,8 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
+import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
+import admin from 'firebase-admin';
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000";
 
@@ -11,6 +13,8 @@ export async function OPTIONS(req: Request) {
 }
 
 export async function POST(req: Request) {
+  let firestore: admin.firestore.Firestore;
+
   let body;
   try {
     body = await req.json();
@@ -19,13 +23,38 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
+  let auth: admin.auth.Auth;
+
+  try {
+    const adminApp = initializeFirebaseAdmin();
+    firestore = adminApp.firestore();
+    auth = adminApp.auth();
+  } catch (error: any) {
+    console.error("Firebase Admin initialization failed.", { message: error.message });
+    const response = NextResponse.json({
+      error: "SERVER_NOT_READY",
+      message: "Firebase Admin initialization failed."
+    }, { status: 503 });
+    return addCorsHeaders(response, req);
+  }
+
   try {
     const { videoID, userAuthToken } = body;
 
-    if (!videoID) {
-      const response = NextResponse.json({ error: "MISSING_VIDEO_ID" }, { status: 400 });
+    if (!videoID || !userAuthToken) {
+      const response = NextResponse.json({ error: "MISSING_VIDEO_ID_OR_TOKEN" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
+
+    let decoded: admin.auth.DecodedIdToken;
+    try {
+      decoded = await auth.verifyIdToken(userAuthToken);
+    } catch (err) {
+      const response = NextResponse.json({ error: "INVALID_USER_TOKEN" }, { status: 401 });
+      return addCorsHeaders(response, req);
+    }
+
+    const userId = decoded.uid;
 
     // التحقق من صحة videoID (يجب أن يكون 11 حرفاً)
     if (videoID.length !== 11) {
@@ -33,14 +62,32 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
-    // إنشاء sessionToken محلياً للاختبار (بدلاً من الخادم)
+    // إنشاء sessionToken
     const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // إضافة بيانات الفيديو (في الإنتاج، يمكن الحصول عليها من Firebase)
+    // إنشاء الجلسة في Firebase
+    const sessionData = {
+      sessionToken: sessionToken,
+      userId: userId,
+      videoID: videoID,
+      status: 'active',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      totalWatchedSeconds: 0,
+      validSeconds: 0,
+      adSeconds: 0,
+      points: 0,
+      gems: 0
+    };
+
+    await firestore.collection('sessions').doc(sessionToken).set(sessionData);
+
+    console.log('Created session:', sessionToken);
+
+    // إضافة بيانات الفيديو
     const videoData = {
       id: videoID,
       url: `https://www.youtube.com/watch?v=${videoID}`,
-      duration: 300, // افتراضي، يمكن تحسينه لاحقاً
+      duration: 300, // افتراضي
       title: `Video ${videoID}`,
       thumbnail: `https://img.youtube.com/vi/${videoID}/maxresdefault.jpg`
     };
