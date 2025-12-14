@@ -21,9 +21,19 @@ const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 const DEVICE_FINGERPRINT = "test-fingerprint-" + Math.random().toString(36).substr(2, 9);
 const SESSION_START_TIME = Date.now();
 
+// Canonical JSON stringify to ensure consistent key ordering
+function canonicalStringify(obj) {
+    const sortedKeys = Object.keys(obj).sort();
+    const sortedObj = {};
+    sortedKeys.forEach(key => {
+        sortedObj[key] = obj[key];
+    });
+    return JSON.stringify(sortedObj);
+}
+
 // توليد التوقيع
 function generateSignature(data) {
-    const dataString = JSON.stringify(data);
+    const dataString = canonicalStringify(data);
     const combined = dataString + EXTENSION_SECRET;
     return crypto.createHash('sha256').update(combined).digest('hex');
 }

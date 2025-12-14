@@ -23,8 +23,13 @@ export async function POST(req: Request) {
       return addCorsHeaders(NextResponse.json({ error: "MISSING_SIGNATURE" }, { status: 401 }), req);
     }
 
-    // استخدام نفس خوارزمية الإضافة: SHA256(dataString + secret)
-    const dataString = JSON.stringify(body);
+    // استخدام خوارزمية التوقيع المقننة لضمان ترتيب المفاتيح المتسق
+    const sortedKeys = Object.keys(body).sort();
+    const sortedBody: Record<string, any> = {};
+    sortedKeys.forEach(key => {
+      sortedBody[key] = body[key];
+    });
+    const dataString = JSON.stringify(sortedBody);
     const combined = dataString + EXTENSION_SECRET;
     const expectedSignature = createHash('sha256')
       .update(combined)

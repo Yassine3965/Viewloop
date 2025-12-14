@@ -22,8 +22,8 @@ function createHeartbeatData(sessionId = null, videoTime = 10, totalHeartbeats =
         mouseActive: true, // الماوس نشط
         lastMouseMove: now - 1000, // آخر حركة ماوس (قبل ثانية)
         sessionDuration: sessionDuration, // مدة الجلسة بالثواني
-        totalHeartbeats: totalHeartbeats, // عدد النبضات الإجمالي
-        userId: userId // مطلوب للتحقق من ملكية الجلسة
+        totalHeartbeats: totalHeartbeats // عدد النبضات الإجمالي
+        // لا نحتاج userId في النبضة، الخادم يتحقق من الجلسة
     };
 }
 
@@ -31,18 +31,38 @@ const heartbeatData = createHeartbeatData();
 
 // سر الإضافة (من extension/config.js أو background.js)
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
+const DEVICE_FINGERPRINT = "test-fingerprint-" + Math.random().toString(36).substr(2, 9);
+const SESSION_START_TIME = Date.now();
+
+// Canonical JSON stringify to ensure consistent key ordering
+function canonicalStringify(obj) {
+    const sortedKeys = Object.keys(obj).sort();
+    const sortedObj = {};
+    sortedKeys.forEach(key => {
+        sortedObj[key] = obj[key];
+    });
+    return JSON.stringify(sortedObj);
+}
 
 // توليد التوقيع
 function generateSignature(data) {
-    const dataString = JSON.stringify(data);
+    const dataString = canonicalStringify(data);
     const combined = dataString + EXTENSION_SECRET;
     return crypto.createHash('sha256').update(combined).digest('hex');
 }
 
 // إرسال الطلب
 function sendHeartbeatRequest() {
-    const signature = generateSignature(heartbeatData);
-    const postData = JSON.stringify(heartbeatData);
+    // إضافة deviceFingerprint و sessionStartTime كما في الإضافة
+    const enrichedData = {
+        ...heartbeatData,
+        deviceFingerprint: DEVICE_FINGERPRINT,
+        videoId: heartbeatData.videoId,
+        sessionStartTime: SESSION_START_TIME
+    };
+
+    const signature = generateSignature(enrichedData);
+    const postData = JSON.stringify(enrichedData);
 
     const options = {
         hostname: 'viewloop.vercel.app',
