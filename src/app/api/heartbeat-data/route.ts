@@ -1,10 +1,13 @@
 // /app/api/heartbeat-data/route.ts - النسخة المبسطة والمصححة
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { verifyFirebaseToken, getFirestore } from "@/lib/firebase/admin";
+import { getFirestore } from "@/lib/firebase/admin";
+import { FieldValue } from 'firebase-admin/firestore';
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
+import { createHmac } from 'crypto';
 
 const HEARTBEAT_INTERVAL_SEC = 5;
+const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -13,6 +16,20 @@ export async function OPTIONS(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
+    // Verify signature
+    const signature = req.headers.get('x-signature');
+    if (!signature) {
+      return addCorsHeaders(NextResponse.json({ error: "MISSING_SIGNATURE" }, { status: 401 }), req);
+    }
+
+    const expectedSignature = createHmac('sha256', EXTENSION_SECRET)
+      .update(JSON.stringify(body))
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      return addCorsHeaders(NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 401 }), req);
+    }
 
     const {
       sessionId,
@@ -26,37 +43,10 @@ export async function POST(req: Request) {
       lastMouseMove,
       sessionDuration,
       totalHeartbeats,
-      userId,
-      authToken
+      userId
     } = body;
 
-    // 1. التحقق من التوكن
-    if (!authToken) {
-      return addCorsHeaders(NextResponse.json({
-        error: "MISSING_AUTH_TOKEN",
-        message: "Firebase authentication token is required"
-      }, { status: 401 }), req);
-    }
-
-    let decodedToken;
-    try {
-      decodedToken = await verifyFirebaseToken(authToken);
-    } catch (error: any) {
-      return addCorsHeaders(NextResponse.json({
-        error: "INVALID_TOKEN",
-        message: error.message
-      }, { status: 401 }), req);
-    }
-
-    const verifiedUserId = decodedToken.uid;
-
-    // 2. التحقق من userId
-    if (userId && userId !== verifiedUserId) {
-      return addCorsHeaders(NextResponse.json({
-        error: "USER_ID_MISMATCH",
-        message: "User ID mismatch"
-      }, { status: 403 }), req);
-    }
+    const verifiedUserId = userId || 'anonymous';
 
     // 3. التحقق من videoId
     if (!videoId || videoId.length !== 11) {
@@ -91,7 +81,7 @@ export async function POST(req: Request) {
       validSeconds: 0,
       adSeconds: 0,
       lastActivity: now,
-      createdAt: firestore.FieldValue.serverTimestamp()
+      createdAt: FieldValue.serverTimestamp()
     };
 
     if (!sessionSnap.exists) {
@@ -159,11 +149,11 @@ export async function POST(req: Request) {
       receivedAt: now
     };
 
-    updates.heartbeats = firestore.FieldValue.arrayUnion(newHeartbeat);
+    updates.heartbeats = FieldValue.arrayUnion(newHeartbeat);
 
     if (isValidHeartbeat) {
-      updates.validHeartbeats = firestore.FieldValue.increment(1);
-      updates.validSeconds = firestore.FieldValue.increment(HEARTBEAT_INTERVAL_SEC);
+      updates.validHeartbeats = FieldValue.increment(1);
+      updates.validSeconds = FieldValue.increment(HEARTBEAT_INTERVAL_SEC);
     }
 
     // كشف الإعلانات
@@ -180,9 +170,9 @@ export async function POST(req: Request) {
           const extraAdSeconds = Math.max(0, adSeconds - 5);
 
           if (extraAdSeconds > 0) {
-            updates.adSeconds = firestore.FieldValue.increment(extraAdSeconds);
+            updates.adSeconds = FieldValue.increment(extraAdSeconds);
             const adPoints = Math.floor(extraAdSeconds / 15) * 15;
-            updates.adPoints = firestore.FieldValue.increment(adPoints);
+            updates.adPoints = FieldValue.increment(adPoints);
           }
         }
       }
@@ -190,7 +180,7 @@ export async function POST(req: Request) {
 
     // إضافة إشارات التلاعب
     if (fraudSignals.length > 0) {
-      updates.fraudSignals = firestore.FieldValue.arrayUnion(...fraudSignals);
+      updates.fraudSignals = FieldValue.arrayUnion(...fraudSignals);
 
       const highRiskFraud = fraudSignals.some((signal: any) =>
         ['INACTIVE_TAB', 'TIME_MANIPULATION', 'TOO_MANY_INVALID'].includes(signal.type)
@@ -204,22 +194,10 @@ export async function POST(req: Request) {
 
     await sessionRef.update(updates);
 
-    // 11. حساب النقاط
+    // حساب النقاط (للعرض فقط، لا تحديث المستخدم هنا)
     const updatedSession = await sessionRef.get();
     const updatedData = updatedSession.data();
     const points = calculatePointsNew(updatedData);
-
-    // 12. تحديث نقاط المستخدم
-    if (points.totalPoints > 0 && updatedData?.status !== 'fraud_detected') {
-      const userRef = firestore.collection("users").doc(verifiedUserId);
-      await userRef.set({
-        userId: verifiedUserId,
-        totalPoints: firestore.FieldValue.increment(points.totalPoints),
-        lastActivity: now,
-        sessionsCount: firestore.FieldValue.increment(1),
-        updatedAt: firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    }
 
     // 13. إرجاع الرد
     return addCorsHeaders(NextResponse.json({
@@ -342,39 +320,4 @@ function calculatePointsNew(sessionData: any) {
   };
 }
 
-// ✅ دالة مساعدة لإنهاء الجلسة
-export async function completeSession(sessionId: string, userId: string, authToken: string, reason: string = 'completed') {
-  try {
-    // التحقق من التوكن
-    const decodedToken = await verifyFirebaseToken(authToken);
-    if (decodedToken.uid !== userId) {
-      throw new Error('User ID does not match token');
-    }
 
-    const firestore = getFirestore();
-    const sessionRef = firestore.collection("sessions").doc(sessionId);
-    const sessionSnap = await sessionRef.get();
-
-    if (!sessionSnap.exists) return null;
-
-    const sessionData = sessionSnap.data();
-
-    // التحقق من ملكية الجلسة
-    if (sessionData?.userId !== userId) {
-      throw new Error('Session does not belong to this user');
-    }
-
-    const finalPoints = calculatePointsNew(sessionData);
-
-    await sessionRef.update({
-      status: reason,
-      endTime: Date.now(),
-      finalPoints: finalPoints
-    });
-
-    return finalPoints;
-  } catch (error) {
-    console.error('Error completing session:', error);
-    return null;
-  }
-}
