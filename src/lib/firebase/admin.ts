@@ -28,7 +28,7 @@ export function initializeFirebaseAdmin(): admin.app.App {
 
     // إذا كان التطبيق موجود بالفعل، استخدمه
     if (admin.apps.length > 0) {
-      firebaseApp = admin.getApp();
+      firebaseApp = admin.app();
       console.log('✅ Using existing Firebase Admin app');
     } else {
       // إنشاء التطبيق
