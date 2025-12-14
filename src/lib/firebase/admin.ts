@@ -12,39 +12,32 @@ export function initializeFirebaseAdmin(): admin.app.App {
     return firebaseApp;
   }
 
-  // تحقق من متغيرات البيئة
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  // تحقق من متغير البيئة للمفتاح الخدمة
+  const serviceAccountJson = process.env.FIREBASE_ADMIN_KEY;
 
-  if (!projectId || !clientEmail || !privateKey) {
-    const missingVars = [];
-    if (!projectId) missingVars.push('FIREBASE_PROJECT_ID');
-    if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
-    if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
-
-    const errorMessage = `Missing Firebase environment variables: ${missingVars.join(', ')}`;
+  if (!serviceAccountJson) {
+    const errorMessage = 'Missing Firebase environment variable: FIREBASE_ADMIN_KEY';
     console.error('❌ Firebase Admin init failed:', errorMessage);
     throw new Error(errorMessage);
   }
 
   try {
-    // إصلاح تنسيق المفتاح الخاص
-    const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
+    const serviceAccount = JSON.parse(serviceAccountJson);
 
     console.log('🔐 Initializing Firebase Admin SDK...');
 
-    // إنشاء التطبيق
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey: formattedPrivateKey
-      }),
-      databaseURL: `https://${projectId}.firebaseio.com`
-    });
-
-    console.log('✅ Firebase Admin initialized successfully');
+    // إذا كان التطبيق موجود بالفعل، استخدمه
+    if (admin.apps.length > 0) {
+      firebaseApp = admin.getApp();
+      console.log('✅ Using existing Firebase Admin app');
+    } else {
+      // إنشاء التطبيق
+      firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+      });
+      console.log('✅ Firebase Admin initialized successfully');
+    }
 
     return firebaseApp;
 

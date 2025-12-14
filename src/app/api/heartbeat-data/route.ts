@@ -46,7 +46,13 @@ export async function POST(req: Request) {
       userId
     } = body;
 
-    const verifiedUserId = userId || 'anonymous';
+    // Determine verifiedUserId: use stored userId for existing sessions, or provided userId for new ones
+    let verifiedUserId;
+    if (sessionSnap.exists) {
+      verifiedUserId = sessionData.userId;
+    } else {
+      verifiedUserId = userId || 'anonymous';
+    }
 
     // 3. التحقق من videoId
     if (!videoId || videoId.length !== 11) {

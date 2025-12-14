@@ -6,6 +6,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'source.boringavatars.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+      },
     ],
   },
 };
