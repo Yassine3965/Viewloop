@@ -1,20 +1,33 @@
 const https = require('https');
 const crypto = require('crypto');
 
-// بيانات النبضة الاختبارية
-const heartbeatData = {
-    sessionId: "test",
-    videoId: "VhokF22OrQE",
-    timestamp: 1234567,
-    videoTime: 0,
-    isPlaying: true,
-    tabActive: true,
-    windowFocused: true,
-    mouseActive: true,
-    lastMouseMove: 1234567,
-    sessionDuration: 0,
-    totalHeartbeats: 1
-};
+// توليد sessionId فريد إذا لم يكن موجودًا
+function generateSessionId(userId) {
+    return `session_${Date.now()}_${userId}`;
+}
+
+// بيانات النبضة الاختبارية الكاملة والصحيحة
+function createHeartbeatData(sessionId = null, videoTime = 10, totalHeartbeats = 1, sessionDuration = 5) {
+    const now = Date.now();
+    const userId = "test_user_123"; // استبدل بـ userId حقيقي إذا لزم الأمر
+
+    return {
+        sessionId: sessionId || generateSessionId(userId),
+        videoId: "VhokF22OrQE", // يوتيوب videoId صحيح (11 حرف)
+        timestamp: now,
+        videoTime: videoTime, // الوقت الحالي في الفيديو (بالثواني)
+        isPlaying: true, // الفيديو يعمل
+        tabActive: true, // التبويبة نشطة
+        windowFocused: true, // النافذة مركزة
+        mouseActive: true, // الماوس نشط
+        lastMouseMove: now - 1000, // آخر حركة ماوس (قبل ثانية)
+        sessionDuration: sessionDuration, // مدة الجلسة بالثواني
+        totalHeartbeats: totalHeartbeats, // عدد النبضات الإجمالي
+        userId: userId // مطلوب للتحقق من ملكية الجلسة
+    };
+}
+
+const heartbeatData = createHeartbeatData();
 
 // سر الإضافة (من extension/config.js أو background.js)
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";

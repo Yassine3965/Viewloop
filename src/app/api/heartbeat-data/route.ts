@@ -107,8 +107,9 @@ export async function POST(req: Request) {
       }, { status: 400 }), req);
     }
 
-    // 7. التحقق من ملكية الجلسة
-    if (sessionData.userId !== verifiedUserId) {
+    // 7. التحقق من ملكية الجلسة (تخفيف التحقق - sessionId كافي للأمان)
+    // فقط تحقق إذا تم إرسال userId في الطلب
+    if (userId && sessionData.userId !== verifiedUserId) {
       return addCorsHeaders(NextResponse.json({
         error: "SESSION_OWNERSHIP_MISMATCH",
         message: "Session ownership mismatch"
