@@ -113,7 +113,7 @@ export async function POST(req: Request) {
         const pointMultiplier = POINT_MULTIPLIERS[currentLevel] || POINT_MULTIPLIERS[1];
         
         // --- POINTS CALCULATION ---
-        const totalWatched = sessionData.validSeconds || sessionData.totalWatchedSeconds || 0;
+        const totalWatched = sessionData.totalWatchedSeconds || 0;
         points = totalWatched * pointMultiplier;
 
         // --- GEMS CALCULATION ---
@@ -164,7 +164,7 @@ export async function POST(req: Request) {
         transaction.set(firestore.collection("watchHistory").doc(), {
             userId: sessionData.userId,
             videoId: sessionData.videoID,
-            totalWatchedSeconds: sessionData.totalWatchedSeconds,
+            totalWatchedSeconds: sessionData.validSeconds || 0,
             adWatched: sessionData.adWatched || false,
             pointsEarned: points,
             gemsEarned: gems,

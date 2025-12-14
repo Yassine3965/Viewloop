@@ -60,12 +60,8 @@ export async function POST(req: Request) {
         totalWatchedSeconds = sessionData.totalWatchedSeconds || 0;
 
         // حساب النقاط محلياً (مؤقتاً - سيتم ربطها بالخادم الجديد لاحقاً)
-        // حساب النقاط بنفس المعادلة: 0.05 نقطة لكل ثانية بعد أول 5 ثواني
-        const effectiveSeconds = Math.max(0, totalWatchedSeconds - 5);
-        pointsAdded = Math.floor(effectiveSeconds * 0.05);
-
-        // الحد الأقصى 50 نقطة للفيديو الواحد
-        pointsAdded = Math.min(pointsAdded, 50);
+        // حساب النقاط بنفس المعادلة: 0.05 نقطة لكل ثانية
+        pointsAdded = totalWatchedSeconds * 0.05;
 
         console.log(`Calculated points: ${pointsAdded} for ${totalWatchedSeconds}s watched`);
 
