@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
     // Return only the necessary, safe-to-view data
     const clientSafeData = {
-        totalWatchedSeconds: sessionData.totalWatchedSeconds || 0,
+        totalWatchedSeconds: sessionData.validSeconds || 0,
         status: sessionData.status,
         points: sessionData.points || 0,
         gems: sessionData.gems || 0,
