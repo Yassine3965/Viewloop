@@ -61,10 +61,66 @@ export async function POST(req: Request) {
     // Calculate final points using secure server-side logic
     const serverCalculatedPoints = calculatePointsSecurely(session);
 
-    // Save final points
+    // Update user points in database
+    if (session.userId && session.userId !== 'anonymous') {
+      try {
+        const userRef = firestore.collection("users").doc(session.userId);
+        const userSnap = await userRef.get();
+
+        if (userSnap.exists) {
+          const currentPoints = userSnap.data()?.points || 0;
+          const newTotalPoints = currentPoints + serverCalculatedPoints.totalPoints;
+
+          await userRef.update({
+            points: newTotalPoints,
+            lastUpdated: Date.now(),
+            totalSessions: (userSnap.data()?.totalSessions || 0) + 1,
+            totalWatchTime: (userSnap.data()?.totalWatchTime || 0) + serverCalculatedPoints.validSeconds
+          });
+
+          console.log(`✅ User ${session.userId} points updated: ${currentPoints} → ${newTotalPoints}`);
+        } else {
+          // Create user if doesn't exist
+          await userRef.set({
+            points: serverCalculatedPoints.totalPoints,
+            lastUpdated: Date.now(),
+            totalSessions: 1,
+            totalWatchTime: serverCalculatedPoints.validSeconds,
+            createdAt: Date.now()
+          });
+
+          console.log(`✅ New user ${session.userId} created with ${serverCalculatedPoints.totalPoints} points`);
+        }
+
+        // Add to watch history
+        await firestore.collection("watchHistory").add({
+          userId: session.userId,
+          videoId: session.videoId,
+          sessionId: sessionId,
+          pointsEarned: serverCalculatedPoints.totalPoints,
+          validSeconds: serverCalculatedPoints.validSeconds,
+          completedAt: Date.now()
+        });
+
+      } catch (userUpdateError) {
+        console.error('Error updating user points:', userUpdateError);
+        // Continue with session update even if user update fails
+      }
+    }
+
+    // Save final points to session
     const finalPoints = serverCalculatedPoints;
     session.finalPoints = finalPoints;
     session.processed = true;
+    session.completedAt = Date.now();
+
+    // Update session status
+    await sessionRef.update({
+      status: 'completed',
+      finalPoints: finalPoints,
+      processed: true,
+      completedAt: Date.now()
+    });
 
     processedSessions.add(sessionId);
 
