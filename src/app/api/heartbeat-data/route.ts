@@ -46,14 +46,6 @@ export async function POST(req: Request) {
       userId
     } = body;
 
-    // Determine verifiedUserId: use stored userId for existing sessions, or provided userId for new ones
-    let verifiedUserId;
-    if (sessionSnap.exists) {
-      verifiedUserId = sessionData.userId;
-    } else {
-      verifiedUserId = userId || 'anonymous';
-    }
-
     // 3. التحقق من videoId
     if (!videoId || videoId.length !== 11) {
       return addCorsHeaders(NextResponse.json({
@@ -67,10 +59,19 @@ export async function POST(req: Request) {
 
     // 5. إنشاء أو تحديث الجلسة
     const sessionRef = firestore.collection("sessions").doc(
-      sessionId || `session_${Date.now()}_${verifiedUserId}`
+      sessionId || `session_${Date.now()}_${userId || 'anonymous'}`
     );
 
     const sessionSnap = await sessionRef.get();
+
+    // Determine verifiedUserId: use stored userId for existing sessions, or provided userId for new ones
+    let verifiedUserId;
+    if (sessionSnap.exists) {
+      const existingData = sessionSnap.data();
+      verifiedUserId = existingData?.userId || userId || 'anonymous';
+    } else {
+      verifiedUserId = userId || 'anonymous';
+    }
     const now = Date.now();
 
     let sessionData: any = sessionSnap.exists ? sessionSnap.data() : {
@@ -325,5 +326,3 @@ function calculatePointsNew(sessionData: any) {
     adSeconds: adSeconds
   };
 }
-
-
