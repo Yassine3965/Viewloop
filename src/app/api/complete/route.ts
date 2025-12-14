@@ -113,13 +113,14 @@ export async function POST(req: Request) {
         const pointMultiplier = POINT_MULTIPLIERS[currentLevel] || POINT_MULTIPLIERS[1];
         
         // --- POINTS CALCULATION ---
-        const totalWatched = sessionData.totalWatchedSeconds || 0;
+        const totalWatched = sessionData.validSeconds || sessionData.totalWatchedSeconds || 0;
         points = totalWatched * pointMultiplier;
 
         // --- GEMS CALCULATION ---
         const baseGems = totalWatched * GEM_RATE_PER_SECOND;
-        // 1 gem per ad heartbeat (assuming 1 heartbeat = 1 ad segment)
-        const adGems = (sessionData.adHeartbeats || 0) * 1; 
+        // Gems from ad time
+        const adSeconds = sessionData.adSeconds || 0;
+        const adGems = adSeconds * 0.1; // 0.1 gem per second of ad
         gems = baseGems + adGems;
 
         // --- REPUTATION & PENALTIES ---
