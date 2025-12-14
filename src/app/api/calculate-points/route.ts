@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { handleOptions, addCorsHeaders } from "../../../lib/cors";
 import { createHmac } from 'crypto';
+import { getFirestore } from "@/lib/firebase/admin";
 
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 
@@ -42,12 +43,16 @@ export async function POST(req: Request) {
   try {
     const { sessionId, videoId, points, sessionData } = body;
 
-    if (!sessionId || processedSessions.has(sessionId)) {
+    if (!sessionId || false) {
       const response = NextResponse.json({ error: 'Invalid request or session already processed' }, { status: 400 });
       return addCorsHeaders(response, req);
     }
 
-    const session = secureSessions.get(sessionId);
+    // Get session from Firestore
+    const firestore = getFirestore();
+    const sessionRef = firestore.collection("sessions").doc(sessionId);
+    const sessionSnap = await sessionRef.get();
+    const session = sessionSnap.exists ? sessionSnap.data() : null;
     if (!session) {
       const response = NextResponse.json({ error: 'Session not found' }, { status: 404 });
       return addCorsHeaders(response, req);
