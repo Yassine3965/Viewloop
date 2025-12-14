@@ -115,6 +115,29 @@ export async function POST(req: Request) {
       }, { status: 403 }), req);
     }
 
+    // 7.5. التحقق من أن هذا هو الفيديو الأساسي في الجلسة (منع تعدد الفيديوهات)
+    if (sessionData.videoId !== videoId) {
+      return addCorsHeaders(NextResponse.json({
+        success: true,
+        sessionId: sessionRef.id,
+        userId: verifiedUserId,
+        heartbeatReceived: true,
+        isValid: false,
+        reason: "NOT_PRIMARY_VIDEO",
+        primaryVideoId: sessionData.videoId,
+        points: {
+          videoPoints: 0,
+          adPoints: 0,
+          totalPoints: 0,
+          validSeconds: 0,
+          adSeconds: 0
+        },
+        fraudSignals: 0,
+        sessionStatus: sessionData.status || 'active',
+        nextHeartbeatIn: 5000
+      }), req);
+    }
+
     // 8. كشف التلاعب
     const fraudSignals = detectFraudNew({
       sessionData,

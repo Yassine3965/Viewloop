@@ -62,6 +62,25 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
+    // 🔍 البحث عن جلسات نشطة للمستخدم
+    const activeSessionsQuery = await firestore.collection('sessions')
+      .where('userId', '==', userId)
+      .where('status', '==', 'active')
+      .limit(1)
+      .get();
+
+    let accepted = true;
+    let activeVideoId = null;
+
+    if (!activeSessionsQuery.empty) {
+      // وجدت جلسة نشطة - اقبل الطلب لكن حدد أنه غير مقبول للمشاهدة
+      const activeSession = activeSessionsQuery.docs[0].data();
+      activeVideoId = activeSession.videoID;
+      accepted = false;
+
+      console.log(`User ${userId} already has active session with video ${activeVideoId}, rejecting new video ${videoID}`);
+    }
+
     // إنشاء sessionId
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -70,18 +89,20 @@ export async function POST(req: Request) {
       sessionId: sessionId,
       userId: userId,
       videoID: videoID,
-      status: 'active',
+      status: accepted ? 'active' : 'rejected', // إذا كان غير مقبول، حدد status كـ rejected
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       totalWatchedSeconds: 0,
       validSeconds: 0,
       adSeconds: 0,
       points: 0,
-      gems: 0
+      gems: 0,
+      accepted: accepted, // حقل جديد لتحديد إذا كانت الجلسة مقبولة
+      activeVideoId: activeVideoId // الفيديو النشط إن وجد
     };
 
     await firestore.collection('sessions').doc(sessionId).set(sessionData);
 
-    console.log('Created session:', sessionId);
+    console.log(`Created session: ${sessionId}, accepted: ${accepted}`);
 
     // إضافة بيانات الفيديو
     const videoData = {
