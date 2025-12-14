@@ -49,7 +49,9 @@ export async function POST(req: Request) {
   
   try {
     const { sessionToken } = body;
-    
+
+    console.log('Complete called with sessionToken:', sessionToken);
+
     if (!sessionToken) {
       const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
       return addCorsHeaders(response, req);
@@ -72,6 +74,9 @@ export async function POST(req: Request) {
         }
 
         sessionData = sessionSnap.data();
+
+        console.log('Session data:', sessionData);
+
         if (!sessionData || !sessionData.userId) {
           throw new Error("INVALID_SESSION_DATA");
         }
@@ -82,6 +87,7 @@ export async function POST(req: Request) {
             gems = sessionData.gems || 0;
             finalStatus = sessionData.status; // a bit redundant but safe
             penaltyReasons = sessionData.penaltyReasons || [];
+            console.log('Session already finalized, returning existing points:', points);
             return; // Exit transaction early, no writes needed.
         }
         
@@ -115,6 +121,8 @@ export async function POST(req: Request) {
         // --- POINTS CALCULATION ---
         const totalWatched = sessionData.totalWatchedSeconds || 0;
         points = totalWatched * pointMultiplier;
+
+        console.log('Calculated points:', points, 'from totalWatched:', totalWatched, 'multiplier:', pointMultiplier);
 
         // --- GEMS CALCULATION ---
         const baseGems = totalWatched * GEM_RATE_PER_SECOND;
@@ -180,13 +188,16 @@ export async function POST(req: Request) {
 
     // This handles the case where the transaction was for an already finalized session.
     if (sessionData?.status === 'finalized') {
+         console.log('Returning already finalized session with points:', sessionData.points);
          return addCorsHeaders(NextResponse.json({ success: true, points: sessionData.points, gems: sessionData.gems, status: "finalized", penaltyReasons: sessionData.penaltyReasons, message: "Session was already finalized." }), req);
     }
-    
-    return addCorsHeaders(NextResponse.json({ 
-        success: true, 
+
+    console.log('Returning success with points:', points, 'status:', finalStatus);
+
+    return addCorsHeaders(NextResponse.json({
+        success: true,
         status: finalStatus,
-        points: points, 
+        points: points,
         gems: gems,
         penaltyReasons: penaltyReasons
     }), req);

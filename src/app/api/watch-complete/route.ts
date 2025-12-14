@@ -37,6 +37,8 @@ export async function POST(req: Request) {
   try {
     const { sessionToken } = body;
 
+    console.log('Watch complete called with sessionToken:', sessionToken);
+
     if (!sessionToken) {
       const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
       return addCorsHeaders(response, req);
@@ -49,6 +51,8 @@ export async function POST(req: Request) {
     const sessionsRef = firestore.collection("sessions");
     const sessionQuery = await sessionsRef.where('sessionToken', '==', sessionToken).limit(1).get();
 
+    console.log('Session query result:', sessionQuery.empty ? 'empty' : 'found');
+
     let pointsAdded = 0;
     let totalWatchedSeconds = 0;
 
@@ -56,8 +60,12 @@ export async function POST(req: Request) {
       const sessionDoc = sessionQuery.docs[0];
       const sessionData = sessionDoc.data();
 
+      console.log('Session data:', sessionData);
+
       if (sessionData) {
         totalWatchedSeconds = sessionData.totalWatchedSeconds || 0;
+
+        console.log('totalWatchedSeconds:', totalWatchedSeconds);
 
         // حساب النقاط محلياً (مؤقتاً - سيتم ربطها بالخادم الجديد لاحقاً)
         // حساب النقاط بنفس المعادلة: 0.05 نقطة لكل ثانية
@@ -74,6 +82,8 @@ export async function POST(req: Request) {
             const currentPoints = userSnap.data()?.points || 0;
             const newTotalPoints = currentPoints + pointsAdded;
 
+            console.log('User exists, current points:', currentPoints, 'adding:', pointsAdded, 'new total:', newTotalPoints);
+
             await userRef.update({
               points: newTotalPoints,
               lastUpdated: Date.now()
@@ -86,6 +96,8 @@ export async function POST(req: Request) {
               completedAt: Date.now()
             });
 
+            console.log('Updated session to completed with points:', pointsAdded);
+
             // إضافة إلى تاريخ المشاهدة
             await firestore.collection("watchHistory").add({
               userId: sessionData.userId,
@@ -96,10 +108,14 @@ export async function POST(req: Request) {
               completedAt: Date.now(),
               sessionToken
             });
+
+            console.log('Added to watchHistory with pointsEarned:', pointsAdded);
           }
         }
       }
     }
+
+    console.log('Returning response with pointsAdded:', pointsAdded);
 
     return addCorsHeaders(NextResponse.json({
       success: true,
