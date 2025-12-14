@@ -28,23 +28,51 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
   const isOwner = user && user.id === video.submitterId;
   const thumbnailUrl = getYoutubeThumbnailUrl(video.url);
   const { toast } = useToast();
-  
-  const handleWatchClick = (e: React.MouseEvent) => {
+  const [isStarting, startTransition] = useTransition();
+
+  const handleWatchClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
     if (!user) {
-        e.preventDefault();
-        toast({ title: "خطأ", description: "يجب تسجيل الدخول لبدء المشاهدة.", variant: "destructive" });
+      toast({ title: "خطأ", description: "يجب تسجيل الدخول لبدء المشاهدة.", variant: "destructive" });
+      return;
+    }
+
+    // Get Firebase auth token
+    const authToken = await user.getIdToken();
+
+    try {
+      // Start session
+      const response = await fetch('/api/start-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoID: video.id,
+          userAuthToken: authToken
+        })
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to start session');
+      }
+
+      // Store session token in localStorage for extension
+      localStorage.setItem('viewloop_session_token', data.sessionToken);
+      localStorage.setItem('viewloop_video_id', video.id);
+
+      // Redirect to YouTube
+      window.open(`https://www.youtube.com/watch?v=${video.id}`, '_blank');
+
+      toast({ title: "نجاح", description: "تم بدء الجلسة! استمتع بالمشاهدة." });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message, variant: "destructive" });
     }
   };
 
-  const sessionUrl = `/watch/session?videoId=${video.id}`;
-
   return (
     <Card className="h-full flex flex-col shadow-md hover:shadow-lg transition-shadow duration-300 bg-card overflow-hidden group">
-      <Link 
-        href={sessionUrl}
+      <div
         onClick={handleWatchClick}
-        target="_blank"
-        rel="noopener noreferrer"
         className="relative aspect-video bg-muted hover:bg-muted/80 flex items-center justify-center cursor-pointer"
       >
         {thumbnailUrl && (
@@ -59,21 +87,18 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
             <div
               className="w-16 h-16 bg-primary/80 rounded-full flex items-center justify-center text-white"
             >
-              <Play className="w-8 h-8 fill-white" />
+              {isStarting ? <Loader2 className="w-8 h-8 animate-spin" /> : <Play className="w-8 h-8 fill-white" />}
             </div>
         </div>
-      </Link>
+      </div>
       <CardContent className="p-4 flex-grow flex flex-col justify-center">
-        <Link
-          href={sessionUrl}
+        <div
           onClick={handleWatchClick}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block font-semibold text-base truncate hover:underline text-card-foreground text-right w-full"
+          className="block font-semibold text-base truncate hover:underline text-card-foreground text-right w-full cursor-pointer"
           title={video.title}
         >
           {video.title}
-        </Link>
+        </div>
       </CardContent>
       {isOwner && (
          <AlertDialog>
