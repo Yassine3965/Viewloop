@@ -62,12 +62,12 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
-    // إنشاء sessionToken
-    const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // إنشاء sessionId
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // إنشاء الجلسة في Firebase
     const sessionData = {
-      sessionToken: sessionToken,
+      sessionId: sessionId,
       userId: userId,
       videoID: videoID,
       status: 'active',
@@ -79,9 +79,9 @@ export async function POST(req: Request) {
       gems: 0
     };
 
-    await firestore.collection('sessions').doc(sessionToken).set(sessionData);
+    await firestore.collection('sessions').doc(sessionId).set(sessionData);
 
-    console.log('Created session:', sessionToken);
+    console.log('Created session:', sessionId);
 
     // إضافة بيانات الفيديو
     const videoData = {
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
 
     return addCorsHeaders(NextResponse.json({
       success: true,
-      sessionToken: sessionToken,
+      sessionId: sessionId,
       video: videoData
     }), req);
 

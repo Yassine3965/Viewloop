@@ -57,7 +57,7 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
       }
 
       // Store session token in localStorage for extension
-      localStorage.setItem('viewloop_session_token', data.sessionToken);
+      localStorage.setItem('viewloop_session_token', data.sessionId);
       localStorage.setItem('viewloop_video_id', video.id);
 
       // Redirect to YouTube
