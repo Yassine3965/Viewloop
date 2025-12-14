@@ -240,69 +240,112 @@ export async function POST(req: Request) {
   }
 }
 
-// 🕵️ كشف تلاعب جديد حسب قواعدك
+// 🕵️ كشف تلاعب شامل - الخادم هو العقل
 function detectFraudNew({ sessionData, currentHeartbeat, now }: any) {
   const signals = [];
   const heartbeats = sessionData.heartbeats || [];
+  const security = {
+    MAX_HEARTBEAT_RATE_MS: 3000,
+    TAB_INACTIVE_TIMEOUT_MS: 30000,
+    MAX_TIME_DIFF_PER_HEARTBEAT: 7,
+    MIN_TIME_DIFF_PER_HEARTBEAT: 3,
+    MAX_AD_GAP_MS: 60000
+  };
 
-  // 1. ⭐ قاعدة: إذا pause أكثر من 10 مرات
-  const recentPauses = heartbeats.filter((h: any) => !h.isPlaying).length;
-  if (recentPauses > 10) {
-    signals.push({
-      type: 'TOO_MANY_PAUSES',
-      severity: 'medium',
-      description: 'Too many pauses detected (your rule)',
-      timestamp: now
-    });
-  }
-
-  // 2. ⭐ قاعدة: تبويب غير نشط أثناء التشغيل
+  // 1. التحقق من النشاط الأساسي
   if (!currentHeartbeat.tabActive && currentHeartbeat.isPlaying) {
     signals.push({
       type: 'INACTIVE_TAB',
       severity: 'high',
-      description: 'Tab inactive while video playing (your rule)',
+      description: 'Tab inactive while video playing',
       timestamp: now
     });
   }
 
-  // 3. ⭐ قاعدة: عدم نشاط الفأرة أثناء التشغيل
   if (!currentHeartbeat.mouseActive && currentHeartbeat.isPlaying) {
     signals.push({
-      type: 'NO_MOUSE_ACTIVITY',
+      type: 'MOUSE_INACTIVE_WHILE_PLAYING',
       severity: 'high',
-      description: 'No mouse activity in last 30 seconds (your rule)',
+      description: 'Mouse inactive while video playing',
       timestamp: now
     });
   }
 
-  // 4. ⭐ قاعدة: نبضات غير صالحة كثيرة
-  const invalidCount = heartbeats.filter((h: any) => !h.isValid).length;
-  const validCount = heartbeats.filter((h: any) => h.isValid).length;
-
-  if (invalidCount > validCount * 0.3 && validCount > 0) { // ⭐ إذا 30% من النبضات غير صالحة
+  // 2. التحقق من الوقت
+  if (currentHeartbeat.videoTime < 0 || currentHeartbeat.videoTime > 36000) {
     signals.push({
-      type: 'TOO_MANY_INVALID',
-      severity: 'medium',
-      description: 'Too many invalid heartbeats',
+      type: 'INVALID_VIDEO_TIME',
+      severity: 'high',
+      description: 'Invalid video time bounds',
       timestamp: now
     });
   }
 
-  // 5. ⭐ قاعدة: تلاعب في الوقت
-  if (heartbeats.length > 1) {
-    const lastValid = heartbeats.filter((h: any) => h.isValid).pop();
-    if (lastValid) {
-      const expectedTime = lastValid.videoTime + (HEARTBEAT_INTERVAL_SEC * 2); // ⭐ توقع زيادة 10 ثواني كحد أقصى
-      if (currentHeartbeat.videoTime > expectedTime + 10) {
+  // 3. كشف التلاعب في الوقت
+  if (heartbeats.length > 0) {
+    const lastHeartbeat = heartbeats[heartbeats.length - 1];
+    const timeDiff = currentHeartbeat.videoTime - lastHeartbeat.videoTime;
+
+    if (currentHeartbeat.isPlaying && lastHeartbeat.isPlaying) {
+      // الوقت الطبيعي: 3-7 ثواني (نبضة كل 5 ثواني ±2)
+      if (timeDiff < security.MIN_TIME_DIFF_PER_HEARTBEAT || timeDiff > security.MAX_TIME_DIFF_PER_HEARTBEAT) {
         signals.push({
           type: 'TIME_MANIPULATION',
           severity: 'high',
           description: 'Time jump detected (possible seeking)',
-          timestamp: now
+          timestamp: now,
+          details: { timeDiff, expectedMin: security.MIN_TIME_DIFF_PER_HEARTBEAT, expectedMax: security.MAX_TIME_DIFF_PER_HEARTBEAT }
         });
       }
     }
+  }
+
+  // 4. Rate limiting
+  if (heartbeats.length > 0) {
+    const lastHeartbeat = heartbeats[heartbeats.length - 1];
+    if ((now - lastHeartbeat.receivedAt) < security.MAX_HEARTBEAT_RATE_MS) {
+      signals.push({
+        type: 'RATE_LIMIT_EXCEEDED',
+        severity: 'medium',
+        description: 'Heartbeat rate limit exceeded',
+        timestamp: now,
+        details: { timeSinceLast: now - lastHeartbeat.receivedAt, limit: security.MAX_HEARTBEAT_RATE_MS }
+      });
+    }
+  }
+
+  // 5. التحقق من فجوات كبيرة
+  if (heartbeats.length > 1) {
+    const recentHeartbeats = heartbeats.slice(-3);
+    const gaps = recentHeartbeats.map((hb: any, i: number) => {
+      if (i === 0) return 0;
+      return hb.receivedAt - recentHeartbeats[i-1].receivedAt;
+    });
+
+    const maxGap = Math.max(...gaps);
+    if (maxGap > security.MAX_AD_GAP_MS) {
+      signals.push({
+        type: 'SUSPICIOUS_ACTIVITY_GAP',
+        severity: 'medium',
+        description: 'Suspicious time gap detected',
+        timestamp: now,
+        details: { maxGap, limit: security.MAX_AD_GAP_MS }
+      });
+    }
+  }
+
+  // 6. قاعدة إضافية: نبضات غير صالحة كثيرة
+  const invalidCount = heartbeats.filter((h: any) => !h.isValid).length;
+  const validCount = heartbeats.filter((h: any) => h.isValid).length;
+
+  if (invalidCount > validCount * 0.3 && validCount > 0) {
+    signals.push({
+      type: 'TOO_MANY_INVALID',
+      severity: 'medium',
+      description: 'Too many invalid heartbeats',
+      timestamp: now,
+      details: { invalidCount, validCount, ratio: invalidCount / validCount }
+    });
   }
 
   return signals;
