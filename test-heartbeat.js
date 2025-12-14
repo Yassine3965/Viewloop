@@ -1,4 +1,4 @@
-const https = require('https');
+const http = require('http');
 const crypto = require('crypto');
 
 // توليد sessionId فريد إذا لم يكن موجودًا
@@ -65,8 +65,8 @@ function sendHeartbeatRequest() {
     const postData = JSON.stringify(enrichedData);
 
     const options = {
-        hostname: 'viewloop.vercel.app',
-        port: 443,
+        hostname: 'localhost',
+        port: 9003,
         path: '/api/heartbeat-data',
         method: 'POST',
         headers: {
@@ -79,7 +79,7 @@ function sendHeartbeatRequest() {
     console.log('🔐 توليد التوقيع:', signature);
     console.log('📤 إرسال البيانات:', postData);
 
-    const req = https.request(options, (res) => {
+    const req = http.request(options, (res) => {
         console.log(`📡 حالة الاستجابة: ${res.statusCode}`);
 
         res.on('data', (chunk) => {
