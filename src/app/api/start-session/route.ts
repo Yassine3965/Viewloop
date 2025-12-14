@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       try {
         const decoded: admin.auth.DecodedIdToken = await auth.verifyIdToken(userAuthToken);
         userId = decoded.uid;
-      } catch (err) {
+      } catch (err: any) {
         console.log("Invalid user token, proceeding as anonymous:", err.message);
         // Continue with anonymous user for extension testing
       }
@@ -65,27 +65,32 @@ export async function POST(req: Request) {
       return addCorsHeaders(response, req);
     }
 
-    // 🔍 البحث عن جلسات نشطة للمستخدم
-    const activeSessionsQuery = await firestore.collection('sessions')
-      .where('userId', '==', userId)
-      .where('status', '==', 'active')
-      .limit(1)
-      .get();
-
+    // 🔍 البحث عن جلسات نشطة للمستخدم (تخطي للـ anonymous users للاختبار)
     let accepted = true;
     let activeVideoId = null;
 
-    if (!activeSessionsQuery.empty) {
-      // وجدت جلسة نشطة - اقبل الطلب لكن حدد أنه غير مقبول للمشاهدة
-      const activeSession = activeSessionsQuery.docs[0].data();
-      activeVideoId = activeSession.videoID;
-      accepted = false;
+    if (userId !== 'anonymous') {
+      const activeSessionsQuery = await firestore.collection('sessions')
+        .where('userId', '==', userId)
+        .where('status', '==', 'active')
+        .limit(1)
+        .get();
 
-      console.log(`User ${userId} already has active session with video ${activeVideoId}, rejecting new video ${videoID}`);
+      if (!activeSessionsQuery.empty) {
+        // وجدت جلسة نشطة - اقبل الطلب لكن حدد أنه غير مقبول للمشاهدة
+        const activeSession = activeSessionsQuery.docs[0].data();
+        activeVideoId = activeSession.videoID;
+        accepted = false;
+
+        console.log(`User ${userId} already has active session with video ${activeVideoId}, rejecting new video ${videoID}`);
+      }
+    } else {
+      console.log(`Anonymous user ${userId}, allowing multiple sessions for testing`);
     }
 
-    // إنشاء sessionId
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // استخدام sessionId من الطلب إذا وُجد، وإلا أنشئ جديد
+    const requestSessionId = body.sessionId;
+    const sessionId = requestSessionId && requestSessionId.startsWith('session_') ? requestSessionId : `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // إنشاء الجلسة في Firebase
     const sessionData = {
