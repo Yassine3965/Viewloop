@@ -234,10 +234,66 @@ export async function POST(req: Request) {
 
     await sessionRef.update(updates);
 
-    // حساب النقاط (للعرض فقط، لا تحديث المستخدم هنا)
+    // حساب النقاط وحفظها للمستخدم
     const updatedSession = await sessionRef.get();
     const updatedData = updatedSession.data();
     const points = calculatePointsNew(updatedData);
+
+    // منح النقاط للمستخدم إذا كان هناك نقاط جديدة
+    if (points.totalPoints > 0 && verifiedUserId && verifiedUserId !== 'anonymous') {
+      try {
+        const userRef = firestore.collection("users").doc(verifiedUserId);
+        const userSnap = await userRef.get();
+
+        if (userSnap.exists) {
+          // الحصول على النقاط الحالية
+          const currentPoints = userSnap.data()?.points || 0;
+          const currentGems = userSnap.data()?.gems || 0;
+
+          // حساب النقاط الجديدة من هذه النبضة
+          const newPointsEarned = points.totalPoints;
+          const newGemsEarned = Math.floor(points.validSeconds * 0.01); // 0.01 gem per second
+
+          // تحديث نقاط المستخدم
+          await userRef.update({
+            points: currentPoints + newPointsEarned,
+            gems: currentGems + newGemsEarned,
+            lastUpdated: now,
+            totalWatchTime: FieldValue.increment(points.validSeconds)
+          });
+
+          console.log(`✅ User ${verifiedUserId} earned ${newPointsEarned} points and ${newGemsEarned} gems from heartbeat`);
+
+          // إضافة إلى سجل المشاهدة التراكمي
+          await firestore.collection("watchHistory").add({
+            userId: verifiedUserId,
+            videoId: videoId,
+            sessionId: sessionRef.id,
+            pointsEarned: newPointsEarned,
+            gemsEarned: newGemsEarned,
+            validSeconds: points.validSeconds,
+            adSeconds: points.adSeconds,
+            timestamp: now,
+            type: 'incremental' // نوع المنح التراكمي
+          });
+
+        } else {
+          // إنشاء مستخدم جديد إذا لم يكن موجوداً
+          await userRef.set({
+            points: points.totalPoints,
+            gems: Math.floor(points.validSeconds * 0.01),
+            lastUpdated: now,
+            totalWatchTime: points.validSeconds,
+            createdAt: now
+          });
+
+          console.log(`✅ New user ${verifiedUserId} created with ${points.totalPoints} points from heartbeat`);
+        }
+      } catch (userUpdateError) {
+        console.error('Error updating user points from heartbeat:', userUpdateError);
+        // لا نتوقف عن إرسال الرد حتى لو فشل تحديث المستخدم
+      }
+    }
 
     // 13. إرجاع الرد
     return addCorsHeaders(NextResponse.json({
@@ -291,15 +347,6 @@ function detectFraudNew({ sessionData, currentHeartbeat, now }: any) {
     });
   }
 
-  if (!currentHeartbeat.mouseActive && currentHeartbeat.isPlaying) {
-    signals.push({
-      type: 'MOUSE_INACTIVE_WHILE_PLAYING',
-      severity: 'high',
-      description: 'Mouse inactive while video playing',
-      timestamp: now
-    });
-  }
-
   // 2. التحقق من الوقت
   if (currentHeartbeat.videoTime < 0 || currentHeartbeat.videoTime > 36000) {
     signals.push({
@@ -310,24 +357,7 @@ function detectFraudNew({ sessionData, currentHeartbeat, now }: any) {
     });
   }
 
-  // 3. كشف التلاعب في الوقت
-  if (heartbeats.length > 0) {
-    const lastHeartbeat = heartbeats[heartbeats.length - 1];
-    const timeDiff = currentHeartbeat.videoTime - lastHeartbeat.videoTime;
-
-    if (currentHeartbeat.isPlaying && lastHeartbeat.isPlaying) {
-      // الوقت الطبيعي: 3-7 ثواني (نبضة كل 5 ثواني ±2)
-      if (timeDiff < security.MIN_TIME_DIFF_PER_HEARTBEAT || timeDiff > security.MAX_TIME_DIFF_PER_HEARTBEAT) {
-        signals.push({
-          type: 'TIME_MANIPULATION',
-          severity: 'high',
-          description: 'Time jump detected (possible seeking)',
-          timestamp: now,
-          details: { timeDiff, expectedMin: security.MIN_TIME_DIFF_PER_HEARTBEAT, expectedMax: security.MAX_TIME_DIFF_PER_HEARTBEAT }
-        });
-      }
-    }
-  }
+  // 3. كشف التلاعب في الوقت - معطل حسب طلب المستخدم
 
   // 4. Rate limiting
   if (heartbeats.length > 0) {
