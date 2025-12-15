@@ -11,8 +11,8 @@ export function Logo() {
       )}
       style={{ '--shine-delay': '0s' } as React.CSSProperties}
     >
-      <PlayCircle className="h-7 w-7" />
       <span>ViewLoop</span>
+      <PlayCircle className="h-7 w-7" />
     </div>
   );
 }
