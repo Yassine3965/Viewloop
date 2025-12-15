@@ -333,8 +333,7 @@ function detectFraudNew({ sessionData, currentHeartbeat, now }: any) {
     MAX_HEARTBEAT_RATE_MS: 3000,
     TAB_INACTIVE_TIMEOUT_MS: 30000,
     MAX_TIME_DIFF_PER_HEARTBEAT: 7,
-    MIN_TIME_DIFF_PER_HEARTBEAT: 3,
-    MAX_AD_GAP_MS: 60000
+    MIN_TIME_DIFF_PER_HEARTBEAT: 3
   };
 
   // 1. التحقق من النشاط الأساسي
@@ -373,25 +372,7 @@ function detectFraudNew({ sessionData, currentHeartbeat, now }: any) {
     }
   }
 
-  // 5. التحقق من فجوات كبيرة
-  if (heartbeats.length > 1) {
-    const recentHeartbeats = heartbeats.slice(-3);
-    const gaps = recentHeartbeats.map((hb: any, i: number) => {
-      if (i === 0) return 0;
-      return hb.receivedAt - recentHeartbeats[i-1].receivedAt;
-    });
 
-    const maxGap = Math.max(...gaps);
-    if (maxGap > security.MAX_AD_GAP_MS) {
-      signals.push({
-        type: 'SUSPICIOUS_ACTIVITY_GAP',
-        severity: 'medium',
-        description: 'Suspicious time gap detected',
-        timestamp: now,
-        details: { maxGap, limit: security.MAX_AD_GAP_MS }
-      });
-    }
-  }
 
   // 6. قاعدة إضافية: نبضات غير صالحة كثيرة
   const invalidCount = heartbeats.filter((h: any) => !h.isValid).length;
