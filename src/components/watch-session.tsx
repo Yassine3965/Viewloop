@@ -163,7 +163,7 @@ export function WatchSession() {
                   'Content-Type': 'application/json',
                   'x-signature': 'INIT'
                 },
-                body: JSON.stringify({ videoID: videoId, userAuthToken }),
+                body: JSON.stringify({ videoId: videoId, userAuthToken }),
             });
 
             const data = await response.json();

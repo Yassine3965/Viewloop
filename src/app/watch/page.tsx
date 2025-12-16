@@ -49,7 +49,7 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
           'x-signature': 'INIT'
         },
         body: JSON.stringify({
-          videoID: video.id,
+          videoId: video.id,
           userAuthToken: authToken
         })
       });
