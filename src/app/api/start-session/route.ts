@@ -81,7 +81,7 @@ export async function POST(req: Request) {
 
     // 🔍 البحث عن جلسات نشطة للمستخدم (تخطي للـ anonymous users للاختبار)
     let accepted = true;
-    let activeVideoId = null;
+    let activeVideoId = undefined;
 
     if (userId !== 'anonymous') {
       const activeSessionsQuery = await firestore.collection('sessions')
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     const sessionToken = randomBytes(32).toString('hex');
 
     // إنشاء الجلسة في Firebase
-    const sessionData = {
+    const sessionData: any = {
       sessionId: sessionId,
       userId: userId,
       videoId: videoId,
@@ -122,9 +122,13 @@ export async function POST(req: Request) {
       points: 0,
       gems: 0,
       accepted: accepted, // حقل جديد لتحديد إذا كانت الجلسة مقبولة
-      activeVideoId: activeVideoId, // الفيديو النشط إن وجد
       sessionTokenHash: createHash('sha256').update(sessionToken).digest('hex')
     };
+
+    // أضف activeVideoId فقط إذا كان موجود
+    if (activeVideoId !== undefined) {
+      sessionData.activeVideoId = activeVideoId;
+    }
 
     await firestore.collection('sessions').doc(sessionId).set(sessionData);
 
