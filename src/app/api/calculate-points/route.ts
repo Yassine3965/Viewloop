@@ -2,14 +2,10 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { handleOptions, addCorsHeaders } from "../../../lib/cors";
-import { createHmac } from 'crypto';
+import { createHmac, createHash } from 'crypto';
 import { getFirestore } from "@/lib/firebase/admin";
 
-const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
-
-// Reference to sessions from heartbeat-batch (in production, use shared storage)
-const secureSessions = new Map();
-const processedSessions = new Set();
+// Use Firestore as the source of truth for session state
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -24,27 +20,11 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  // Verify signature
-  const signature = req.headers.get('x-signature');
-  if (!signature) {
-    const response = NextResponse.json({ error: "MISSING_SIGNATURE" }, { status: 401 });
-    return addCorsHeaders(response, req);
-  }
-
-  const expectedSignature = createHmac('sha256', EXTENSION_SECRET)
-    .update(JSON.stringify(body))
-    .digest('hex');
-
-  if (signature !== expectedSignature) {
-    const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 401 });
-    return addCorsHeaders(response, req);
-  }
-
   try {
     const { sessionId, videoId, points, sessionData } = body;
 
-    if (!sessionId || false) {
-      const response = NextResponse.json({ error: 'Invalid request or session already processed' }, { status: 400 });
+    if (!sessionId) {
+      const response = NextResponse.json({ error: 'MISSING_SESSION_ID' }, { status: 400 });
       return addCorsHeaders(response, req);
     }
 
@@ -56,6 +36,51 @@ export async function POST(req: Request) {
     if (!session) {
       const response = NextResponse.json({ error: 'Session not found' }, { status: 404 });
       return addCorsHeaders(response, req);
+    }
+
+    // Verify session token
+    if (!session.sessionToken) {
+      const response = NextResponse.json({ error: "INVALID_SESSION" }, { status: 401 });
+      return addCorsHeaders(response, req);
+    }
+
+    // Verify signature with session token
+    const signature = req.headers.get('x-signature');
+    if (!signature) {
+      const response = NextResponse.json({ error: "MISSING_SIGNATURE" }, { status: 401 });
+      return addCorsHeaders(response, req);
+    }
+
+    const sortedKeys = Object.keys(body).sort();
+    const sortedBody: Record<string, any> = {};
+    sortedKeys.forEach(key => {
+      sortedBody[key] = body[key];
+    });
+    const dataString = JSON.stringify(sortedBody);
+    const combined = dataString + session.sessionToken;
+    const expectedSignature = createHash('sha256')
+      .update(combined)
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      console.log('Signature mismatch:', { received: signature, expected: expectedSignature });
+      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 401 });
+      return addCorsHeaders(response, req);
+    }
+
+    // Verify session status before processing
+    if (session.status !== 'active') {
+      return addCorsHeaders(
+        NextResponse.json({ error: "SESSION_NOT_ACTIVE" }, { status: 400 }),
+        req
+      );
+    }
+
+    if (session.processed === true) {
+      return addCorsHeaders(
+        NextResponse.json({ error: "SESSION_ALREADY_PROCESSED" }, { status: 409 }),
+        req
+      );
     }
 
     // Calculate final points using secure server-side logic
@@ -114,20 +139,16 @@ export async function POST(req: Request) {
     session.processed = true;
     session.completedAt = Date.now();
 
-    // Update session status
+    // Update session status and invalidate token
     await sessionRef.update({
       status: 'completed',
       finalPoints: finalPoints,
       processed: true,
-      completedAt: Date.now()
+      completedAt: Date.now(),
+      sessionToken: null // Invalidate token - session is done
     });
 
-    processedSessions.add(sessionId);
 
-    // Clean up after 5 minutes
-    setTimeout(() => {
-      secureSessions.delete(sessionId);
-    }, 300000);
 
     console.log(`🏆 Points awarded for session ${sessionId}: ${finalPoints.totalPoints}`);
 

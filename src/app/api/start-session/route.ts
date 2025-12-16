@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import admin from 'firebase-admin';
+import { randomBytes, createHash } from 'crypto';
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000";
 
@@ -21,6 +22,34 @@ export async function POST(req: Request) {
   } catch (e) {
     const response = NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
     return addCorsHeaders(response, req);
+  }
+
+  // Verify signature for start-session (videoId + timestamp only)
+  const signature = req.headers.get('x-signature');
+  if (!signature) {
+    return addCorsHeaders(NextResponse.json({ error: "MISSING_SIGNATURE" }, { status: 401 }), req);
+  }
+
+  // Sign only videoId + timestamp for start-session
+  const signPayload: Record<string, any> = {
+    videoId: body.videoId,
+    timestamp: body.timestamp
+  };
+
+  const sortedKeys = Object.keys(signPayload).sort();
+  const sortedPayload: Record<string, any> = {};
+  sortedKeys.forEach(key => {
+    sortedPayload[key] = signPayload[key];
+  });
+  const dataString = JSON.stringify(sortedPayload);
+  const jwtSecret = process.env.JWT_SECRET || process.env.EXTENSION_SECRET || 'fallback-secret';
+  const expectedSignature = createHash('sha256')
+    .update(dataString + jwtSecret)
+    .digest('hex');
+
+  if (signature !== expectedSignature) {
+    console.log('Signature mismatch:', { received: signature, expected: expectedSignature });
+    return addCorsHeaders(NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 401 }), req);
   }
 
   let auth: admin.auth.Auth;
@@ -92,6 +121,9 @@ export async function POST(req: Request) {
     const requestSessionId = body.sessionId;
     const sessionId = requestSessionId && requestSessionId.startsWith('session_') ? requestSessionId : `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+    // Generate session token
+    const sessionToken = randomBytes(32).toString('hex');
+
     // إنشاء الجلسة في Firebase
     const sessionData = {
       sessionId: sessionId,
@@ -105,7 +137,8 @@ export async function POST(req: Request) {
       points: 0,
       gems: 0,
       accepted: accepted, // حقل جديد لتحديد إذا كانت الجلسة مقبولة
-      activeVideoId: activeVideoId // الفيديو النشط إن وجد
+      activeVideoId: activeVideoId, // الفيديو النشط إن وجد
+      sessionToken: sessionToken
     };
 
     await firestore.collection('sessions').doc(sessionId).set(sessionData);
@@ -124,6 +157,7 @@ export async function POST(req: Request) {
     return addCorsHeaders(NextResponse.json({
       success: true,
       sessionId: sessionId,
+      sessionToken: sessionToken,
       video: videoData
     }), req);
 

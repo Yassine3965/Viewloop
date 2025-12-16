@@ -8,8 +8,7 @@ const crypto = require('crypto');
 const app = express();
 app.use(express.json());
 
-// أسرار الأمان
-const EXTENSION_SECRET = '6B65FDC657B5D8CF4D5AB28C92CF2';
+// أسرار الأمان - تم إزالة EXTENSION_SECRET، الآن نستخدم sessionToken لكل جلسة
 
 // قاعدة بيانات آمنة للجلسات
 const secureSessions = new Map(); // sessionId -> sessionData
@@ -23,7 +22,17 @@ const corsOptions = {
 };
 app.use(require('cors')(corsOptions));
 
-// Middleware للتحقق من التوقيعات
+// Stable JSON stringify to ensure consistent key ordering for signatures
+function stableStringify(obj) {
+    return JSON.stringify(
+        Object.keys(obj).sort().reduce((acc, key) => {
+            acc[key] = obj[key];
+            return acc;
+        }, {})
+    );
+}
+
+// Middleware للتحقق من التوقيعات باستخدام sessionToken
 const verifySignature = (req, res, next) => {
   try {
     const signature = req.get('X-Signature');
@@ -32,11 +41,59 @@ const verifySignature = (req, res, next) => {
       return res.status(401).json({ error: 'Missing signature' });
     }
 
-    // التحقق من التوقيع
-    const dataToSign = JSON.stringify(req.body);
-    const expectedSignature = crypto.createHmac('sha256', EXTENSION_SECRET)
-      .update(dataToSign)
-      .digest('hex');
+    const sessionId = req.body.sessionId;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID required for signature verification' });
+    }
+
+    const session = secureSessions.get(sessionId);
+    if (!session || !session.sessionToken) {
+      return res.status(401).json({ error: 'Invalid session or session token not found' });
+    }
+
+    const sessionToken = session.sessionToken;
+
+    // Check if session is already completed
+    if (processedSessions.has(sessionId)) {
+      return res.status(401).json({ error: 'Session already completed' });
+    }
+
+    // Sign only critical data for specific request types, ALWAYS exclude clientType
+    // Include timestamp for replay protection in all critical requests
+    const ts = Math.floor(Date.now() / 1000); // Unix timestamp in seconds for replay protection
+    let signData;
+    if (req.body.__type === 'calculate') {
+      // This is calculate-points request
+      signData = {
+        sessionId: req.body.sessionId,
+        videoId: req.body.videoId,
+        ts: ts
+      };
+    } else if (req.body.sessionId && 'videoTime' in req.body && 'isPlaying' in req.body) {
+      // This is heartbeat request - include timestamp for replay protection
+      signData = {
+        sessionId: req.body.sessionId,
+        videoTime: req.body.videoTime,
+        isPlaying: req.body.isPlaying,
+        ts: ts
+      };
+    } else if (req.body.videoId && req.body.timestamp && !req.body.sessionId) {
+      // This is start-session request
+      signData = {
+        videoId: req.body.videoId,
+        timestamp: req.body.timestamp,
+        ts: ts
+      };
+    } else {
+      // Other requests - sign data excluding clientType, include ts for replay protection
+      signData = { ...req.body, ts: ts };
+      delete signData.clientType;
+    }
+
+    const dataString = stableStringify(signData);
+    const combined = dataString + sessionToken;
+
+    const expectedSignature = crypto.createHash('sha256').update(combined).digest('hex');
 
     if (signature !== expectedSignature) {
       return res.status(401).json({ error: 'Invalid signature' });
@@ -160,6 +217,7 @@ app.post('/start-session', (req, res) => {
     // حفظ الجلسة في الذاكرة
     secureSessions.set(sessionToken, {
         sessionId: sessionToken,
+        sessionToken: sessionToken,
         videoId: videoID,
         userId: userID || 'anonymous',
         startTime: Date.now(),
@@ -194,34 +252,6 @@ app.post('/check-video', (req, res) => {
         exists: true,
         message: 'Video authorized for watching'
     });
-});
-
-// 4. بدء الجلسة
-app.post('/start-session', (req, res) => {
-    const { videoID, userID } = req.body;
-
-    if (!videoID) {
-        return res.status(400).json({ error: 'Video ID required' });
-    }
-
-    // إنشاء رمز جلسة فريد
-    const sessionToken = crypto.randomBytes(16).toString('hex');
-
-    // حفظ الجلسة في الذاكرة
-    secureSessions.set(sessionToken, {
-        sessionId: sessionToken,
-        videoId: videoID,
-        userId: userID || 'anonymous',
-        startTime: Date.now(),
-        heartbeats: [],
-        validHeartbeats: 0,
-        invalidHeartbeats: 0,
-        status: 'active'
-    });
-
-    console.log(`🆕 Session started: ${sessionToken} for video ${videoID}`);
-
-    res.json({ sessionToken });
 });
 
 
