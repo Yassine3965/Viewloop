@@ -159,7 +159,10 @@ export function WatchSession() {
             const userAuthToken = await user.getIdToken();
             const response = await fetch('/api/start-session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-signature': 'INIT'
+                },
                 body: JSON.stringify({ videoID: videoId, userAuthToken }),
             });
 

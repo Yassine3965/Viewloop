@@ -44,7 +44,10 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
       // Start session
       const response = await fetch('/api/start-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-signature': 'INIT'
+        },
         body: JSON.stringify({
           videoID: video.id,
           userAuthToken: authToken
