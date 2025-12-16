@@ -23,6 +23,12 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
+  // التحقق من نوع الطلب - body يجب أن يكون كائن صحيح
+  if (!body || typeof body !== 'object') {
+    const response = NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+    return addCorsHeaders(response, req);
+  }
+
   if (!verifySignature(req, body)) {
       const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
       return addCorsHeaders(response, req);

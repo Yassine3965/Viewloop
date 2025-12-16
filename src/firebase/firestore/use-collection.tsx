@@ -59,7 +59,7 @@ export function useCollection<T>(path: string): UseCollectionReturn<T> {
   return { data, loading, error };
 }
 
-export function useCollectionQuery<T>(query: Query | null): UseCollectionReturn<T> {
+export function useCollectionQuery<T>(query: Query<DocumentData> | null): UseCollectionReturn<T> {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | null>(null);

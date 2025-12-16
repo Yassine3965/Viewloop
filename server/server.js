@@ -58,9 +58,18 @@ const verifySignature = (req, res, next) => {
       return res.status(401).json({ error: 'Session already completed' });
     }
 
-    // Sign only critical data for specific request types, ALWAYS exclude clientType
-    // Include timestamp for replay protection in all critical requests
-    const ts = Math.floor(Date.now() / 1000); // Unix timestamp in seconds for replay protection
+    // Use client timestamp for signature verification, but check it's within acceptable range
+    const clientTs = req.body.ts || req.body.timestamp;
+    const serverTs = Math.floor(Date.now() / 1000);
+    const tsDiff = Math.abs(serverTs - (clientTs || 0));
+
+    // Allow 30 seconds difference to account for network latency and clock skew
+    if (tsDiff > 30) {
+      return res.status(401).json({ error: 'Timestamp out of acceptable range' });
+    }
+
+    const ts = clientTs || serverTs; // Use client timestamp if provided, otherwise server timestamp
+
     let signData;
     if (req.body.__type === 'calculate') {
       // This is calculate-points request
@@ -145,6 +154,26 @@ app.post('/heartbeat-batch', verifySignature, (req, res) => {
     heartbeats.forEach(heartbeat => {
         if (validateHeartbeatData(session, heartbeat)) {
             session.heartbeats.push(heartbeat);
+            // تحديث وقت آخر نبضة للتحقق من التسلسل الزمني
+            session.lastHeartbeat = heartbeat.timestamp;
+
+            // حساب الوقت الصالح من النبضات
+            if (session.heartbeats.length > 1) {
+                const prevHeartbeat = session.heartbeats[session.heartbeats.length - 2];
+                const timeDiff = heartbeat.timestamp - prevHeartbeat.timestamp;
+
+                // اعتبار الوقت صالحًا إذا كان التفاوت طبيعيًا (3-8 ثواني)
+                if (timeDiff >= 3000 && timeDiff <= 8000 && heartbeat.isPlaying) {
+                    session.validSeconds += Math.floor(timeDiff / 1000);
+                }
+
+                // كشف الإعلانات (فجوات زمنية كبيرة)
+                if (timeDiff > 15000) {
+                    const adDuration = Math.min(timeDiff - 5000, 60000); // حد أقصى دقيقة
+                    session.adSeconds += Math.floor(adDuration / 1000);
+                }
+            }
+
             validCount++;
         } else {
             invalidCount++;
@@ -191,6 +220,10 @@ app.post('/calculate-points', verifySignature, (req, res) => {
     // تنظيف بعد 5 دقائق
     setTimeout(() => {
         secureSessions.delete(sessionId);
+        // تنظيف processedSessions أيضًا بعد وقت أطول لمنع إعادة المعالجة
+        setTimeout(() => {
+            processedSessions.delete(sessionId);
+        }, 1800000); // 30 دقيقة إضافية لـ processedSessions
     }, 300000);
 
     console.log(`🏆 Points awarded for session ${sessionId}: ${finalPoints.totalPoints}`);
@@ -203,56 +236,155 @@ app.post('/calculate-points', verifySignature, (req, res) => {
     });
 });
 
-// 3. بدء الجلسة
-app.post('/start-session', (req, res) => {
-    const { videoID, userID } = req.body;
+// 3. بدء الجلسة مع جلب مدة الفيديو
+app.post('/start-session', async (req, res) => {
+    const { videoId, userId } = req.body;
 
-    if (!videoID) {
+    if (!videoId) {
         return res.status(400).json({ error: 'Video ID required' });
     }
 
-    // إنشاء رمز جلسة فريد
-    const sessionToken = crypto.randomBytes(32).toString('hex');
+    try {
+        // جلب مدة الفيديو من YouTube API
+        const videoDuration = await getVideoDuration(videoId);
+        console.log(`📹 [START-SESSION] Video ${videoId} duration: ${videoDuration} seconds`);
 
-    // حفظ الجلسة في الذاكرة
-    secureSessions.set(sessionToken, {
-        sessionId: sessionToken,
-        sessionToken: sessionToken,
-        videoId: videoID,
-        userId: userID || 'anonymous',
-        startTime: Date.now(),
-        heartbeats: [],
-        validHeartbeats: 0,
-        invalidHeartbeats: 0,
-        validSeconds: 0,
-        adSeconds: 0,
-        status: 'active'
-    });
+        // إنشاء رمز جلسة فريد
+        const sessionToken = crypto.randomBytes(32).toString('hex');
 
-    console.log(`🚀 Started new session: ${sessionToken} for video ${videoID}`);
+        // حفظ الجلسة في الذاكرة مع مدة الفيديو
+        secureSessions.set(sessionToken, {
+            sessionId: sessionToken,
+            sessionToken: sessionToken,
+            videoId: videoId,
+            userId: userId || 'anonymous',
+            videoDuration: videoDuration, // حفظ مدة الفيديو
+            startTime: Date.now(),
+            heartbeats: [],
+            validHeartbeats: 0,
+            invalidHeartbeats: 0,
+            validSeconds: 0,
+            adSeconds: 0,
+            status: 'active'
+        });
 
-    res.json({
-        success: true,
-        sessionToken: sessionToken,
-        message: 'Session started successfully'
-    });
+        console.log(`🚀 Started new session: ${sessionToken} for video ${videoId} (${videoDuration}s)`);
+
+        res.json({
+            success: true,
+            sessionToken: sessionToken,
+            videoDuration: videoDuration,
+            message: 'Session started successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ [START-SESSION] Error getting video duration:', error);
+
+        // Fallback: بدء الجلسة مع مدة افتراضية
+        const fallbackDuration = 600; // 10 دقائق افتراضي
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+
+        secureSessions.set(sessionToken, {
+            sessionId: sessionToken,
+            sessionToken: sessionToken,
+            videoId: videoId,
+            userId: userId || 'anonymous',
+            videoDuration: fallbackDuration,
+            startTime: Date.now(),
+            heartbeats: [],
+            validHeartbeats: 0,
+            invalidHeartbeats: 0,
+            validSeconds: 0,
+            adSeconds: 0,
+            status: 'active'
+        });
+
+        console.log(`🚀 Started session with fallback duration: ${sessionToken} for video ${videoId} (${fallbackDuration}s)`);
+
+        res.json({
+            success: true,
+            sessionToken: sessionToken,
+            videoDuration: fallbackDuration,
+            message: 'Session started with fallback duration'
+        });
+    }
 });
 
-// 4. التحقق من صحة الفيديو
-app.post('/check-video', (req, res) => {
+// 4. الحصول على مدة الفيديو من YouTube API
+app.post('/check-video', async (req, res) => {
     const { videoId } = req.body;
 
     if (!videoId) {
         return res.status(400).json({ error: 'Video ID required' });
     }
 
-    // في الإنتاج، تحقق من قاعدة البيانات
-    res.json({
-        authorized: true,
-        exists: true,
-        message: 'Video authorized for watching'
-    });
+    try {
+        const duration = await getVideoDuration(videoId);
+
+        res.json({
+            authorized: true,
+            exists: duration > 0,
+            duration: duration,
+            message: 'Video duration retrieved successfully'
+        });
+
+    } catch (error) {
+        console.error('❌ [CHECK-VIDEO] Error getting video duration:', error);
+        // Fallback: افتراض مدة 10 دقائق
+        res.json({
+            authorized: true,
+            exists: true,
+            duration: 600,
+            message: 'Video authorized with default duration (API error)'
+        });
+    }
 });
+
+// دالة لجلب مدة الفيديو من YouTube API
+async function getVideoDuration(videoId, apiKey) {
+    try {
+        // الحصول على API key من التكوين أو المتغيرات البيئية
+        if (!apiKey) {
+            const config = globalThis.ViewLoopConfig || {};
+            apiKey = config.YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY;
+        }
+
+        if (!apiKey) {
+            console.warn('⚠️ [YOUTUBE-API] No API key configured, returning 0');
+            return 0;
+        }
+
+        const url = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=contentDetails`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`YouTube API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.items || data.items.length === 0) {
+            throw new Error('Video not found');
+        }
+
+        const durationISO = data.items[0].contentDetails.duration; // ISO 8601
+        return parseDuration(durationISO);
+    } catch (err) {
+        console.error('❌ [YOUTUBE-API] Error fetching video duration:', err.message);
+        return 0; // fallback
+    }
+}
+
+// دالة مساعدة لتحليل مدة الفيديو من تنسيق ISO 8601
+function parseDuration(duration) {
+    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    if (!match) return 0;
+
+    const hours = parseInt((match[1] || '').replace('H','')) || 0;
+    const minutes = parseInt((match[2] || '').replace('M','')) || 0;
+    const seconds = parseInt((match[3] || '').replace('S','')) || 0;
+
+    return hours*3600 + minutes*60 + seconds;
+}
 
 
 
@@ -269,12 +401,7 @@ function validateHeartbeatData(session, heartbeat) {
         return false;
     }
 
-    // التحقق من النشاط
-    if (!heartbeat.tabActive || !heartbeat.mouseActive) {
-        if (heartbeat.videoPlaying) {
-            return false;
-        }
-    }
+    // تم تعطيل التحقق من النشاط للسماح بالمشاهدة السلبية (passive watching)
 
     // التحقق من وقت الفيديو
     if (heartbeat.videoTime < 0 || heartbeat.videoTime > 36000) {
@@ -288,15 +415,20 @@ function calculatePointsSecurely(session) {
     const validSeconds = session.validSeconds || 0;
     const adSeconds = session.adSeconds || 0;
 
-    // نقاط الفيديو (بعد أول 5 ثواني)
-    const videoWatchSeconds = Math.max(0, validSeconds - 5);
-    const videoPoints = videoWatchSeconds * 0.05;
+    // استخدام الثوابت من التكوين المركزي
+    const config = globalThis.ViewLoopConfig || {};
+    const pointsConfig = config.POINTS || {
+        VIDEO_POINTS_PER_SECOND: 0.05,
+        VIDEO_INITIAL_SECONDS: 5,
+        AD_POINTS_PER_SECOND: 0.5
+    };
+
+    // نقاط الفيديو (بعد أول X ثواني)
+    const videoWatchSeconds = Math.max(0, validSeconds - pointsConfig.VIDEO_INITIAL_SECONDS);
+    const videoPoints = videoWatchSeconds * pointsConfig.VIDEO_POINTS_PER_SECOND;
 
     // نقاط الإعلانات
-    let adPoints = 0;
-    if (adSeconds > 0) {
-        adPoints = Math.floor(adSeconds / 60) * 15; // 15 نقطة لكل دقيقة إعلان
-    }
+    const adPoints = adSeconds * pointsConfig.AD_POINTS_PER_SECOND;
 
     return {
         videoPoints: Math.round(videoPoints * 100) / 100,
