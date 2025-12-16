@@ -25,6 +25,10 @@ export async function POST(req: Request) {
   }
 
   // 🔒 التحقق من التوقيع للـ start-session
+  console.log('🧪 START-SESSION HEADERS:', {
+    signature: req.headers.get('x-signature'),
+    all: Object.fromEntries(req.headers.entries())
+  });
   const signature = req.headers.get('x-signature');
 
   if (signature !== 'INIT') {
