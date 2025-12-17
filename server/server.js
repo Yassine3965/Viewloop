@@ -167,10 +167,10 @@ app.post('/heartbeat-batch', verifySignature, (req, res) => {
                     session.validSeconds += Math.floor(timeDiff / 1000);
                 }
 
-                // كشف الإعلانات (فجوات زمنية كبيرة)
+                // كشف المكافآت (فجوات زمنية كبيرة)
                 if (timeDiff > 15000) {
-                    const adDuration = Math.min(timeDiff - 5000, 60000); // حد أقصى دقيقة
-                    session.adSeconds += Math.floor(adDuration / 1000);
+                    const rewardDuration = Math.min(timeDiff - 5000, 60000); // حد أقصى دقيقة
+                    session.rewardSeconds += Math.floor(rewardDuration / 1000);
                 }
             }
 
@@ -236,78 +236,51 @@ app.post('/calculate-points', verifySignature, (req, res) => {
     });
 });
 
-// 3. بدء الجلسة مع جلب مدة الفيديو
-app.post('/start-session', async (req, res) => {
-    const { videoId, userId } = req.body;
+// 3. بدء الجلسة مع استقبال المدة من العميل
+app.post('/start-session', (req, res) => {
+    const { videoId, userId, durationSeconds } = req.body;
 
     if (!videoId) {
         return res.status(400).json({ error: 'Video ID required' });
     }
 
-    try {
-        // جلب مدة الفيديو من YouTube API
-        const videoDuration = await getVideoDuration(videoId);
-        console.log(`📹 [START-SESSION] Video ${videoId} duration: ${videoDuration} seconds`);
+    // التحقق من صحة المدة المستلمة من العميل
+    let videoDuration = 600; // مدة افتراضية 10 دقائق
 
-        // إنشاء رمز جلسة فريد
-        const sessionToken = crypto.randomBytes(32).toString('hex');
-
-        // حفظ الجلسة في الذاكرة مع مدة الفيديو
-        secureSessions.set(sessionToken, {
-            sessionId: sessionToken,
-            sessionToken: sessionToken,
-            videoId: videoId,
-            userId: userId || 'anonymous',
-            videoDuration: videoDuration, // حفظ مدة الفيديو
-            startTime: Date.now(),
-            heartbeats: [],
-            validHeartbeats: 0,
-            invalidHeartbeats: 0,
-            validSeconds: 0,
-            adSeconds: 0,
-            status: 'active'
-        });
-
-        console.log(`🚀 Started new session: ${sessionToken} for video ${videoId} (${videoDuration}s)`);
-
-        res.json({
-            success: true,
-            sessionToken: sessionToken,
-            videoDuration: videoDuration,
-            message: 'Session started successfully'
-        });
-
-    } catch (error) {
-        console.error('❌ [START-SESSION] Error getting video duration:', error);
-
-        // Fallback: بدء الجلسة مع مدة افتراضية
-        const fallbackDuration = 600; // 10 دقائق افتراضي
-        const sessionToken = crypto.randomBytes(32).toString('hex');
-
-        secureSessions.set(sessionToken, {
-            sessionId: sessionToken,
-            sessionToken: sessionToken,
-            videoId: videoId,
-            userId: userId || 'anonymous',
-            videoDuration: fallbackDuration,
-            startTime: Date.now(),
-            heartbeats: [],
-            validHeartbeats: 0,
-            invalidHeartbeats: 0,
-            validSeconds: 0,
-            adSeconds: 0,
-            status: 'active'
-        });
-
-        console.log(`🚀 Started session with fallback duration: ${sessionToken} for video ${videoId} (${fallbackDuration}s)`);
-
-        res.json({
-            success: true,
-            sessionToken: sessionToken,
-            videoDuration: fallbackDuration,
-            message: 'Session started with fallback duration'
-        });
+    if (durationSeconds && typeof durationSeconds === 'number' && durationSeconds > 0 && durationSeconds < 36000) {
+        videoDuration = Math.floor(durationSeconds);
+        console.log(`📏 [START-SESSION] Client reported duration: ${videoDuration} seconds for video ${videoId}`);
+    } else {
+        console.log(`⚠️ [START-SESSION] Invalid or missing duration from client, using default: ${videoDuration}s for video ${videoId}`);
     }
+
+    // إنشاء رمز جلسة فريد
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+
+    // حفظ الجلسة في الذاكرة مع مدة الفيديو من العميل
+    secureSessions.set(sessionToken, {
+        sessionId: sessionToken,
+        sessionToken: sessionToken,
+        videoId: videoId,
+        userId: userId || 'anonymous',
+        videoDuration: videoDuration, // مدة الفيديو من العميل
+        startTime: Date.now(),
+        heartbeats: [],
+        validHeartbeats: 0,
+        invalidHeartbeats: 0,
+        validSeconds: 0,
+        rewardSeconds: 0,
+        status: 'active'
+    });
+
+    console.log(`🚀 Started new session: ${sessionToken} for video ${videoId} (${videoDuration}s from client)`);
+
+    res.json({
+        success: true,
+        sessionToken: sessionToken,
+        videoDuration: videoDuration,
+        message: 'Session started successfully'
+    });
 });
 
 // 4. الحصول على مدة الفيديو من YouTube API
@@ -413,29 +386,29 @@ function validateHeartbeatData(session, heartbeat) {
 
 function calculatePointsSecurely(session) {
     const validSeconds = session.validSeconds || 0;
-    const adSeconds = session.adSeconds || 0;
+    const rewardSeconds = session.rewardSeconds || 0;
 
     // استخدام الثوابت من التكوين المركزي
     const config = globalThis.ViewLoopConfig || {};
     const pointsConfig = config.POINTS || {
         VIDEO_POINTS_PER_SECOND: 0.05,
         VIDEO_INITIAL_SECONDS: 5,
-        AD_POINTS_PER_SECOND: 0.5
+        REWARD_POINTS_PER_SECOND: 0.5
     };
 
     // نقاط الفيديو (بعد أول X ثواني)
     const videoWatchSeconds = Math.max(0, validSeconds - pointsConfig.VIDEO_INITIAL_SECONDS);
     const videoPoints = videoWatchSeconds * pointsConfig.VIDEO_POINTS_PER_SECOND;
 
-    // نقاط الإعلانات
-    const adPoints = adSeconds * pointsConfig.AD_POINTS_PER_SECOND;
+    // نقاط المكافآت
+    const rewardPoints = rewardSeconds * pointsConfig.REWARD_POINTS_PER_SECOND;
 
     return {
         videoPoints: Math.round(videoPoints * 100) / 100,
-        adPoints: adPoints,
-        totalPoints: Math.round((videoPoints + adPoints) * 100) / 100,
+        rewardPoints: rewardPoints,
+        totalPoints: Math.round((videoPoints + rewardPoints) * 100) / 100,
         validSeconds: validSeconds,
-        adSeconds: adSeconds
+        rewardSeconds: rewardSeconds
     };
 }
 
@@ -455,7 +428,7 @@ app.get('/session-stats/:sessionId', (req, res) => {
         startTime: session.startTime,
         validHeartbeats: session.validHeartbeats,
         invalidHeartbeats: session.invalidHeartbeats,
-        adSeconds: session.adSeconds,
+        rewardSeconds: session.rewardSeconds,
         status: session.status,
         finalPoints: session.finalPoints || null
     });
@@ -471,7 +444,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Watch-to-Earn server listening on port ${PORT}`);
 });

@@ -16,12 +16,12 @@ export type Session = {
     createdAt: number;
     lastHeartbeatAt: number;
     totalWatchedSeconds: number;
-    adWatched: boolean;
+    rewardWatched: boolean;
     status: 'active' | 'completed' | 'suspicious' | 'expired';
     points: number;
     gems: number;
     inactiveHeartbeats: number;
-    adHeartbeats: number;
+    rewardHeartbeats: number;
     penaltyReasons: string[];
 };
 

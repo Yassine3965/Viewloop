@@ -1,12 +1,12 @@
-// /app/api/ad-watched/route.ts
+// /app/api/reward-watched/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
-const AD_BONUS_RATE_PER_SECOND = 0.5; // 0.5 points per second
-const GEMS_FOR_AD = 1; // 1 Gem bonus for watching any ad
+const REWARD_BONUS_RATE_PER_SECOND = 0.5; // 0.5 points per second
+const GEMS_FOR_REWARD = 1; // 1 Gem bonus for watching any reward
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -46,12 +46,12 @@ export async function POST(req: Request) {
   }
   
   try {
-    const { sessionToken, adDuration } = body;
-    if (!sessionToken || typeof adDuration !== 'number' || adDuration <= 0) {
+    const { sessionToken, rewardDuration } = body;
+    if (!sessionToken || typeof rewardDuration !== 'number' || rewardDuration <= 0) {
       const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
-    
+
     const sessionRef = firestore.collection("sessions").doc(sessionToken);
     const sessionSnap = await sessionRef.get();
 
@@ -65,16 +65,16 @@ export async function POST(req: Request) {
         const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
         return addCorsHeaders(response, req);
     }
-    
-    if (sessionData.adWatched === true) {
+
+    if (sessionData.rewardWatched === true) {
         return addCorsHeaders(NextResponse.json({
             success: false,
-            error: "AD_ALREADY_PROCESSED",
-            message: "This ad has already been processed for this session."
+            error: "REWARD_ALREADY_PROCESSED",
+            message: "This reward has already been processed for this session."
           }, { status: 200 }), req);
     }
-    
-    const pointsForAd = adDuration * AD_BONUS_RATE_PER_SECOND;
+
+    const pointsForReward = rewardDuration * REWARD_BONUS_RATE_PER_SECOND;
 
     await firestore.runTransaction(async (transaction) => {
       const userRef = firestore.collection("users").doc(sessionData.userId);
@@ -83,22 +83,22 @@ export async function POST(req: Request) {
       if (!userSnap.exists) {
         throw new Error("User not found during transaction");
       }
-      
-      transaction.update(userRef, { 
-        points: admin.firestore.FieldValue.increment(pointsForAd),
-        gems: admin.firestore.FieldValue.increment(GEMS_FOR_AD) 
+
+      transaction.update(userRef, {
+        points: admin.firestore.FieldValue.increment(pointsForReward),
+        gems: admin.firestore.FieldValue.increment(GEMS_FOR_REWARD)
       });
-      transaction.update(sessionRef, { 
-        adWatched: true,
-        adHeartbeats: admin.firestore.FieldValue.increment(Math.ceil(adDuration / 15)) // Assuming 15s per heartbeat
+      transaction.update(sessionRef, {
+        rewardWatched: true,
+        rewardHeartbeats: admin.firestore.FieldValue.increment(Math.ceil(rewardDuration / 15)) // Assuming 15s per heartbeat
       });
     });
 
     return addCorsHeaders(NextResponse.json({
       success: true,
-      message: `تم منح ${pointsForAd.toFixed(2)} نقطة و ${GEMS_FOR_AD} جوهرة لمشاهدة الإعلان.`,
-      pointsAdded: pointsForAd,
-      gemsAdded: GEMS_FOR_AD
+      message: `تم منح ${pointsForReward.toFixed(2)} نقطة و ${GEMS_FOR_REWARD} جوهرة للمكافأة.`,
+      pointsAdded: pointsForReward,
+      gemsAdded: GEMS_FOR_REWARD
     }), req);
 
   } catch (err: any) {
