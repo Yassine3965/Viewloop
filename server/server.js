@@ -194,11 +194,19 @@ app.post('/heartbeat-batch', verifySignature, (req, res) => {
 
     console.log(`✅ Processed heartbeat batch: ${validCount} valid, ${invalidCount} invalid`);
 
+    // إذا كانت هناك نبضة نهائية، أضف النقاط إلى الاستجابة
+    let pointsAwarded = null;
+    if (heartbeats.some(h => h.isFinal)) {
+        pointsAwarded = calculatePointsSecurely(session);
+        console.log(`🏆 Points calculated for session ${sessionId}: ${pointsAwarded.totalPoints}`);
+    }
+
     res.json({
         success: true,
         processed: validCount + invalidCount,
         valid: validCount,
-        invalid: invalidCount
+        invalid: invalidCount,
+        pointsAwarded: pointsAwarded
     });
 });
 
