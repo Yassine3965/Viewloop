@@ -3,12 +3,41 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { handleOptions, addCorsHeaders } from "../../../lib/cors";
 import { createHmac } from 'crypto';
+import { getFirestore } from '../../../lib/firebase/admin';
 
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 
 // In-memory session storage (in production, use Redis or database)
 const secureSessions = new Map();
 const processedSessions = new Set();
+
+function calculatePointsSecurely(session: any) {
+  // استخدام البيانات من النبضة النهائية إذا كانت متوفرة
+  const validSeconds = session.finalSessionDuration !== undefined ? session.finalSessionDuration : (session.validSeconds || 0);
+  const rewardSeconds = session.finalRewardTime !== undefined ? session.finalRewardTime : (session.rewardSeconds || 0);
+
+  // استخدام الثوابت من التكوين المركزي
+  const pointsConfig = {
+    VIDEO_POINTS_PER_SECOND: 0.05,
+    VIDEO_INITIAL_SECONDS: 5,
+    REWARD_POINTS_PER_SECOND: 0.5
+  };
+
+  // نقاط الفيديو (بعد أول X ثواني)
+  const videoWatchSeconds = Math.max(0, validSeconds - pointsConfig.VIDEO_INITIAL_SECONDS);
+  const videoPoints = videoWatchSeconds * pointsConfig.VIDEO_POINTS_PER_SECOND;
+
+  // نقاط المكافآت
+  const rewardPoints = rewardSeconds * pointsConfig.REWARD_POINTS_PER_SECOND;
+
+  return {
+    videoPoints: Math.round(videoPoints * 100) / 100,
+    rewardPoints: rewardPoints,
+    totalPoints: Math.round((videoPoints + rewardPoints) * 100) / 100,
+    validSeconds: validSeconds,
+    rewardSeconds: rewardSeconds
+  };
+}
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -75,6 +104,15 @@ export async function POST(req: Request) {
     heartbeats.forEach(heartbeat => {
       if (validateHeartbeat(session, heartbeat)) {
         session.heartbeats.push(heartbeat);
+
+        // التحقق من النبضة النهائية
+        if (heartbeat.isFinal) {
+          session.finalSessionDuration = heartbeat.sessionDuration;
+          session.finalRewardTime = heartbeat.rewardTime;
+          session.status = 'completed';
+          console.log(`🏁 [FINAL-HEARTBEAT] Session ${sessionId} completed: duration=${heartbeat.sessionDuration}s, reward=${heartbeat.rewardTime}s`);
+        }
+
         validCount++;
       } else {
         invalidCount++;
@@ -87,11 +125,24 @@ export async function POST(req: Request) {
 
     console.log(`✅ Processed heartbeat batch: ${validCount} valid, ${invalidCount} invalid`);
 
+    // إذا كانت هناك نبضة نهائية، أضف النقاط إلى الاستجابة
+    let pointsAwarded = null;
+    if (heartbeats.some(h => h.isFinal)) {
+      pointsAwarded = calculatePointsSecurely(session);
+      console.log(`🏆 Points calculated for session ${sessionId}: ${pointsAwarded.totalPoints}`);
+
+      // حفظ النقاط في الجلسة
+      session.points = pointsAwarded.totalPoints;
+      session.totalWatchedSeconds = pointsAwarded.validSeconds;
+      session.rewardSeconds = pointsAwarded.rewardSeconds;
+    }
+
     const response = NextResponse.json({
       success: true,
       processed: validCount + invalidCount,
       valid: validCount,
-      invalid: invalidCount
+      invalid: invalidCount,
+      pointsAwarded: pointsAwarded
     });
     return addCorsHeaders(response, req);
 

@@ -174,7 +174,7 @@ function calculatePointsSecurely(session: any) {
 
   return {
     videoPoints: Math.round(videoPoints * 100) / 100,
-    adPoints: 0,
+    rewardPoints: 0,
     totalPoints: Math.round(videoPoints * 100) / 100,
     validSeconds: validSeconds
   };

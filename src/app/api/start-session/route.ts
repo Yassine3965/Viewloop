@@ -118,7 +118,7 @@ export async function POST(req: Request) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       totalWatchedSeconds: 0,
       validSeconds: 0,
-      adSeconds: 0,
+      rewardSeconds: 0,
       points: 0,
       gems: 0,
       accepted: accepted, // حقل جديد لتحديد إذا كانت الجلسة مقبولة
