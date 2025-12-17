@@ -157,20 +157,28 @@ app.post('/heartbeat-batch', verifySignature, (req, res) => {
             // تحديث وقت آخر نبضة للتحقق من التسلسل الزمني
             session.lastHeartbeat = heartbeat.timestamp;
 
-            // حساب الوقت الصالح من النبضات
-            if (session.heartbeats.length > 1) {
-                const prevHeartbeat = session.heartbeats[session.heartbeats.length - 2];
-                const timeDiff = heartbeat.timestamp - prevHeartbeat.timestamp;
+            // التحقق من النبضة النهائية
+            if (heartbeat.isFinal) {
+                session.finalSessionDuration = heartbeat.sessionDuration;
+                session.finalRewardTime = heartbeat.rewardTime;
+                session.status = 'completed';
+                console.log(`🏁 [FINAL-HEARTBEAT] Session ${sessionId} completed: duration=${heartbeat.sessionDuration}s, reward=${heartbeat.rewardTime}s`);
+            } else {
+                // حساب الوقت الصالح من النبضات (للنبضات العادية فقط)
+                if (session.heartbeats.length > 1) {
+                    const prevHeartbeat = session.heartbeats[session.heartbeats.length - 2];
+                    const timeDiff = heartbeat.timestamp - prevHeartbeat.timestamp;
 
-                // اعتبار الوقت صالحًا إذا كان التفاوت طبيعيًا (3-8 ثواني)
-                if (timeDiff >= 3000 && timeDiff <= 8000 && heartbeat.isPlaying) {
-                    session.validSeconds += Math.floor(timeDiff / 1000);
-                }
+                    // اعتبار الوقت صالحًا إذا كان التفاوت طبيعيًا (3-8 ثواني)
+                    if (timeDiff >= 3000 && timeDiff <= 8000 && heartbeat.isPlaying) {
+                        session.validSeconds += Math.floor(timeDiff / 1000);
+                    }
 
-                // كشف المكافآت (فجوات زمنية كبيرة)
-                if (timeDiff > 15000) {
-                    const rewardDuration = Math.min(timeDiff - 5000, 60000); // حد أقصى دقيقة
-                    session.rewardSeconds += Math.floor(rewardDuration / 1000);
+                    // كشف المكافآت (فجوات زمنية كبيرة)
+                    if (timeDiff > 15000) {
+                        const rewardDuration = Math.min(timeDiff - 5000, 60000); // حد أقصى دقيقة
+                        session.rewardSeconds += Math.floor(rewardDuration / 1000);
+                    }
                 }
             }
 
@@ -385,8 +393,9 @@ function validateHeartbeatData(session, heartbeat) {
 }
 
 function calculatePointsSecurely(session) {
-    const validSeconds = session.validSeconds || 0;
-    const rewardSeconds = session.rewardSeconds || 0;
+    // استخدام البيانات من النبضة النهائية إذا كانت متوفرة
+    const validSeconds = session.finalSessionDuration !== undefined ? session.finalSessionDuration : (session.validSeconds || 0);
+    const rewardSeconds = session.finalRewardTime !== undefined ? session.finalRewardTime : (session.rewardSeconds || 0);
 
     // استخدام الثوابت من التكوين المركزي
     const config = globalThis.ViewLoopConfig || {};
