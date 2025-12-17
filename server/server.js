@@ -16,7 +16,7 @@ const processedSessions = new Set(); // sessionIds التي تم معالجته�
 
 // CORS configuration
 const corsOptions = {
-  origin: ['https://viewloop.vercel.app', 'http://localhost:3000'],
+  origin: true, // Allow all origins for local testing
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'X-Signature', 'X-Timestamp', 'X-Request-ID']
 };
