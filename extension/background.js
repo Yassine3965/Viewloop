@@ -274,8 +274,38 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
     case 'STOP_WATCHING':
       try {
-        const session = endSession(message.sessionId);
-        sendResponse({ success: true, session });
+        const session = getSession(message.sessionId);
+        if (session) {
+          console.log(`🛑 [BG] Finalizing session ${session.sessionId}`);
+          // Flush any pending heartbeats with isFinal=true
+          const batchToSend = session.pendingHeartbeats || [];
+
+          // If we have pending heartbeats, use the last one as final.
+          // If empty, creating a dummy final heartbeat might be needed if video just started?
+          // Usually we have something. If empty, maybe just nothing happened.
+          if (batchToSend.length > 0) {
+            batchToSend[batchToSend.length - 1].isFinal = true;
+          } else {
+            // Should we send an empty final? The server expects heartbeats array.
+            // Let's create a synthetic final heartbeat just to close the session on server.
+            batchToSend.push({
+              t: Math.floor((Date.now() - session.startTime) / 1000), // Estimate time
+              p: false,
+              v: true,
+              f: true,
+              isFinal: true
+            });
+          }
+
+          // Send to server DO NOT AWAIT (or await if careful)
+          // We want to ensure this goes through.
+          sendHeartbeatBatch(session.sessionId, session.videoId, batchToSend)
+            .then(res => console.log(`🏁 [BG] Session finalized on server: ${res.success}`))
+            .catch(err => console.error(`❌ [BG] Failed to finalize session:`, err));
+        }
+
+        const endedSession = endSession(message.sessionId);
+        sendResponse({ success: true, session: endedSession });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
       }
