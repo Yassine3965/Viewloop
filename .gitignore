@@ -45,5 +45,7 @@ yarn-error.log*
 # Vercel
 .vercel
 
-# Extension files
-extension/
+# Extension build files (keep source files)
+extension/dist/
+extension/node_modules/
+extension/*.log
