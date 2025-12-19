@@ -34,6 +34,44 @@ async function loadConfig() {
 // ==========================
 // API CLIENT
 // ==========================
+async function sendHeartbeatBatch(sessionId, videoId, heartbeats) {
+  if (!ViewLoopConfig) {
+    console.error("❌ [API] Config not loaded");
+    return { success: false, error: 'CONFIG_NOT_LOADED' };
+  }
+
+  const url = ViewLoopConfig.API_BASE_URL + '/api/heartbeat-batch';
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionId,
+        videoId,
+        heartbeats,
+        timestamp: Date.now(),
+        clientType: 'extension'
+      })
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      console.log(`✅ [API] Heartbeat batch sent for session ${sessionId}: ${heartbeats.length} heartbeats`);
+      return { success: true, result };
+    } else {
+      console.error(`❌ [API] Batch failed: ${response.status}`, result);
+      return { success: false, error: result.error || 'HTTP_ERROR' };
+    }
+  } catch (error) {
+    console.error(`❌ [API] Network error sending batch:`, error);
+    return { success: false, error: 'NETWORK_ERROR' };
+  }
+}
+
 async function sendHeartbeat(sessionId, heartbeatData) {
   if (!ViewLoopConfig) {
     console.error("❌ [API] Config not loaded");
@@ -166,24 +204,37 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         session.heartbeats.push(message);
         session.validHeartbeats++;
 
-        // Convert new format to old format for server compatibility
-        const serverHeartbeat = {
-          sessionId: message.sessionId,
-          videoId: session.videoId,
-          videoTime: message.t,           // t -> videoTime
-          isPlaying: message.p,           // p -> isPlaying
-          tabActive: message.v,           // v -> tabActive (visibility)
-          windowFocused: message.f,       // f -> windowFocused
-          mouseActive: true,              // default to true (behavioral pattern)
-          lastMouseMove: Date.now(),
-          sessionDuration: Math.floor((Date.now() - session.startTime) / 1000),
-          totalHeartbeats: session.validHeartbeats
-        };
+        // Store heartbeat in session for batch processing
+        if (!session.pendingHeartbeats) {
+          session.pendingHeartbeats = [];
+        }
 
-        // Send to server asynchronously
-        sendHeartbeat(message.sessionId, serverHeartbeat).catch(error => {
-          console.error(`❌ [BG] Failed to send heartbeat:`, error);
+        session.pendingHeartbeats.push({
+          t: message.t,    // time
+          p: message.p,    // playing
+          v: message.v,    // visibility
+          f: message.f     // focus
         });
+
+        // Send batch every 30 seconds or when session ends
+        const shouldSendBatch = session.pendingHeartbeats.length >= 6 || message.isFinal; // 6 heartbeats = 30 seconds
+
+        if (shouldSendBatch) {
+          const batchToSend = [...session.pendingHeartbeats];
+          session.pendingHeartbeats = []; // Clear pending
+
+          // Add isFinal flag if session is ending
+          if (message.isFinal) {
+            batchToSend.push({ ...batchToSend[batchToSend.length - 1], isFinal: true });
+          }
+
+          // Send batch to server
+          sendHeartbeatBatch(session.sessionId, session.videoId, batchToSend).catch(error => {
+            console.error(`❌ [BG] Failed to send heartbeat batch:`, error);
+            // Re-queue failed heartbeats
+            session.pendingHeartbeats.unshift(...batchToSend);
+          });
+        }
 
         sendResponse({ success: true });
       } catch (error) {
