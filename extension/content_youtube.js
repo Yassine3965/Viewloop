@@ -10,6 +10,7 @@ class SimpleYouTubeMonitor {
         this.heartbeatInterval = null;
         this.currentVideo = null;
         this.heartbeatCount = 0;
+        this.metaSent = false; // Track if metadata was sent
 
         console.log('🎬 [CONTENT] Initializing YouTube monitor');
         this.initialize();
@@ -37,6 +38,9 @@ class SimpleYouTubeMonitor {
 
         this.currentVideo = video;
         console.log('🎯 [CONTENT] Video listeners attached');
+
+        // Send video metadata when loaded
+        video.addEventListener('loadedmetadata', () => this.sendVideoMeta(video));
 
         video.addEventListener('play', () => this.handlePlay());
         video.addEventListener('pause', () => this.handlePause());
@@ -150,6 +154,38 @@ class SimpleYouTubeMonitor {
         this.sendToBackground('HEARTBEAT', heartbeat);
     }
 
+    // Send video metadata to server
+    sendVideoMeta(video) {
+        if (!video || !video.duration || isNaN(video.duration) || this.metaSent) return;
+
+        const videoId = this.getVideoId();
+        if (!videoId) return;
+
+        const duration = Math.floor(video.duration);
+
+        // Send metadata to server
+        fetch("https://viewloop.vercel.app/api/video-meta", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                videoId: videoId,
+                duration: duration,
+                clientType: 'extension'
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log(`📊 [CONTENT] Video metadata sent: ${videoId} (${duration}s)`);
+                this.metaSent = true;
+            } else {
+                console.warn(`⚠️ [CONTENT] Failed to send video metadata: ${response.status}`);
+            }
+        })
+        .catch(error => {
+            console.warn(`⚠️ [CONTENT] Error sending video metadata:`, error);
+        });
+    }
+
     sendToBackground(type, data) {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({ type, ...data }, (response) => {
@@ -169,6 +205,7 @@ class SimpleYouTubeMonitor {
         this.videoId = null;
         this.stopHeartbeats();
         this.heartbeatCount = 0;
+        this.metaSent = false; // Reset metadata flag
         console.log('🔄 [CONTENT] Monitor reset');
     }
 }
