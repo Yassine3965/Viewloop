@@ -3,193 +3,74 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ViewLoop</title>
-  <style>
-    body {
-      width: 350px;
-      height: auto;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', 'Roboto', sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #ffffff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    }
-
-    .container {
-      width: 100%;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 10px;
-    }
-
-    .logo-icon {
-      width: 32px;
-      height: 32px;
-      margin-right: 10px;
-      color: #00d4ff; /* Azure Blue */
-    }
-
-    .title {
-      font-size: 24px;
-      font-weight: 700;
-      color: #ffffff;
-      margin: 0;
-    }
-
-    .subtitle {
-      font-size: 14px;
-      color: #b0b0b0;
-      margin: 5px 0 0 0;
-    }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-    }
-
-    .profile-pic {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #00d4ff;
-      margin-left: 10px;
-    }
-
-    .user-name {
-      font-size: 16px;
-      font-weight: 500;
-      margin: 0;
-    }
-
-    .points {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-
-    .star-icon {
-      width: 20px;
-      height: 20px;
-      color: #ffd700; /* Gold */
-      margin-left: 5px;
-    }
-
-    .points-text {
-      font-size: 18px;
-      font-weight: 600;
-      color: #ffd700;
-      margin: 0;
-    }
-
-    .primary-btn {
-      width: 100%;
-      padding: 12px;
-      background: #00d4ff; /* Azure Blue */
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.3s ease;
-      margin-bottom: 10px;
-    }
-
-    .primary-btn:hover {
-      background: #0099cc;
-    }
-
-    .secondary-btn {
-      width: 100%;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.3s ease;
-    }
-
-    .secondary-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    .google-logo {
-      width: 18px;
-      height: 18px;
-      margin-left: 8px;
-    }
-
-    /* Loop icon */
-    .loop-icon {
-      fill: #00d4ff;
-    }
-  </style>
+  <title>ViewLoop Monitor</title>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
+    
+    <!-- HEADER -->
     <div class="header">
-      <div class="logo">
-        <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path class="loop-icon" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      <div class="logo-container">
+        <img src="icon48.png" alt="ViewLoop" class="logo-img">
+        <h1 class="app-title">ViewLoop</h1>
+      </div>
+      <div id="connectionStatus" class="status-badge">
+        <span class="status-dot"></span>
+        <span id="statusText">جاري الاتصال...</span>
+      </div>
+    </div>
+
+    <!-- USER INFO (Hidden until loaded) -->
+    <div id="userCard" class="user-card" style="display: none;">
+      <img id="userAvatar" src="icon48.png" alt="Avatar" class="avatar">
+      <div class="user-details">
+        <h2 id="userName" class="username">المستخدم</h2>
+        <span id="userLevel" class="user-level">المستوى 1</span>
+      </div>
+    </div>
+
+    <!-- LOGIN PROMPT (Shown if no token) -->
+    <div id="loginPrompt" class="user-card" style="display: flex; flex-direction: column; text-align: center; display: none;">
+      <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">قم بتسجيل الدخول في الموقع للمزامنة</p>
+      <button id="openLoginBtn" class="btn btn-primary" style="padding: 8px; font-size: 12px;">فتح لوحة التحكم</button>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-item stat-points">
+        <span class="stat-icon">🏆</span>
+        <span id="userPoints" class="stat-value">--</span>
+        <span class="stat-label">نقاط</span>
+      </div>
+      <div class="stat-item stat-gems">
+        <span class="stat-icon">💎</span>
+        <span id="userGems" class="stat-value">--</span>
+        <span class="stat-label">جواهر</span>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions">
+      <button id="startWatchBtn" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
-        <h1 class="title">ViewLoop</h1>
-      </div>
-      <p class="subtitle">اكسب نقاطاً بمشاهدة الفيديوهات على يوتيوب</p>
+        ابدأ المشاهدة
+      </button>
+      
+      <button id="openDashboardBtn" class="btn btn-secondary">
+        لوحة التحكم
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+      </button>
     </div>
 
-    <div class="user-info">
-      <img src="https://via.placeholder.com/40" alt="Profile" class="profile-pic">
-      <p class="user-name">أهلاً، يا خالد</p>
-    </div>
-
-    <div class="points">
-      <svg class="star-icon" viewBox="0 0 24 24" fill="currentColor">
-        <polygon points="12,2 15,8 22,9 17,14 18,21 12,18 6,21 7,14 2,9 9,8"/>
-      </svg>
-      <p class="points-text">كسبت 50 نقطة</p>
-    </div>
-
-    <button class="primary-btn">ابدأ المشاهدة</button>
-
-    <!-- قسم الإعدادات الأمنية -->
-    <div class="settings-section">
-      <h3 style="color: #ffffff; font-size: 14px; margin: 15px 0 10px 0;">🔐 إعدادات الأمان</h3>
-      <div style="margin-bottom: 10px;">
-        <label for="secretKey" style="display: block; color: #b0b0b0; font-size: 12px; margin-bottom: 5px;">مفتاح السر:</label>
-        <input type="text" id="secretKey" placeholder="أدخل مفتاح السر" style="width: 100%; padding: 8px; border: 1px solid #555; border-radius: 4px; background: rgba(255,255,255,0.1); color: #ffffff; font-size: 12px;">
-      </div>
-      <button id="saveSecretBtn" style="width: 100%; padding: 8px; background: #00d4ff; color: #ffffff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">حفظ المفتاح</button>
-      <div id="secretStatus" style="margin-top: 5px; font-size: 11px; color: #b0b0b0;"></div>
+    <div class="footer">
+      Version 1.0.1 • Running Securely
     </div>
   </div>
 

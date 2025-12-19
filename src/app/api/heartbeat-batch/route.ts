@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { handleOptions, addCorsHeaders } from "../../../lib/cors";
 import { createHmac } from 'crypto';
 import { getFirestore } from '../../../lib/firebase/admin';
+import admin from 'firebase-admin';
 
 const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 
@@ -249,11 +250,56 @@ export async function POST(req: Request) {
       pointsAwarded = await calculatePointsSecurely(session);
       console.log(`🏆 Points calculated for session ${sessionId}: ${pointsAwarded.totalPoints} points`);
 
-      // حفظ النتائج في الجلسة
+      // حفظ النتائج في الجلسة في الذاكرة
       session.points = pointsAwarded.totalPoints;
-      session.rewardSignal = pointsAwarded.rewardSignal;  // 🎯 حفظ إشارة Reward للسمعة
+      session.gems = pointsAwarded.totalGems; // Save gems too
+      session.rewardSignal = pointsAwarded.rewardSignal;
       session.analysis = pointsAwarded.behaviorAnalysis;
       session.overtime = pointsAwarded.overtime;
+
+      // 💾 SAVE TO FIRESTORE (CRITICAL FIX)
+      // We must save the results to the database and update the user's balance.
+      try {
+        const db = getFirestore();
+        const sessionRef = db.collection('sessions').doc(sessionId);
+
+        // 1. Update Session
+        await sessionRef.set({
+          status: 'completed',
+          points: pointsAwarded.totalPoints,
+          gems: pointsAwarded.totalGems,
+          validSeconds: pointsAwarded.validSeconds,
+          rewardSeconds: pointsAwarded.rewardSeconds,
+          overtime: pointsAwarded.overtime,
+          completedAt: Date.now(),
+          processed: true,
+          finalPoints: pointsAwarded
+        }, { merge: true });
+
+        // 2. Update User Balance (if userId is available)
+        // We need to fetch the userId from the session doc (since in-memory might not have it if restarted)
+        // OR rely on what we have. heartbeat-batch creates session with minimal info.
+        // Let's fetch the session doc to get the userId.
+        const sessionDoc = await sessionRef.get();
+        if (sessionDoc.exists) {
+          const userId = sessionDoc.data()?.userId;
+          if (userId && userId !== 'anonymous') {
+            const userRef = db.collection('users').doc(userId);
+            await userRef.set({
+              points: admin.firestore.FieldValue.increment(pointsAwarded.totalPoints),
+              gems: admin.firestore.FieldValue.increment(pointsAwarded.totalGems),
+              reputation: admin.firestore.FieldValue.increment(pointsAwarded.rewardSignal),
+              totalTimeWatched: admin.firestore.FieldValue.increment(pointsAwarded.validSeconds + pointsAwarded.rewardSeconds)
+            }, { merge: true });
+            console.log(`👤 [DB] Updated user ${userId} balance: +${pointsAwarded.totalPoints} pts, +${pointsAwarded.totalGems} gems`);
+          } else {
+            console.log(`⚠️ [DB] Anonymous user or no userId, skipping balance update.`);
+          }
+        }
+
+      } catch (dbError) {
+        console.error(`❌ [DB] Failed to save completion data:`, dbError);
+      }
 
       // منع إعادة المعالجة
       processedSessions.add(sessionId);
