@@ -201,6 +201,29 @@ chrome.runtime.onStartup.addListener(async () => {
 // ==========================
 // MESSAGE HANDLING
 // ==========================
+// ==========================
+// EXTERNAL MESSAGE HANDLING (FROM WEB APP)
+// ==========================
+chrome.runtime.onMessageExternal.addListener(async (message, sender, sendResponse) => {
+  console.log("📨 [BG] External message received:", message.type, "from", sender.url);
+
+  if (message.type === 'AUTH_SYNC') {
+    const { token, userId } = message;
+    if (token) {
+      await chrome.storage.local.set({
+        'viewloop_auth_token': token,
+        'viewloop_user_id': userId,
+        'auth_synced_at': Date.now()
+      });
+      console.log("✅ [AUTH] Token synced from web app for user:", userId);
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'NO_TOKEN' });
+    }
+  }
+  return true;
+});
+
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   console.log("📨 [BG] Message received:", message.type);
 
@@ -213,9 +236,62 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       sendResponse({ success: true, config: ViewLoopConfig });
       break;
 
+    case 'AUTH_SYNC':
+      const { token, userId } = message;
+      if (token) {
+        await chrome.storage.local.set({
+          'viewloop_auth_token': token,
+          'viewloop_user_id': userId,
+          'auth_synced_at': Date.now()
+        });
+        console.log("✅ [BG-INTERNAL] Token synced from content script for user:", userId);
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'NO_TOKEN' });
+      }
+      break;
+
     case 'START_WATCHING':
       try {
         const session = createSession(message.sessionId, message.videoId, sender.tab.id);
+
+        // 🚀 CRITICAL: Register session with server using Auth Token
+        // Must retrieve token from storage first
+        chrome.storage.local.get(['viewloop_auth_token'], (result) => {
+          const token = result.viewloop_auth_token;
+          if (token) {
+            console.log("🔐 [BG] Found auth token, registering session with server...");
+            const startSessionUrl = ViewLoopConfig.API_BASE_URL + ViewLoopConfig.ENDPOINTS.START_SESSION;
+
+            // Construct SHA-256 signature for INIT if needed or rely on token
+            // Server expects x-signature: 'INIT' for start-session as per my previous view of route.ts
+
+            fetch(startSessionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-signature': 'INIT'
+              },
+              body: JSON.stringify({
+                videoId: message.videoId,
+                sessionId: message.sessionId,
+                userAuthToken: token,
+                clientType: 'extension'
+              })
+            }).then(res => res.json())
+              .then(data => {
+                if (data.success) {
+                  console.log("✅ [BG] Session registered on server with User ID:", data.userId || 'unknown');
+                } else {
+                  console.warn("⚠️ [BG] Server rejected session registration:", data);
+                }
+              })
+              .catch(err => console.error("❌ [BG] Failed to register session:", err));
+          } else {
+            console.log("⚠️ [BG] No auth token found, session will be anonymous");
+          }
+        });
+
         sendResponse({ success: true, session });
       } catch (error) {
         sendResponse({ success: false, error: error.message });

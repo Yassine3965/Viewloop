@@ -24,7 +24,9 @@
         "https://youtube.com/*",
         "https://*.youtube.com/*"
       ],
-      "js": ["content_youtube.js"],
+      "js": [
+        "content_youtube.js"
+      ],
       "run_at": "document_end",
       "all_frames": false
     }
@@ -32,5 +34,12 @@
   "action": {
     "default_popup": "popup.html",
     "default_title": "ViewLoop Monitor"
+  },
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3000/*",
+      "https://viewloop.vercel.app/*",
+      "https://*.vercel.app/*"
+    ]
   }
 }
