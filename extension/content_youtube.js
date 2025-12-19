@@ -138,18 +138,13 @@ class SimpleYouTubeMonitor {
 
         const heartbeat = {
             sessionId: this.sessionId,
-            videoId: this.videoId,
-            videoTime: videoTime,
-            isPlaying: !this.currentVideo.paused,
-            tabActive: !document.hidden,
-            windowFocused: document.hasFocus(),
-            mouseActive: true,
-            lastMouseMove: Date.now(),
-            sessionDuration: Math.floor((Date.now() - (this.sessionStartTime || Date.now())) / 1000),
-            totalHeartbeats: this.heartbeatCount
+            t: videoTime,                    // current time
+            p: !this.currentVideo.paused,    // playing state
+            v: document.visibilityState === "visible",  // visibility state
+            f: document.hasFocus()           // focus state
         };
 
-        console.log(`💓 [CONTENT] Heartbeat ${this.heartbeatCount} at ${videoTime}s`);
+        console.log(`💓 [CONTENT] Heartbeat ${this.heartbeatCount}: t=${heartbeat.t}, p=${heartbeat.p}, v=${heartbeat.v}, f=${heartbeat.f}`);
 
         this.sendToBackground('HEARTBEAT', heartbeat);
     }

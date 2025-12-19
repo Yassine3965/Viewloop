@@ -166,8 +166,22 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         session.heartbeats.push(message);
         session.validHeartbeats++;
 
+        // Convert new format to old format for server compatibility
+        const serverHeartbeat = {
+          sessionId: message.sessionId,
+          videoId: session.videoId,
+          videoTime: message.t,           // t -> videoTime
+          isPlaying: message.p,           // p -> isPlaying
+          tabActive: message.v,           // v -> tabActive (visibility)
+          windowFocused: message.f,       // f -> windowFocused
+          mouseActive: true,              // default to true (behavioral pattern)
+          lastMouseMove: Date.now(),
+          sessionDuration: Math.floor((Date.now() - session.startTime) / 1000),
+          totalHeartbeats: session.validHeartbeats
+        };
+
         // Send to server asynchronously
-        sendHeartbeat(message.sessionId, message).catch(error => {
+        sendHeartbeat(message.sessionId, serverHeartbeat).catch(error => {
           console.error(`❌ [BG] Failed to send heartbeat:`, error);
         });
 
