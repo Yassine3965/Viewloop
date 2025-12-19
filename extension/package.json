@@ -1,0 +1,7 @@
+{
+  "name": "viewloop-extension",
+  "version": "1.0.0",
+  "description": "ViewLoop Chrome Extension",
+  "private": true,
+  "dependencies": {}
+}

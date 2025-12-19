@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "ViewLoop Secure Monitor",
+  "version": "1.0.1",
+  "description": "Secure YouTube monitoring system",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://youtube.com/*",
+    "https://*.youtube.com/*",
+    "https://viewloop.vercel.app/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://*.youtube.com/*"
+      ],
+      "js": ["content_youtube.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ViewLoop Monitor"
+  }
+}
