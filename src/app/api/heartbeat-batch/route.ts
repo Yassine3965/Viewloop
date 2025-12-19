@@ -233,6 +233,7 @@ export async function POST(req: Request) {
 
       // حفظ النتائج في الجلسة
       session.points = pointsAwarded.totalPoints;
+      session.rewardSignal = pointsAwarded.rewardSignal;  // 🎯 حفظ إشارة Reward للسمعة
       session.analysis = pointsAwarded.behaviorAnalysis;
       session.overtime = pointsAwarded.overtime;
 

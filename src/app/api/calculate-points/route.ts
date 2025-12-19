@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     // Calculate final points using secure server-side logic
     const serverCalculatedPoints = calculatePointsSecurely(session);
 
-    // Update user points in database
+    // Update user points and reputation in database
     if (session.userId && session.userId !== 'anonymous') {
       try {
         const userRef = firestore.collection("users").doc(session.userId);
@@ -94,41 +94,58 @@ export async function POST(req: Request) {
 
         if (userSnap.exists) {
           const currentPoints = userSnap.data()?.points || 0;
+          const currentReputation = userSnap.data()?.reputation || 4.5;
           const newTotalPoints = currentPoints + serverCalculatedPoints.totalPoints;
+
+          // 🎯 تحديث السمعة بناءً على الإشارة Reward
+          const reputationDelta = session.rewardSignal > 0
+            ? +0.03 * session.rewardSignal  // زيادة السمعة للجلسات الممتازة
+            : -0.05;                        // نقصان السمعة للجلسات العادية
+
+          const newReputation = Math.max(0, Math.min(5, currentReputation + reputationDelta));
 
           await userRef.update({
             points: newTotalPoints,
+            reputation: newReputation,
             lastUpdated: Date.now(),
             totalSessions: (userSnap.data()?.totalSessions || 0) + 1,
             totalWatchTime: (userSnap.data()?.totalWatchTime || 0) + serverCalculatedPoints.validSeconds
           });
 
-          console.log(`✅ User ${session.userId} points updated: ${currentPoints} → ${newTotalPoints}`);
+          console.log(`✅ User ${session.userId} updated:`);
+          console.log(`   Points: ${currentPoints} → ${newTotalPoints}`);
+          console.log(`   Reputation: ${currentReputation} → ${newReputation} (${reputationDelta > 0 ? '+' : ''}${reputationDelta})`);
         } else {
-          // Create user if doesn't exist
+          // Create user if doesn't exist (start with neutral reputation)
+          const initialReputation = 4.5;
           await userRef.set({
             points: serverCalculatedPoints.totalPoints,
+            reputation: initialReputation,
             lastUpdated: Date.now(),
             totalSessions: 1,
             totalWatchTime: serverCalculatedPoints.validSeconds,
             createdAt: Date.now()
           });
 
-          console.log(`✅ New user ${session.userId} created with ${serverCalculatedPoints.totalPoints} points`);
+          console.log(`✅ New user ${session.userId} created:`);
+          console.log(`   Points: ${serverCalculatedPoints.totalPoints}`);
+          console.log(`   Reputation: ${initialReputation}`);
         }
 
-        // Add to watch history
+        // Add to watch history with reputation data
         await firestore.collection("watchHistory").add({
           userId: session.userId,
           videoId: session.videoId,
           sessionId: sessionId,
           pointsEarned: serverCalculatedPoints.totalPoints,
+          reputationDelta: session.rewardSignal > 0 ? +0.03 * session.rewardSignal : -0.05,
+          rewardSignal: session.rewardSignal || 0,
           validSeconds: serverCalculatedPoints.validSeconds,
           completedAt: Date.now()
         });
 
       } catch (userUpdateError) {
-        console.error('Error updating user points:', userUpdateError);
+        console.error('Error updating user data:', userUpdateError);
         // Continue with session update even if user update fails
       }
     }
