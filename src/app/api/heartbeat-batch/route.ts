@@ -45,8 +45,18 @@ async function calculatePointsSecurely(session: any) {
   const videoWatchSeconds = Math.max(0, validSeconds - pointsConfig.VIDEO_INITIAL_SECONDS);
   const videoPoints = videoWatchSeconds * pointsConfig.VIDEO_POINTS_PER_SECOND;
 
-  // نقاط المكافآت (إذا كان هناك overtime)
-  const rewardPoints = overtime * pointsConfig.REWARD_POINTS_PER_SECOND;
+  // 🎯 منطق Reward الذكي: تعزيز السمعة بدلاً من النقاط المباشرة
+  let rewardSignal = 0;
+  const sessionCompletionRate = session.heartbeats.length / (videoDuration / 5); // نسبة إكمال الجلسة
+
+  if (overtime > 20 && sessionCompletionRate > 0.7) {
+    // جلسة طويلة + التزام = إشارة Reward
+    rewardSignal = Math.min(overtime / 10, 5); // حد أقصى 5 نقاط سمعة
+    console.log(`🎯 [REWARD-SIGNAL] Long committed session: +${rewardSignal} reputation points`);
+  }
+
+  // لا نقاط مكافآت مباشرة - فقط إشارة Reward لتعزيز السمعة
+  const rewardPoints = 0; // لا نقاط إضافية مباشرة
 
   // 🎯 تحليل السلوك: تعديل النقاط بناءً على السلوك
   let finalPoints = videoPoints + rewardPoints;
@@ -60,7 +70,7 @@ async function calculatePointsSecurely(session: any) {
 
   return {
     videoPoints: Math.round(videoPoints * 100) / 100,
-    rewardPoints: Math.round(rewardPoints * 100) / 100,
+    rewardSignal: Math.round(rewardSignal * 100) / 100,  // إشارة Reward لتعزيز السمعة
     totalPoints: Math.round(finalPoints * 100) / 100,
     validSeconds: validSeconds,
     rewardSeconds: overtime,
