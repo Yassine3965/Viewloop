@@ -36,47 +36,65 @@ async function calculatePointsSecurely(session: any) {
   // استخدام الثوابت من التكوين المركزي
   const pointsConfig = {
     VIDEO_POINTS_PER_SECOND: 0.05,
-    VIDEO_INITIAL_SECONDS: 5,
-    REWARD_POINTS_PER_SECOND: 0.5
+    GEMS_PER_SECOND: 0.01,
+    EXTRA_TIME_POINTS_PER_SECOND: 0.5
   };
 
   // حساب النقاط الأساسية
-  const validSeconds = Math.min(lastHeartbeatTime, videoDuration); // لا تتجاوز مدة الفيديو
-  const videoWatchSeconds = Math.max(0, validSeconds - pointsConfig.VIDEO_INITIAL_SECONDS);
-  const videoPoints = videoWatchSeconds * pointsConfig.VIDEO_POINTS_PER_SECOND;
+  // حساب النقاط الأساسية (Real Time based on heartbeats)
+  // كل نبضة تمثل 5 ثوانٍ من الوقت الفعلي
+  // User Logic: "If video is 4 mins, but user spent 5 mins (due to ads/buffering) -> 1 min extra time"
+  // Condition: Pulses MUST stop if paused or tab hidden. (Handled by Extension)
+  const activeSeconds = session.heartbeats.length * 5;
+  const validSeconds = Math.min(activeSeconds, videoDuration); // النقاط الأساسية لا تتجاوز مدة الفيديو
+  const extraSeconds = Math.max(0, activeSeconds - videoDuration); // الوقت الإضافي هو ما زاد عن مدة الفيديو
+
+  // 1. نقاط الفيديو الأساسية
+  const videoPoints = validSeconds * pointsConfig.VIDEO_POINTS_PER_SECOND;
+
+  // 2. نقاط الوقت الإضافي
+  const extraTimePoints = extraSeconds * pointsConfig.EXTRA_TIME_POINTS_PER_SECOND;
+
+  // 3. الجواهر (Updated Logic)
+  // Standard Time: 0.01 gems/sec
+  // Extra Time: 0.02 gems/sec
+  const standardGems = validSeconds * 0.01;
+  const extraGems = extraSeconds * 0.02;
+  const gems = standardGems + extraGems;
 
   // 🎯 منطق Reward الذكي: تعزيز السمعة بدلاً من النقاط المباشرة
   let rewardSignal = 0;
-  const sessionCompletionRate = session.heartbeats.length / (videoDuration / 5); // نسبة إكمال الجلسة
+  const sessionCompletionRate = activeSeconds / videoDuration; // نسبة الوقت المقضي
 
-  if (overtime > 20 && sessionCompletionRate > 0.7) {
+  if (extraSeconds > 20 && sessionCompletionRate > 1.0) {
     // جلسة طويلة + التزام = إشارة Reward
-    rewardSignal = Math.min(overtime / 10, 5); // حد أقصى 5 نقاط سمعة
+    rewardSignal = 1.0; // نقطة سمعة كاملة
     console.log(`🎯 [REWARD-SIGNAL] Long committed session: +${rewardSignal} reputation points`);
   }
 
-  // لا نقاط مكافآت مباشرة - فقط إشارة Reward لتعزيز السمعة
-  const rewardPoints = 0; // لا نقاط إضافية مباشرة
-
   // 🎯 تحليل السلوك: تعديل النقاط بناءً على السلوك
-  let finalPoints = videoPoints + rewardPoints;
+  let finalPoints = videoPoints + extraTimePoints;
+  let finalGems = gems;
   let penalty = 0;
 
   if (behaviorAnalysis.suspiciousActivity) {
     penalty = Math.floor(finalPoints * 0.5); // خصم 50% للنشاط المشبوه
     finalPoints -= penalty;
+    finalGems = 0; // No gems for suspicious activity? Or maybe half? Let's zero it for strictness.
     console.log(`🚨 [PENALTY] Suspicious activity detected: -${penalty} points`);
   }
 
   return {
     videoPoints: Math.round(videoPoints * 100) / 100,
-    rewardSignal: Math.round(rewardSignal * 100) / 100,  // إشارة Reward لتعزيز السمعة
+    extraTimePoints: Math.round(extraTimePoints * 100) / 100,
+    rewardSignal: Math.round(rewardSignal * 100) / 100,
     totalPoints: Math.round(finalPoints * 100) / 100,
+    totalGems: Math.round(finalGems * 100) / 100,
     validSeconds: validSeconds,
-    rewardSeconds: overtime,
+    rewardSeconds: extraSeconds,
     videoDuration: videoDuration,
     lastHeartbeatTime: lastHeartbeatTime,
-    overtime: overtime,
+    overtime: extraSeconds,
     behaviorAnalysis: behaviorAnalysis,
     penalty: penalty
   };
@@ -98,7 +116,7 @@ function analyzeBehavioralPatterns(heartbeats: any[]) {
   let tabHiddenCount = 0;
 
   for (let i = 1; i < heartbeats.length; i++) {
-    const prev = heartbeats[i-1];
+    const prev = heartbeats[i - 1];
     const curr = heartbeats[i];
 
     // فقدان التركيز أثناء التشغيل

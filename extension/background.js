@@ -34,6 +34,25 @@ async function loadConfig() {
 // ==========================
 // API CLIENT
 // ==========================
+const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
+
+async function generateSignature(data) {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(EXTENSION_SECRET);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const bodyData = encoder.encode(JSON.stringify(data));
+  const signatureBuffer = await crypto.subtle.sign("HMAC", key, bodyData);
+  const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+  return signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function sendHeartbeatBatch(sessionId, videoId, heartbeats) {
   if (!ViewLoopConfig) {
     console.error("❌ [API] Config not loaded");
@@ -41,20 +60,24 @@ async function sendHeartbeatBatch(sessionId, videoId, heartbeats) {
   }
 
   const url = ViewLoopConfig.API_BASE_URL + '/api/heartbeat-batch';
+  const body = {
+    sessionId,
+    videoId,
+    heartbeats,
+    timestamp: Date.now(),
+    clientType: 'extension'
+  };
 
   try {
+    const signature = await generateSignature(body);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-signature': signature
       },
-      body: JSON.stringify({
-        sessionId,
-        videoId,
-        heartbeats,
-        timestamp: Date.now(),
-        clientType: 'extension'
-      })
+      body: JSON.stringify(body)
     });
 
     const result = await response.json();
@@ -73,24 +96,31 @@ async function sendHeartbeatBatch(sessionId, videoId, heartbeats) {
 }
 
 async function sendHeartbeat(sessionId, heartbeatData) {
+  // Not heavily used if batching is active, but upgrading for consistency
   if (!ViewLoopConfig) {
     console.error("❌ [API] Config not loaded");
     return { success: false, error: 'CONFIG_NOT_LOADED' };
   }
 
   const url = ViewLoopConfig.API_BASE_URL + ViewLoopConfig.ENDPOINTS.HEARTBEAT;
+  const body = {
+    sessionId,
+    ...heartbeatData,
+    clientType: 'extension'
+  };
 
   try {
+    // If backend requires signature for single heartbeat, we add it. 
+    // Assuming backend standardizes on signature:
+    const signature = await generateSignature(body);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-signature': signature
       },
-      body: JSON.stringify({
-        sessionId,
-        ...heartbeatData,
-        clientType: 'extension'
-      })
+      body: JSON.stringify(body)
     });
 
     const result = await response.json();

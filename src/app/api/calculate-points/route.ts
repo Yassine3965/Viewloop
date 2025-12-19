@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     }
 
     // Calculate final points using secure server-side logic
-    const serverCalculatedPoints = calculatePointsSecurely(session);
+    const { totalPoints, totalGems, reputationDelta, validSeconds, extraSeconds } = calculatePointsSecurely(session);
 
     // Update user points and reputation in database
     if (session.userId && session.userId !== 'anonymous') {
@@ -94,42 +94,42 @@ export async function POST(req: Request) {
 
         if (userSnap.exists) {
           const currentPoints = userSnap.data()?.points || 0;
+          const currentGems = userSnap.data()?.gems || 0;
           const currentReputation = userSnap.data()?.reputation || 4.5;
-          const newTotalPoints = currentPoints + serverCalculatedPoints.totalPoints;
-
-          // 🎯 تحديث السمعة بناءً على الإشارة Reward
-          const reputationDelta = session.rewardSignal > 0
-            ? +0.03 * session.rewardSignal  // زيادة السمعة للجلسات الممتازة
-            : -0.05;                        // نقصان السمعة للجلسات العادية
+          const newTotalPoints = currentPoints + totalPoints;
+          const newTotalGems = currentGems + totalGems;
 
           const newReputation = Math.max(0, Math.min(5, currentReputation + reputationDelta));
 
           await userRef.update({
             points: newTotalPoints,
+            gems: newTotalGems,
             reputation: newReputation,
             lastUpdated: Date.now(),
             totalSessions: (userSnap.data()?.totalSessions || 0) + 1,
-            totalWatchTime: (userSnap.data()?.totalWatchTime || 0) + serverCalculatedPoints.validSeconds
+            totalWatchTime: (userSnap.data()?.totalWatchTime || 0) + validSeconds
           });
 
           console.log(`✅ User ${session.userId} updated:`);
-          console.log(`   Points: ${currentPoints} → ${newTotalPoints}`);
+          console.log(`   Points: ${currentPoints} → ${newTotalPoints} (+${totalPoints})`);
+          console.log(`   Gems: ${currentGems} → ${newTotalGems} (+${totalGems})`);
           console.log(`   Reputation: ${currentReputation} → ${newReputation} (${reputationDelta > 0 ? '+' : ''}${reputationDelta})`);
         } else {
           // Create user if doesn't exist (start with neutral reputation)
           const initialReputation = 4.5;
           await userRef.set({
-            points: serverCalculatedPoints.totalPoints,
+            points: totalPoints,
+            gems: totalGems,
             reputation: initialReputation,
             lastUpdated: Date.now(),
             totalSessions: 1,
-            totalWatchTime: serverCalculatedPoints.validSeconds,
+            totalWatchTime: validSeconds,
             createdAt: Date.now()
           });
 
           console.log(`✅ New user ${session.userId} created:`);
-          console.log(`   Points: ${serverCalculatedPoints.totalPoints}`);
-          console.log(`   Reputation: ${initialReputation}`);
+          console.log(`   Points: ${totalPoints}`);
+          console.log(`   Gems: ${totalGems}`);
         }
 
         // Add to watch history with reputation data
@@ -137,10 +137,11 @@ export async function POST(req: Request) {
           userId: session.userId,
           videoId: session.videoId,
           sessionId: sessionId,
-          pointsEarned: serverCalculatedPoints.totalPoints,
-          reputationDelta: session.rewardSignal > 0 ? +0.03 * session.rewardSignal : -0.05,
-          rewardSignal: session.rewardSignal || 0,
-          validSeconds: serverCalculatedPoints.validSeconds,
+          pointsEarned: totalPoints,
+          gemsEarned: totalGems,
+          reputationDelta: reputationDelta,
+          validSeconds: validSeconds,
+          extraSeconds: extraSeconds,
           completedAt: Date.now()
         });
 
@@ -151,7 +152,15 @@ export async function POST(req: Request) {
     }
 
     // Save final points to session
-    const finalPoints = serverCalculatedPoints;
+    // Reconstruct object for backwards compatibility or storage
+    const finalPoints = {
+      totalPoints,
+      totalGems,
+      reputationDelta,
+      validSeconds,
+      extraSeconds
+    };
+
     session.finalPoints = finalPoints;
     session.processed = true;
     session.completedAt = Date.now();
@@ -185,14 +194,44 @@ export async function POST(req: Request) {
 }
 
 function calculatePointsSecurely(session: any) {
+  // Use session data or defaults. 
+  // validSeconds comes from heartbeat analysis usually.
   const validSeconds = session.validSeconds || session.validHeartbeats * 5 || 0;
-  const videoWatchSeconds = Math.max(0, validSeconds - 5);
-  const videoPoints = videoWatchSeconds * 0.05;
+
+  // Assuming 'videoDuration' is available in session or we estimate it.
+  // Ideally, session should have videoDuration. If not, we might be capped.
+  // For this logic, we'll try to rely on what's passed or defaults.
+  // If session doesn't have videoDuration, we default to validSeconds to avoid 'extra' without basis.
+  const videoDuration = session.videoDuration || validSeconds;
+
+  // Standard time is min(validSeconds, videoDuration)
+  const standardSeconds = Math.min(validSeconds, videoDuration);
+
+  // Extra time is max(0, validSeconds - videoDuration)
+  const extraSeconds = Math.max(0, validSeconds - videoDuration);
+
+  // 1. Standard Points: 0.05 per second
+  const standardPoints = standardSeconds * 0.05;
+
+  // 2. Extra Points: 0.5 per second (User Request: 0.5 for each extra time)
+  const extraTimePoints = extraSeconds * 0.5;
+
+  // 3. Gems
+  // Standard: 0.01 per second
+  // Extra: 0.02 per second
+  const gems = (standardSeconds * 0.01) + (extraSeconds * 0.02);
+
+  // Reputation: simple logic
+  // If extraSeconds > 0, it's a dedicated session -> boost reputation
+  const reputationDelta = extraSeconds > 0 ? +0.05 : 0;
+
+  const totalPoints = standardPoints + extraTimePoints;
 
   return {
-    videoPoints: Math.round(videoPoints * 100) / 100,
-    rewardPoints: 0,
-    totalPoints: Math.round(videoPoints * 100) / 100,
-    validSeconds: validSeconds
+    totalPoints: Math.round(totalPoints * 100) / 100,
+    totalGems: Math.round(gems * 100) / 100,
+    reputationDelta,
+    validSeconds,
+    extraSeconds
   };
 }
