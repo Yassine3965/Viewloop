@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ViewLoop Monitor</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div class="container">
-    
+
     <!-- HEADER -->
     <div class="header">
       <div class="logo-container">
@@ -31,9 +33,22 @@
     </div>
 
     <!-- LOGIN PROMPT (Shown if no token) -->
-    <div id="loginPrompt" class="user-card" style="display: flex; flex-direction: column; text-align: center; display: none;">
+    <div id="loginPrompt" class="user-card"
+      style="display: flex; flex-direction: column; text-align: center; display: none;">
       <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">قم بتسجيل الدخول في الموقع للمزامنة</p>
-      <button id="openLoginBtn" class="btn btn-primary" style="padding: 8px; font-size: 12px;">فتح لوحة التحكم</button>
+      <button id="openLoginBtn" class="btn btn-primary" style="padding: 8px; font-size: 12px; margin-bottom: 8px;">فتح
+        لوحة التحكم</button>
+
+      <!-- Manual Fallback -->
+      <details style="width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 8px;">
+        <summary style="font-size: 10px; color: var(--text-muted); cursor: pointer;">إدخال الرمز يدوياً</summary>
+        <div style="margin-top: 8px;">
+          <input type="text" id="manualTokenInput" placeholder="الصق رمز الاتصال هنا"
+            style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid #334155; border-radius: 4px; color: white; font-size: 10px; box-sizing: border-box;">
+          <button id="saveTokenBtn" class="btn btn-secondary"
+            style="margin-top: 5px; padding: 6px; font-size: 10px; width: 100%;">اتصال</button>
+        </div>
+      </details>
     </div>
 
     <!-- STATS -->
@@ -58,7 +73,7 @@
         </svg>
         ابدأ المشاهدة
       </button>
-      
+
       <button id="openDashboardBtn" class="btn btn-secondary">
         لوحة التحكم
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -76,4 +91,5 @@
 
   <script src="popup.js"></script>
 </body>
+
 </html>

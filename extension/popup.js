@@ -56,4 +56,31 @@ document.addEventListener('DOMContentLoaded', async function () {
     els.openLoginBtn.addEventListener('click', () => {
         window.open('https://viewloop.vercel.app/login', '_blank');
     });
+
+    // Manual Token Save
+    const manualInput = document.getElementById('manualTokenInput');
+    const saveTokenBtn = document.getElementById('saveTokenBtn');
+
+    if (saveTokenBtn && manualInput) {
+        saveTokenBtn.addEventListener('click', async () => {
+            const token = manualInput.value.trim();
+            if (token && token.length > 20) {
+                await chrome.storage.local.set({
+                    'viewloop_auth_token': token,
+                    'viewloop_user_id': 'manual_user', // We don't have the ID, background will fetch profile later or server accepts just token
+                    'auth_synced_at': Date.now()
+                });
+                // Send explicit sync message to background
+                chrome.runtime.sendMessage({
+                    type: 'AUTH_SYNC',
+                    token: token,
+                    userId: 'manual_user'
+                }, () => {
+                    window.location.reload(); // Reload popup to show logged in state
+                });
+            } else {
+                alert('الرمز غير صحيح');
+            }
+        });
+    }
 });
