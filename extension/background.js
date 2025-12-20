@@ -357,13 +357,10 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           const batchToSend = session.pendingHeartbeats || [];
 
           // If we have pending heartbeats, use the last one as final.
-          // If empty, creating a dummy final heartbeat might be needed if video just started?
-          // Usually we have something. If empty, maybe just nothing happened.
           if (batchToSend.length > 0) {
             batchToSend[batchToSend.length - 1].isFinal = true;
           } else {
-            // Should we send an empty final? The server expects heartbeats array.
-            // Let's create a synthetic final heartbeat just to close the session on server.
+            // Create a synthetic final heartbeat
             batchToSend.push({
               t: Math.floor((Date.now() - session.startTime) / 1000), // Estimate time
               p: false,
@@ -374,7 +371,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           }
 
           // Send to server DO NOT AWAIT (or await if careful)
-          // We want to ensure this goes through.
           sendHeartbeatBatch(session.sessionId, session.videoId, batchToSend)
             .then(res => console.log(`🏁 [BG] Session finalized on server: ${res.success}`))
             .catch(err => console.error(`❌ [BG] Failed to finalize session:`, err));
@@ -382,6 +378,40 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
         const endedSession = endSession(message.sessionId);
         sendResponse({ success: true, session: endedSession });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+      break;
+
+    case 'SEND_VIDEO_META':
+      try {
+        console.log("📊 [BG] Sending video metadata for:", message.videoId);
+        chrome.storage.local.get(['viewloop_auth_token'], (result) => {
+          const token = result.viewloop_auth_token;
+          const metaUrl = ViewLoopConfig.API_BASE_URL + '/api/video-meta';
+
+          fetch(metaUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+              // Add signature if needed, but this endpoint might be public or rely on body token?
+              // Assuming standard public/auth is fine. If it needs auth, we can add it.
+            },
+            body: JSON.stringify({
+              videoId: message.videoId,
+              duration: message.duration,
+              clientType: 'extension',
+              userAuthToken: token // Optional if backend uses it
+            })
+          })
+            .then(res => res.json())
+            .then(data => {
+              console.log("✅ [BG] Video metadata sent:", data);
+              // We don't necessarily need to send response back to content script async here as it's fire-and-forget mostly
+            })
+            .catch(err => console.error("❌ [BG] Failed to send video metadata:", err));
+        });
+        sendResponse({ success: true }); // Ack immediately
       } catch (error) {
         sendResponse({ success: false, error: error.message });
       }

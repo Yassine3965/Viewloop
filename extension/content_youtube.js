@@ -159,25 +159,15 @@ class SimpleYouTubeMonitor {
         const duration = Math.floor(video.duration);
 
         // Send metadata to server
-        fetch("https://viewloop.vercel.app/api/video-meta", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                videoId: videoId,
-                duration: duration,
-                clientType: 'extension'
-            })
-        })
-        .then(response => {
-            if (response.ok) {
-                console.log(`📊 [CONTENT] Video metadata sent: ${videoId} (${duration}s)`);
-                this.metaSent = true;
-            } else {
-                console.warn(`⚠️ [CONTENT] Failed to send video metadata: ${response.status}`);
-            }
-        })
-        .catch(error => {
-            console.warn(`⚠️ [CONTENT] Error sending video metadata:`, error);
+        // Send metadata to background to proxy to server
+        this.sendToBackground('SEND_VIDEO_META', {
+            videoId: videoId,
+            duration: duration
+        }).then(() => {
+            console.log(`📊 [CONTENT] Video metadata queued for sending: ${videoId}`);
+            this.metaSent = true;
+        }).catch(err => {
+            console.error("❌ [CONTENT] Failed to queue metadata:", err);
         });
     }
 
