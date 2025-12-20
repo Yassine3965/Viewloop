@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                         els.userPoints.textContent = parseFloat(p.points).toFixed(2);
                         els.userGems.textContent = parseFloat(p.gems).toFixed(2);
                         document.getElementById('userLevel').textContent = `المستوى ${p.level}`;
+                    } else {
+                        // Fallback if fetch failed
+                        els.userName.textContent = userId ? userId.substring(0, 10) + '...' : 'زائر';
                     }
                 });
             }

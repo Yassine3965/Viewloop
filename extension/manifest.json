@@ -29,6 +29,18 @@
       ],
       "run_at": "document_end",
       "all_frames": false
+    },
+    {
+      "matches": [
+        "http://localhost:3000/*",
+        "https://viewloop.vercel.app/*",
+        "https://*.vercel.app/*"
+      ],
+      "js": [
+        "content_auth.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": false
     }
   ],
   "action": {

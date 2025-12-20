@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from '@/lib/firebase/admin';
+import { getFirestore, initializeFirebaseAdmin } from '@/lib/firebase/admin';
 import { handleOptions, addCorsHeaders } from '@/lib/cors';
 
 export async function OPTIONS(request: Request) {
@@ -19,8 +19,10 @@ export async function GET(req: NextRequest) {
     const token = authHeader.split('Bearer ')[1];
 
     try {
-        // Create admin auth if not initialized by firebase-admin globally, but getAuth() should work if initApp was called.
-        // Usually verifyIdToken checks signature.
+        // CRITICAL: Ensure Admin App is initialized BEFORE calling getAuth()
+        initializeFirebaseAdmin();
+
+        // Now it's safe to use getAuth()
         const decodedToken = await getAuth().verifyIdToken(token);
         const uid = decodedToken.uid;
 
