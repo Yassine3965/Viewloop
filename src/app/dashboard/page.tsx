@@ -26,8 +26,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-  } from "@/components/ui/alert-dialog";
-  
+} from "@/components/ui/alert-dialog";
+
 
 const levelInfo: { [key: number]: { name: string; points: number; gems: number; icon: React.ElementType; color: string; bgColor: string; } } = {
     1: { name: "أساسي", points: 0.05, gems: 0, icon: Sparkles, color: "text-slate-500", bgColor: "bg-slate-500/10" },
@@ -73,28 +73,28 @@ function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImpr
             </div>
 
             {reputation < 5 && (
-                 <AlertDialog>
-                 <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-7 text-xs" disabled={!canImprove || isImproving}>
-                        <ArrowUp className="ml-1 h-3 w-3" />
-                        تحسين
-                    </Button>
-                 </AlertDialogTrigger>
-                 <AlertDialogContent>
-                   <AlertDialogHeader>
-                     <AlertDialogTitle>تأكيد تحسين السمعة</AlertDialogTitle>
-                     <AlertDialogDescription>
-                       هل أنت متأكد أنك تريد إنفاق <span className="font-bold text-primary">50 جوهرة</span> لزيادة سمعتك بمقدار <span className="font-bold text-primary">0.5</span>؟
-                     </AlertDialogDescription>
-                   </AlertDialogHeader>
-                   <AlertDialogFooter>
-                     <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                     <AlertDialogAction onClick={onImprove} disabled={isImproving}>
-                        {isImproving ? <Loader2 className="h-4 w-4 animate-spin"/> : "تأكيد"}
-                     </AlertDialogAction>
-                   </AlertDialogFooter>
-                 </AlertDialogContent>
-               </AlertDialog>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" disabled={!canImprove || isImproving}>
+                            <ArrowUp className="ml-1 h-3 w-3" />
+                            تحسين
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>تأكيد تحسين السمعة</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                هل أنت متأكد أنك تريد إنفاق <span className="font-bold text-primary">50 جوهرة</span> لزيادة سمعتك بمقدار <span className="font-bold text-primary">0.5</span>؟
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={onImprove} disabled={isImproving}>
+                                {isImproving ? <Loader2 className="h-4 w-4 animate-spin" /> : "تأكيد"}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             )}
         </div>
     );
@@ -136,146 +136,189 @@ function LevelDisplay({ currentLevel }: { currentLevel: number }) {
     );
 }
 
+
+
+function ExtensionConnectButton() {
+    const { getConnectionToken } = useApp();
+    const [status, setStatus] = useState<'idle' | 'copying' | 'copied'>('idle');
+
+    const handleCopyToken = async () => {
+        setStatus('copying');
+        const token = await getConnectionToken();
+        if (token) {
+            navigator.clipboard.writeText(token);
+            setStatus('copied');
+            setTimeout(() => setStatus('idle'), 2000);
+        } else {
+            setStatus('idle');
+            alert("فشل في استرداد الرمز، حاول تسجيل الدخول مجدداً");
+        }
+    };
+
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 text-xs h-7" onClick={handleCopyToken}>
+                        <Zap className={cn("h-3 w-3", status === 'copied' ? "text-green-500" : "text-sky-500")} />
+                        <span className={status === 'copied' ? "text-green-500" : ""}>
+                            {status === 'copied' ? "تم النسخ!" : "ربط الإضافة يدوياً"}
+                        </span>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>إذا لم تعمل المزامنة التلقائية، انسخ الرمز وضعه في الإضافة</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+}
+
 export default function DashboardPage() {
-  const { user, isUserLoading, logout, improveReputation } = useApp();
-  const router = useRouter();
-  const [isImproving, setIsImproving] = useState(false);
+    const { user, isUserLoading, logout, improveReputation } = useApp();
+    const router = useRouter();
+    const [isImproving, setIsImproving] = useState(false);
 
-  const handleImproveReputation = async () => {
-    setIsImproving(true);
-    await improveReputation();
-    setIsImproving(false);
-  }
-  
-  useEffect(() => {
-    if (isUserLoading) return;
-    if (!user) {
-      router.push(`/login`);
-      return;
+    const handleImproveReputation = async () => {
+        setIsImproving(true);
+        await improveReputation();
+        setIsImproving(false);
     }
-  }, [user, isUserLoading, router]);
 
-  const isLoading = isUserLoading || !user;
+    useEffect(() => {
+        if (isUserLoading) return;
+        if (!user) {
+            router.push(`/login`);
+            return;
+        }
+    }, [user, isUserLoading, router]);
 
-  if (isLoading) {
+    const isLoading = isUserLoading || !user;
+
+    if (isLoading) {
+        return (
+            <main className="flex h-[80vh] items-center justify-center">
+                <Loader2 className="h-16 w-16 animate-spin text-primary" />
+            </main>
+        );
+    }
+
+    if (!user) {
+        return (
+            <main className="flex h-[80vh] items-center justify-center">
+                <div className='text-center'>
+                    <p className='text-destructive'>لم يتم العثور على ملف تعريف المستخدم.</p>
+                    <Button onClick={logout} variant="link">تسجيل الخروج</Button>
+                </div>
+            </main>
+        );
+    }
+
+    const canCreateCampaign = user.emailVerified;
+
+    const lastLoginDate = user.lastLogin?.toDate ? formatDistanceToNow(user.lastLogin.toDate(), { addSuffix: true, locale: ar }) : 'غير معروف';
+    const creationDate = user.createdAt?.toDate ? format(user.createdAt.toDate(), 'PPP', { locale: ar }) : 'غير معروف';
+
     return (
-      <main className="flex h-[80vh] items-center justify-center">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
-      </main>
-    );
-  }
-  
-  if (!user) {
-    return (
-      <main className="flex h-[80vh] items-center justify-center">
-        <div className='text-center'>
-            <p className='text-destructive'>لم يتم العثور على ملف تعريف المستخدم.</p>
-            <Button onClick={logout} variant="link">تسجيل الخروج</Button>
-        </div>
-      </main>
-    );
-  }
+        <>
+            <main className="flex-1 bg-muted/20 p-4 md:p-8">
+                <div className="container mx-auto max-w-6xl space-y-8">
 
-  const canCreateCampaign = user.emailVerified;
-  
-  const lastLoginDate = user.lastLogin?.toDate ? formatDistanceToNow(user.lastLogin.toDate(), { addSuffix: true, locale: ar }) : 'غير معروف';
-  const creationDate = user.createdAt?.toDate ? format(user.createdAt.toDate(), 'PPP', { locale: ar }) : 'غير معروف';
+                    <Card className="overflow-hidden shadow-lg">
+                        <CardContent className="p-6">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                                {/* User Info & Levels */}
+                                <div className="flex flex-col md:flex-row items-center gap-6 flex-1">
+                                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                                        <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
+                                            <AvatarImage src={user.avatar} alt={user.name} />
+                                            <AvatarFallback>{user.name.trim().charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex flex-col gap-1 items-center sm:items-start">
+                                            <h1 className="text-2xl font-bold">{user.name}</h1>
+                                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit'>
+                                                {user.role === 'admin' ? "مسؤول" : "مستخدم"}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <div className='flex-1 md:border-r md:pr-6 md:mr-6'>
+                                        <LevelDisplay currentLevel={user.level} />
+                                    </div>
+                                </div>
 
-  return (
-    <>
-    <main className="flex-1 bg-muted/20 p-4 md:p-8">
-      <div className="container mx-auto max-w-6xl space-y-8">
-        
-        <Card className="overflow-hidden shadow-lg">
-            <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                    {/* User Info & Levels */}
-                    <div className="flex flex-col md:flex-row items-center gap-6 flex-1">
-                        <div className="flex flex-col sm:flex-row items-center gap-4">
-                            <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
-                                <AvatarImage src={user.avatar} alt={user.name} />
-                                <AvatarFallback>{user.name.trim().charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col gap-1 items-center sm:items-start">
-                                <h1 className="text-2xl font-bold">{user.name}</h1>
-                                <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit'>
-                                    {user.role === 'admin' ? "مسؤول" : "مستخدم"}
-                                </Badge>
+                                {/* Reputation */}
+                                <div className="flex flex-col items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-dashed w-full md:w-auto md:pl-6">
+                                    <span className="text-sm font-bold text-muted-foreground">السمعة</span>
+                                    <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
+
+                                    {/* Extension Connection Helper */}
+                                    <div className="mt-4 pt-4 border-t w-full flex justify-center">
+                                        <ExtensionConnectButton />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className='flex-1 md:border-r md:pr-6 md:mr-6'>
-                            <LevelDisplay currentLevel={user.level} />
-                        </div>
+                        </CardContent>
+                        <CardFooter className='bg-muted/30 p-4 border-t'>
+                            <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div className="flex items-center gap-2">
+                                    <Mail className="h-4 w-4 text-muted-foreground" />
+                                    <span className='truncate'>{user.email}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                    <span>{user.city || 'غير معروف'}, {user.country}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <span>انضم في {creationDate}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <span>آخر ظهور {lastLoginDate}</span>
+                                </div>
+                            </div>
+                        </CardFooter>
+                    </Card>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <Card className="hover:shadow-lg transition-shadow flex flex-col">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <PlusCircle className="h-6 w-6 text-primary" />
+                                    <span>إنشاء حملة إعلانية جديدة</span>
+                                </CardTitle>
+                                <CardDescription>
+                                    أضف الفيديو الخاص بك ليبدأ الآخرون بمشاهدته وتفاعلهم معه.
+                                    {!user.emailVerified && <span className="text-destructive font-semibold block mt-1">يجب تفعيل حسابك أولاً.</span>}
+                                    {user.emailVerified && user.points <= 0 && <span className="text-destructive font-semibold block mt-1">ليس لديك نقاط كافية لإنشاء حملة.</span>}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex-grow flex flex-col justify-end">
+                                <Button asChild className={cn("w-full", user.points > 0 ? "bg-success hover:bg-success/90" : "bg-gray-400 cursor-not-allowed hover:bg-gray-400")} disabled={!canCreateCampaign || user.points <= 0}>
+                                    <Link href={`/campaign`}>ابدأ الآن</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                        <Card className="hover:shadow-lg transition-shadow flex flex-col">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <PlayCircle className="h-6 w-6 text-primary" />
+                                    <span>شاهد واكسب</span>
+                                </CardTitle>
+                                <CardDescription>
+                                    شاهد فيديوهات المستخدمين الآخرين.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex-grow flex flex-col justify-end">
+                                <Button asChild className="w-full">
+                                    <Link href={`/watch`}>تصفح الفيديوهات</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    {/* Reputation */}
-                    <div className="flex flex-col items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-dashed w-full md:w-auto md:pl-6">
-                        <span className="text-sm font-bold text-muted-foreground">السمعة</span>
-                        <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
-                    </div>
                 </div>
-            </CardContent>
-            <CardFooter className='bg-muted/30 p-4 border-t'>
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className='truncate'>{user.email}</span>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{user.city || 'غير معروف'}, {user.country}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>انضم في {creationDate}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>آخر ظهور {lastLoginDate}</span>
-                    </div>
-                </div>
-            </CardFooter>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="hover:shadow-lg transition-shadow flex flex-col">
-                <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <PlusCircle className="h-6 w-6 text-primary" />
-                    <span>إنشاء حملة إعلانية جديدة</span>
-                </CardTitle>
-                <CardDescription>
-                    أضف الفيديو الخاص بك ليبدأ الآخرون بمشاهدته وتفاعلهم معه.
-                    {!user.emailVerified && <span className="text-destructive font-semibold block mt-1">يجب تفعيل حسابك أولاً.</span>}
-                    {user.emailVerified && user.points <= 0 && <span className="text-destructive font-semibold block mt-1">ليس لديك نقاط كافية لإنشاء حملة.</span>}
-                </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col justify-end">
-                <Button asChild className={cn("w-full", user.points > 0 ? "bg-success hover:bg-success/90" : "bg-gray-400 cursor-not-allowed hover:bg-gray-400")} disabled={!canCreateCampaign || user.points <= 0}>
-                    <Link href={`/campaign`}>ابدأ الآن</Link>
-                </Button>
-                </CardContent>
-            </Card>
-            <Card className="hover:shadow-lg transition-shadow flex flex-col">
-                <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <PlayCircle className="h-6 w-6 text-primary" />
-                    <span>شاهد واكسب</span>
-                </CardTitle>
-                <CardDescription>
-                    شاهد فيديوهات المستخدمين الآخرين.
-                </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col justify-end">
-                <Button asChild className="w-full">
-                    <Link href={`/watch`}>تصفح الفيديوهات</Link>
-                </Button>
-                </CardContent>
-            </Card>
-        </div>
-
-      </div>
-    </main>
-    </>
-  );
+            </main>
+        </>
+    );
 }
