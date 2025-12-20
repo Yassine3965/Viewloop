@@ -25,6 +25,8 @@ class SimpleYouTubeMonitor {
             if (isYouTube && video) {
                 console.log('✅ [CONTENT] YouTube ready, setting up monitor');
                 this.setupVideoListeners(video);
+                // Start the global poller ensures we catch playback even if we missed the event
+                this.startGlobalPoller();
             } else {
                 setTimeout(checkYouTube, 1000);
             }
@@ -33,11 +35,31 @@ class SimpleYouTubeMonitor {
         setTimeout(checkYouTube, 1000);
     }
 
+    startGlobalPoller() {
+        // Check every second for playback state
+        setInterval(() => {
+            if (!this.currentVideo) {
+                this.currentVideo = document.querySelector('video.html5-main-video') || document.querySelector('video');
+            }
+
+            if (this.currentVideo && !this.currentVideo.paused && !this.isWatching) {
+                console.log("⚠️ [CONTENT] Playback detected via Global Poller (Event missed) -> Starting Session");
+                this.handlePlay();
+            }
+        }, 1000);
+    }
+
     setupVideoListeners(video) {
         if (!video) return;
 
         this.currentVideo = video;
         console.log('🎯 [CONTENT] Video listeners attached');
+
+        // Check immediately if already playing (Autoplay fix)
+        if (!video.paused) {
+            console.log("⚡ [CONTENT] Video already playing -> Triggering handlePlay");
+            this.handlePlay();
+        }
 
         // Send video metadata when loaded
         video.addEventListener('loadedmetadata', () => this.sendVideoMeta(video));
