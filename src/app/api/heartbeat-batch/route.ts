@@ -20,6 +20,12 @@ async function calculatePointsSecurely(session: any) {
   const videoDoc = await db.collection('videos').doc(session.videoId).get();
   const videoDuration = videoDoc.exists ? (videoDoc.data()?.duration || 0) : 0;
 
+  if (!videoDoc.exists) {
+    console.warn(`❌ [POINTS] Video ${session.videoId} NOT FOUND in DB -> 0 Points`);
+  } else if (videoDuration === 0) {
+    console.warn(`⚠️ [POINTS] Video ${session.videoId} FOUND but Duration is 0 -> 0 Points`);
+  }
+
   // 🎯 تحليل السلوك: احصل على أقصى وقت من النبضات
   const lastHeartbeatTime = getMaxT(session.heartbeats);
 

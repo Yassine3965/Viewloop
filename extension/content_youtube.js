@@ -61,7 +61,10 @@ class SimpleYouTubeMonitor {
             this.handlePlay();
         }
 
-        // Send video metadata when loaded
+        // Send video metadata when loaded (or immediately if already loaded)
+        if (video.readyState >= 1) {
+            this.sendVideoMeta(video);
+        }
         video.addEventListener('loadedmetadata', () => this.sendVideoMeta(video));
 
         video.addEventListener('play', () => this.handlePlay());

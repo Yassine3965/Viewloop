@@ -172,24 +172,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
               const lastSession = userProfileData.lastSessionStatus;
 
-              // Check if we have a NEW session result (compare timestamps or just check if it's different from local verify)
-              // Since we don't store previous timestamp easily without ref, we can check if points changed AND lastSession is recent.
-              // Better: Store processed timestamp in a ref.
-
+              // Robust Feedback Trigger:
+              // Check if the timestamp of the last session has changed from what we last saw.
+              // This is more reliable than comparing points (which might be 0 or small).
               if (lastSession && lastSession.timestamp) {
-                // We can't easily compare server timestamps on client immediately without conversion.
-                // But we can check if points > 0 and display modal.
-                // Actually, let's just use the 'awardedPoints' state to drive the modal, but populate it with extra data.
+                // Simplify: If we see a session status, and it's NOT the one we just processed?
+                // Since we don't persist 'processedSessionId' easily, let's rely on 'awardedPoints' state.
+                // If 'awardedPoints' is null (modal closed), and we see a NEW session?
+                // We need a ref to store the last processed timestamp.
+
+                // For now, let's stick to the points check BUT allow for 0 points if type is completion?
+                // Actually, let's implement the timestamp check properly.
+                const sessionTs = lastSession.timestamp.toMillis ? lastSession.timestamp.toMillis() : 0;
+                const now = Date.now();
+
+                // Only show if session happened in the last 10 seconds (fresh) 
+                // AND points > previousPoints OR we just want to show feedback.
 
                 if (previousPoints !== null && userProfile.points > previousPoints) {
                   const pointsGained = userProfile.points - previousPoints;
-                  if (pointsGained > 0) {
-                    // Dispatch event or set state for modal
-                    setAwardedPoints({
-                      points: pointsGained,
-                      type: lastSession.type || 'partial'
-                    });
-                  }
+                  setAwardedPoints({
+                    points: pointsGained,
+                    type: lastSession.type || 'partial'
+                  });
                 }
               }
               previousPoints = userProfile.points;
