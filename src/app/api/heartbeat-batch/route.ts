@@ -285,11 +285,19 @@ export async function POST(req: Request) {
           const userId = sessionDoc.data()?.userId;
           if (userId && userId !== 'anonymous') {
             const userRef = db.collection('users').doc(userId);
+            // Determine feedback type based on points (assuming roughly 1 point = 1 full view approx)
+            const feedbackType = pointsAwarded.totalPoints >= 0.8 ? 'completion' : 'partial';
+
             await userRef.set({
               points: admin.firestore.FieldValue.increment(pointsAwarded.totalPoints),
               gems: admin.firestore.FieldValue.increment(pointsAwarded.totalGems),
               reputation: admin.firestore.FieldValue.increment(pointsAwarded.rewardSignal),
-              totalTimeWatched: admin.firestore.FieldValue.increment(pointsAwarded.validSeconds + pointsAwarded.rewardSeconds)
+              totalTimeWatched: admin.firestore.FieldValue.increment(pointsAwarded.validSeconds + pointsAwarded.rewardSeconds),
+              lastSessionStatus: {
+                type: feedbackType,
+                points: pointsAwarded.totalPoints,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+              }
             }, { merge: true });
             console.log(`👤 [DB] Updated user ${userId} balance: +${pointsAwarded.totalPoints} pts, +${pointsAwarded.totalGems} gems`);
           } else {
