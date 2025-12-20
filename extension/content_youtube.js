@@ -118,18 +118,27 @@ class SimpleYouTubeMonitor {
     handlePause() {
         if (!this.isWatching) return;
 
+        const currentTime = this.currentVideo ? this.currentVideo.currentTime : 0;
+        const duration = this.currentVideo ? this.currentVideo.duration : 0;
+        const isAd = document.querySelector('.ad-showing') !== null;
+
+        console.log(`🔍 [CONTENT] Checking Pause State: Current=${currentTime.toFixed(2)}, Duration=${duration.toFixed(2)}, Ended=${this.currentVideo?.ended}, Ad=${isAd}`);
+
         // Check if this pause is actually an "End"
-        // If we are within 1 second of duration, treat as ended.
-        if (this.currentVideo && this.currentVideo.duration &&
-            this.currentVideo.currentTime >= (this.currentVideo.duration - 1)) {
-            console.log('🏁 [CONTENT] Video paused at end -> Treating as End');
+        // 1. If explicit 'ended' flag is true
+        // 2. If we are within 2 seconds of duration (relaxed from 1s)
+        // 3. If an Ad is showing at the end of its duration (Post-roll ad end)
+        if (this.currentVideo && (
+            this.currentVideo.ended ||
+            (duration > 0 && currentTime >= (duration - 2))
+        )) {
+            console.log('🏁 [CONTENT] Video (or Ad) ended -> Treating as Session End');
             this.handleEnd();
             return;
         }
 
         console.log('⏸️ [CONTENT] Video paused (Session kept alive)');
         this.stopHeartbeats();
-        // REMOVED: STOP_WATCHING call. We keep the session open.
     }
 
     handleEnd() {
@@ -170,7 +179,7 @@ class SimpleYouTubeMonitor {
 
             // 🛡️ BOUNDS CHECK: Verify we haven't exceeded duration
             // YouTube sometimes doesn't fire 'ended' if it auto-navigates, but currentTime will be at end.
-            if (this.currentVideo.duration && this.currentVideo.currentTime >= (this.currentVideo.duration - 1)) {
+            if (this.currentVideo.duration && this.currentVideo.currentTime >= (this.currentVideo.duration - 2)) {
                 console.warn('⚠️ [CONTENT] Video at end duration detected via loop -> Forcing End');
                 this.handleEnd();
                 return;
