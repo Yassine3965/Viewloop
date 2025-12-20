@@ -18,21 +18,34 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Load State
     try {
-        const stored = await chrome.storage.local.get(['viewloop_user_id', 'viewloop_auth_token']);
+        const stored = await chrome.storage.local.get([
+            'viewloop_user_id',
+            'viewloop_auth_token',
+            'viewloop_user_name',
+            'viewloop_user_points',
+            'viewloop_user_gems',
+            'viewloop_user_level'
+        ]);
+
         const token = stored.viewloop_auth_token;
         const userId = stored.viewloop_user_id;
+        const userName = stored.viewloop_user_name;
 
-        if (token && userId) {
+        if (token) {
             // Logged In
             els.userCard.style.display = 'flex';
             els.loginPrompt.style.display = 'none';
-            els.userName.textContent = userId.substring(0, 10) + '...'; // Placeholder until profile fetch?
             els.statusText.textContent = 'متصل';
             els.statusBadge.classList.add('active');
 
-            // Send PING to background to get session status or fetch profile
-            // For now, we rely on cached data if we had it, or just show basic info.
-            // Ideally we'd fetch user profile from API, but we might not have it in storage.
+            // Set User Data
+            els.userName.textContent = userName || (userId ? userId.substring(0, 10) + '...' : 'مستخدم');
+            els.userPoints.textContent = stored.viewloop_user_points !== undefined ? stored.viewloop_user_points : '--';
+            els.userGems.textContent = stored.viewloop_user_gems !== undefined ? stored.viewloop_user_gems : '--';
+
+            const level = stored.viewloop_user_level || 1;
+            document.getElementById('userLevel').textContent = `المستوى ${level}`;
+
         } else {
             // Anonymous / Not Logged In
             els.userCard.style.display = 'none';

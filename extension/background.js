@@ -239,13 +239,41 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     case 'AUTH_SYNC':
       const { token, userId } = message;
       if (token) {
+        // 1. Save Token first
         await chrome.storage.local.set({
           'viewloop_auth_token': token,
-          'viewloop_user_id': userId,
+          'viewloop_user_id': userId, // Temporary ID if manual
           'auth_synced_at': Date.now()
         });
-        console.log("✅ [BG-INTERNAL] Token synced from content script for user:", userId);
-        sendResponse({ success: true });
+
+        // 2. Fetch Real Profile
+        console.log("🔐 [BG] Fetching user profile for token...");
+        const profileUrl = ViewLoopConfig.API_BASE_URL + '/api/user-info';
+
+        try {
+          const res = await fetch(profileUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+
+          if (res.ok && data.name) {
+            console.log("✅ [BG] User profile fetched:", data.name);
+            await chrome.storage.local.set({
+              'viewloop_user_name': data.name,
+              'viewloop_user_points': data.points,
+              'viewloop_user_gems': data.gems,
+              'viewloop_user_level': data.level,
+              'viewloop_user_avatar': data.avatar
+            });
+            sendResponse({ success: true, profile: data });
+          } else {
+            console.warn("⚠️ [BG] Failed to fetch profile:", data);
+            sendResponse({ success: true, warning: 'PROFILE_FETCH_FAILED' });
+          }
+        } catch (err) {
+          console.error("❌ [BG] Network error fetching profile:", err);
+          sendResponse({ success: true, warning: 'NETWORK_ERROR' });
+        }
       } else {
         sendResponse({ success: false, error: 'NO_TOKEN' });
       }
