@@ -58,6 +58,21 @@ document.addEventListener('DOMContentLoaded', async function () {
         window.open('https://viewloop.vercel.app/login', '_blank');
     });
 
+    // Refresh Sync logic
+    const refreshSyncBtn = document.getElementById('refreshSyncBtn');
+    if (refreshSyncBtn) {
+        refreshSyncBtn.addEventListener('click', async () => {
+            // 1. Clear storage
+            await chrome.storage.local.remove(['viewloop_auth_token', 'viewloop_user_id', 'auth_synced_at']);
+
+            // 2. Visual Feedback
+            els.statusText.textContent = 'تم مسح البيانات...';
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        });
+    }
+
     // Manual Token Save
     const manualInput = document.getElementById('manualTokenInput');
     const saveTokenBtn = document.getElementById('saveTokenBtn');
