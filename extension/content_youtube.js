@@ -57,12 +57,17 @@ class SimpleYouTubeMonitor {
     }
 
     async handlePlay() {
-        if (this.isWatching) return;
-
         const videoId = this.getVideoId();
         if (!videoId) return;
 
-        console.log('▶️ [CONTENT] Starting session for video:', videoId);
+        // If we are already watching/in-session, just ensure heartbeats are running (Resume)
+        if (this.isWatching && this.sessionId) {
+            console.log('▶️ [CONTENT] Resuming session for video:', videoId);
+            this.startHeartbeats();
+            return;
+        }
+
+        console.log('▶️ [CONTENT] Starting NEW session for video:', videoId);
 
         this.isWatching = true;
         this.videoId = videoId;
@@ -80,21 +85,20 @@ class SimpleYouTubeMonitor {
                 this.startHeartbeats();
             } else {
                 console.error('❌ [CONTENT] Failed to start session:', response);
+                this.isWatching = false; // Reset if failed
             }
         } catch (error) {
             console.error('❌ [CONTENT] Error starting session:', error);
+            this.isWatching = false;
         }
     }
 
     handlePause() {
         if (!this.isWatching) return;
 
-        console.log('⏸️ [CONTENT] Video paused');
+        console.log('⏸️ [CONTENT] Video paused (Session kept alive)');
         this.stopHeartbeats();
-
-        this.sendToBackground('STOP_WATCHING', {
-            sessionId: this.sessionId
-        });
+        // REMOVED: STOP_WATCHING call. We keep the session open.
     }
 
     handleEnd() {
@@ -114,6 +118,11 @@ class SimpleYouTubeMonitor {
         if (this.heartbeatInterval) return;
 
         console.log('💓 [CONTENT] Starting heartbeats');
+
+        // IMMEDIATE HEARTBEAT (Fix for "start from 1st second")
+        if (this.isWatching && this.currentVideo) {
+            this.sendHeartbeat();
+        }
 
         this.heartbeatInterval = setInterval(() => {
             if (this.isWatching && this.currentVideo) {
