@@ -118,6 +118,15 @@ class SimpleYouTubeMonitor {
     handlePause() {
         if (!this.isWatching) return;
 
+        // Check if this pause is actually an "End"
+        // If we are within 1 second of duration, treat as ended.
+        if (this.currentVideo && this.currentVideo.duration &&
+            this.currentVideo.currentTime >= (this.currentVideo.duration - 1)) {
+            console.log('🏁 [CONTENT] Video paused at end -> Treating as End');
+            this.handleEnd();
+            return;
+        }
+
         console.log('⏸️ [CONTENT] Video paused (Session kept alive)');
         this.stopHeartbeats();
         // REMOVED: STOP_WATCHING call. We keep the session open.
@@ -155,14 +164,22 @@ class SimpleYouTubeMonitor {
             // 🛡️ SECURITY CHECK: Detect if video ended but event wasn't caught
             if (this.currentVideo.ended) {
                 console.warn('⚠️ [CONTENT] Video ended detected via loop (Event missed)');
-                this.handleEnd(); // This will stop heartbeats and finalize session
+                this.handleEnd();
+                return;
+            }
+
+            // 🛡️ BOUNDS CHECK: Verify we haven't exceeded duration
+            // YouTube sometimes doesn't fire 'ended' if it auto-navigates, but currentTime will be at end.
+            if (this.currentVideo.duration && this.currentVideo.currentTime >= (this.currentVideo.duration - 1)) {
+                console.warn('⚠️ [CONTENT] Video at end duration detected via loop -> Forcing End');
+                this.handleEnd();
                 return;
             }
 
             // 🛡️ SECURITY CHECK: Detect if video paused but event wasn't caught
             if (this.currentVideo.paused) {
                 console.warn('⚠️ [CONTENT] Video paused detected via loop (Event missed)');
-                this.handlePause(); // This will stop heartbeats
+                this.handlePause();
                 return;
             }
 
