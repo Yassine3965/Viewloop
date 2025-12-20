@@ -38,10 +38,35 @@ document.addEventListener('DOMContentLoaded', async function () {
             els.statusText.textContent = 'متصل';
             els.statusBadge.classList.add('active');
 
-            // Set User Data
-            els.userName.textContent = userName || (userId ? userId.substring(0, 10) + '...' : 'مستخدم');
-            els.userPoints.textContent = stored.viewloop_user_points !== undefined ? stored.viewloop_user_points : '--';
-            els.userGems.textContent = stored.viewloop_user_gems !== undefined ? stored.viewloop_user_gems : '--';
+            // Set User Data with Fallback
+            if (userName) {
+                els.userName.textContent = userName;
+            } else {
+                if (userId && userId !== 'manual_user') {
+                    els.userName.textContent = userId.substring(0, 10) + '...';
+                } else {
+                    els.userName.textContent = 'جاري التحميل...';
+                }
+
+                // 🚀 PROACTIVE FETCH: If name is missing, ask background to fetch it now
+                chrome.runtime.sendMessage({ type: 'FETCH_PROFILE' }, (response) => {
+                    if (response && response.success && response.profile) {
+                        const p = response.profile;
+                        els.userName.textContent = p.name;
+                        els.userPoints.textContent = parseFloat(p.points).toFixed(2);
+                        els.userGems.textContent = parseFloat(p.gems).toFixed(2);
+                        document.getElementById('userLevel').textContent = `المستوى ${p.level}`;
+                    }
+                });
+            }
+
+            // Stats Formatting
+            if (stored.viewloop_user_points !== undefined) {
+                els.userPoints.textContent = parseFloat(stored.viewloop_user_points).toFixed(2);
+            }
+            if (stored.viewloop_user_gems !== undefined) {
+                els.userGems.textContent = parseFloat(stored.viewloop_user_gems).toFixed(2);
+            }
 
             const level = stored.viewloop_user_level || 1;
             document.getElementById('userLevel').textContent = `المستوى ${level}`;
