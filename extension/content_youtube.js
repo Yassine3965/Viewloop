@@ -125,9 +125,26 @@ class SimpleYouTubeMonitor {
         }
 
         this.heartbeatInterval = setInterval(() => {
-            if (this.isWatching && this.currentVideo) {
-                this.sendHeartbeat();
+            if (!this.isWatching || !this.currentVideo) {
+                this.stopHeartbeats();
+                return;
             }
+
+            // 🛡️ SECURITY CHECK: Detect if video ended but event wasn't caught
+            if (this.currentVideo.ended) {
+                console.warn('⚠️ [CONTENT] Video ended detected via loop (Event missed)');
+                this.handleEnd(); // This will stop heartbeats and finalize session
+                return;
+            }
+
+            // 🛡️ SECURITY CHECK: Detect if video paused but event wasn't caught
+            if (this.currentVideo.paused) {
+                console.warn('⚠️ [CONTENT] Video paused detected via loop (Event missed)');
+                this.handlePause(); // This will stop heartbeats
+                return;
+            }
+
+            this.sendHeartbeat();
         }, 5000);
     }
 
