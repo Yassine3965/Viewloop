@@ -316,6 +316,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       } else {
         sendResponse({ success: false, error: 'NO_TOKEN' });
       }
+      return true; // Keep channel open for async response
       break;
 
     case 'START_WATCHING':
