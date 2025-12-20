@@ -46,7 +46,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Button Actions
     els.startWatchBtn.addEventListener('click', () => {
-        window.open('https://viewloop.vercel.app/watch', '_blank');
+        // Direct Professional Redirect
+        window.open('https://viewloop.vercel.app/api/direct-watch', '_blank');
     });
 
     els.openDashboardBtn.addEventListener('click', () => {
