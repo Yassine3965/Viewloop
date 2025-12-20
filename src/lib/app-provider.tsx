@@ -581,9 +581,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       <AppDispatchContext.Provider value={dispatchContextValue}>
         {children}
         <PointsAwardedModal
-          open={awardedPoints > 0}
-          points={awardedPoints}
-          onConfirm={() => setAwardedPoints(0)}
+          open={!!awardedPoints}
+          data={awardedPoints}
+          onConfirm={() => setAwardedPoints(null)}
         />
       </AppDispatchContext.Provider>
     </AppStateContext.Provider>
