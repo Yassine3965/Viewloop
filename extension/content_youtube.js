@@ -282,7 +282,14 @@ if (document.readyState === 'loading') {
 window.addEventListener('yt-navigate-finish', () => {
     console.log('🔄 [CONTENT] YouTube navigation detected');
     if (window.youtubeMonitor) {
-        window.youtubeMonitor.reset();
+        // CRITICAL: If we were watching, close the old session properly before starting a new one!
+        if (window.youtubeMonitor.isWatching && window.youtubeMonitor.sessionId) {
+            console.log('👋 [CONTENT] Closing previous session before navigation reset');
+            window.youtubeMonitor.handleEnd();
+        } else {
+            window.youtubeMonitor.reset();
+        }
+
         setTimeout(() => window.youtubeMonitor.initialize(), 1000);
     }
 });
