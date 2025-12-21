@@ -96,7 +96,7 @@ export default function CampaignForm() {
   const resetForm = () => {
     setTitle('');
     setUrl('');
-    setDuration(60);
+    setDurationManual(60);
     setErrors({});
   };
 
