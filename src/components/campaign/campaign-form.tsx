@@ -23,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Clock } from 'lucide-react';
+import { Loader2, Clock, Sparkles } from 'lucide-react';
 import { useApp } from '@/lib/app-provider';
 
 function SubmitButton({ disabled, onCalculate }: { disabled?: boolean, onCalculate: () => void }) {
