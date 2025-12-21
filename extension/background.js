@@ -81,6 +81,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'GET_SESSIONS':
       sendResponse({ success: true, sessions: Array.from(activeSessions.values()) });
       break;
+    case 'SEND_HEARTBEATS':
+      handleHeartbeats(message, sendResponse);
+      return true;
   }
 });
 

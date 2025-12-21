@@ -117,22 +117,18 @@ class ViewLoopMonitor {
         this.heartbeatBatch = [];
 
         try {
-            const response = await fetch('https://viewloop.vercel.app/api/heartbeat-batch', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    sessionId: this.sessionId,
-                    sessionToken: this.sessionToken,
-                    heartbeats: batch
-                })
+            // Send via background script to avoid CORS
+            const response = await chrome.runtime.sendMessage({
+                type: 'SEND_HEARTBEATS',
+                sessionId: this.sessionId,
+                sessionToken: this.sessionToken,
+                heartbeats: batch
             });
 
-            if (response.ok) {
+            if (response && response.success) {
                 console.log(`💓 [ViewLoop] Sent ${batch.length} heartbeats`);
             } else {
-                console.warn('⚠️ [ViewLoop] Heartbeat failed:', response.status);
+                console.warn('⚠️ [ViewLoop] Heartbeat failed:', response?.error);
             }
         } catch (error) {
             console.error('❌ [ViewLoop] Heartbeat error:', error);
