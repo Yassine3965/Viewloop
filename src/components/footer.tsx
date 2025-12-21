@@ -15,11 +15,8 @@ export function Footer() {
           </p>
         </div>
         <nav className="flex items-center gap-4 md:gap-6 text-sm text-muted-foreground">
-          <Link href="/how-it-works" className="hover:text-primary transition-colors" prefetch={false}>
-            كيف يعمل
-          </Link>
-          <Link href="/how-to-earn-more" className="hover:text-primary transition-colors" prefetch={false}>
-            كيف تربح أكثر
+          <Link href="/about" className="hover:text-primary transition-colors" prefetch={false}>
+            حول النظام
           </Link>
           <Link href="/privacy-policy" className="hover:text-primary transition-colors" prefetch={false}>
             سياسة الخصوصية

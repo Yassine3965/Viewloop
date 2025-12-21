@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 // Logged In
                 els.userCard.style.display = 'flex';
                 els.loginPrompt.style.display = 'none';
-                els.statusText.textContent = 'متصل';
+                els.statusText.textContent = 'Connection Active';
                 els.statusBadge.classList.add('active');
 
                 // Set User Data with Fallback
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 // Anonymous / Not Logged In
                 els.userCard.style.display = 'none';
                 els.loginPrompt.style.display = 'block';
-                els.statusText.textContent = 'غير متصل';
+                els.statusText.textContent = 'Connection Idle';
                 els.statusBadge.classList.remove('active');
             }
 

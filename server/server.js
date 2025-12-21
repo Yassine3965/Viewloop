@@ -1,5 +1,5 @@
 // =====================================================
-//      SECURE VIEWLOOP SERVER — Anti-Cheat Points System
+//      SECURE VIEWLOOP SERVER — Pulse-Driven Brain 🧠
 // =====================================================
 
 const express = require('express');
@@ -10,161 +10,162 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+    cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
 app.use(express.json());
+app.use(require('cors')());
 
-// قاعدة بيانات آمنة للجلسات
 const secureSessions = new Map(); // sessionId -> sessionData
-const processedSessions = new Set(); // sessionIds التي تم معالجتها
 const socketToSession = new Map(); // socket.id -> sessionId
 
-// CORS configuration (for REST endpoints)
-const corsOptions = {
-    origin: true,
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'X-Signature', 'X-Timestamp', 'X-Request-ID']
-};
-app.use(require('cors')(corsOptions));
+const NEXTJS_API_URL = process.env.NEXTJS_API_URL || "https://viewloop.vercel.app";
 
-// Stable JSON stringify
-function stableStringify(obj) {
-    return JSON.stringify(
-        Object.keys(obj).sort().reduce((acc, key) => {
-            acc[key] = obj[key];
-            return acc;
-        }, {})
-    );
+// ==========================
+// DB SYNC LOGIC
+// ==========================
+async function syncSessionToDatabase(sessionId) {
+    const session = secureSessions.get(sessionId);
+    if (!session || session.synced) return;
+
+    console.log(`📡 [SYNC] Finalizing points for ${sessionId}: ${session.validSeconds}s`);
+
+    // Prepare body for Next.js API
+    // Must match what Next.js expects: { sessionId, videoId, points: 0, sessionData: { validSeconds } }
+    const body = {
+        sessionId: session.sessionId,
+        videoId: session.videoId || "UNKNOWN", // VideoId should ideally be passed in AUTH or fetched
+        points: 0,
+        sessionData: { validSeconds: session.validSeconds }
+    };
+
+    // Next.js signature logic: hash(JSON.stringify(sortedBody) + sessionToken)
+    const sortedKeys = Object.keys(body).sort();
+    const sortedBody = {};
+    sortedKeys.forEach(k => sortedBody[k] = body[k]);
+    const dataString = JSON.stringify(sortedBody);
+
+    const combined = dataString + session.sessionToken;
+    const signature = crypto.createHash('sha256').update(combined).digest('hex');
+
+    try {
+        const response = await fetch(`${NEXTJS_API_URL}/api/calculate-points`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Signature': signature
+            },
+            body: dataString
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            console.log(`✅ [SYNC] Successfully persisted ${sessionId}. Points Awarded: ${result.pointsAwarded}`);
+            session.synced = true;
+            secureSessions.delete(sessionId);
+        } else {
+            console.error(`❌ [SYNC] Failed to persist ${sessionId}:`, result.error || result);
+        }
+    } catch (err) {
+        console.error(`❌ [SYNC] Network error during persistence for ${sessionId}:`, err.message);
+    }
 }
 
-// verifySignature function modified for general use (retained for REST if needed)
-const verifySignature = (req, res, next) => {
-    // ... (keeping relevant parts for REST points calculation)
-    next();
-};
-
 // ==========================
-// WEBSOCKET LOGIC (CORE SECURITY)
+// WEBSOCKET LOGIC
 // ==========================
-
 io.on('connection', (socket) => {
-    console.log(`🔌 [WS] New connection: ${socket.id}`);
+    console.log(`🔌 [WS] New connection attempt: ${socket.id}`);
 
-    // 1. Handshake / Auth
     socket.on('AUTH', (data) => {
-        const { sessionId, sessionToken } = data;
+        const { sessionId, sessionToken, videoId } = data;
 
-        // In this new model, we don't have a global secret. 
-        // We verify that the sessionId exists in our secureSessions (created via /start-session)
-        // and that the token matches.
+        if (!sessionId || !sessionToken) {
+            console.warn(`⚠️ [WS] Auth failed: Missing sessionId or token`);
+            return socket.disconnect();
+        }
+
+        // Just-In-Time Session Creation
+        // Since the Extension initializes the session via Next.js first, 
+        // the Pulse Brain just needs to start tracking it.
+        if (!secureSessions.has(sessionId)) {
+            secureSessions.set(sessionId, {
+                sessionId,
+                sessionToken,
+                videoId: videoId || "UNKNOWN",
+                startTime: Date.now(),
+                validSeconds: 0,
+                synced: false,
+                lastHeartbeat: Date.now()
+            });
+            console.log(`🚀 [WS] Tracking NEW session: ${sessionId}`);
+        }
+
         const session = secureSessions.get(sessionId);
 
-        if (session && session.sessionToken === sessionToken) {
-            console.log(`✅ [WS] Socket ${socket.id} authenticated for session ${sessionId}`);
-            socketToSession.set(socket.id, sessionId);
-            session.socketId = socket.id;
-            socket.emit('AUTH_SUCCESS');
-        } else {
-            console.warn(`❌ [WS] Auth failed for socket ${socket.id}`);
-            socket.emit('AUTH_FAILED', { error: 'INVALID_TOKEN' });
-            socket.disconnect();
-        }
+        // Update socket mapping
+        socketToSession.set(socket.id, sessionId);
+        session.socketId = socket.id;
+        session.lastHeartbeat = Date.now();
+
+        socket.emit('AUTH_SUCCESS');
+        console.log(`✅ [WS] Session ${sessionId} Authenticated.`);
     });
 
-    // 2. Pulse Response (The server asks, the client responds)
     socket.on('PULSE_RESPONSE', (data) => {
         const sessionId = socketToSession.get(socket.id);
         const session = secureSessions.get(sessionId);
-
         if (!session) return;
 
-        // Process pulse data
-        const heartbeat = {
-            timestamp: Date.now(),
-            videoTime: data.videoTime,
-            isPlaying: data.isPlaying,
-            isFocused: data.isFocused,
-            playbackRate: data.playbackRate
-        };
-
-        if (validateHeartbeatData(session, heartbeat)) {
-            session.heartbeats.push(heartbeat);
-            const prevHeartbeat = session.lastHeartbeat;
-            session.lastHeartbeat = heartbeat.timestamp;
-
-            // Point accumulation logic: count time between valid pulses
-            if (session.heartbeats.length > 1) {
-                const diff = heartbeat.timestamp - prevHeartbeat;
-                // Allow some jitter (8s +/- 4s)
-                if (diff >= 4000 && diff <= 15000 && heartbeat.isPlaying) {
-                    const addedSecs = Math.floor(diff / 1000);
-                    session.validSeconds += addedSecs;
-                    console.log(`💓 [WS] Heartbeat OK: +${addedSecs}s (Total: ${session.validSeconds}s) for ${sessionId}`);
-                } else {
-                    console.warn(`⚠️ [WS] Heartbeat ignored: diff=${diff}ms, playing=${heartbeat.isPlaying}`);
-                }
-            } else {
-                console.log(`💓 [WS] Initial heartbeat recorded for ${sessionId}`);
-            }
+        // The Brain decides: If playing, you get 8 seconds.
+        if (data.isPlaying) {
+            session.validSeconds += 8;
+            console.log(`💓 [WS] Pulse OK for ${sessionId}. Total Time: ${session.validSeconds}s`);
         } else {
-            console.warn(`❌ [WS] Heartbeat validation failed for ${sessionId}`);
+            console.log(`⏸️ [WS] Pulse Received: Video PAUSED for ${sessionId}`);
         }
+        session.lastHeartbeat = Date.now();
     });
 
     socket.on('disconnect', () => {
         const sessionId = socketToSession.get(socket.id);
         if (sessionId) {
-            console.log(`🔌 [WS] Session ${sessionId} disconnected`);
+            console.log(`🔌 [WS] Session DISCONNECTED: ${sessionId}. Initiating sync...`);
             socketToSession.delete(socket.id);
-            // We keep the session data for a while for point calculation
+            // Wait a small delay to handle transient disconnects? 
+            // For simplicity, sync immediately or after a short timeout
+            setTimeout(() => {
+                const session = secureSessions.get(sessionId);
+                if (session && !session.socketId) { // Still disconnected
+                    syncSessionToDatabase(sessionId);
+                }
+            }, 2000);
         }
     });
 });
 
-// Server-Driven Pulse (The Core Switch)
+// The server sends the Pulse every 8 seconds
 setInterval(() => {
     io.emit('PULSE_REQUEST', { ts: Date.now() });
-}, 8000); // Every 8 seconds the server pings all connected extensions
 
+    // Garbage collection for stale sessions
+    const now = Date.now();
+    for (const [id, session] of secureSessions.entries()) {
+        // If no heartbeat for 60 seconds, sync and remove
+        if (now - session.lastHeartbeat > 60000 && !session.synced) {
+            console.log(`🧹 [CLEANUP] Timing out dead session: ${id}`);
+            syncSessionToDatabase(id);
+        }
+    }
+}, 8000);
 
 // ==========================
-// SECURE REST API ENDPOINTS
+// API ENDPOINTS (Fallbacks)
 // ==========================
 
-// 2. حساب النقاط النهائي
-app.post('/calculate-points', (req, res) => {
-    const { sessionId } = req.body;
-
-    if (!sessionId || processedSessions.has(sessionId)) {
-        return res.status(400).json({ error: 'Invalid request or session already processed' });
-    }
-
-    const session = secureSessions.get(sessionId);
-    if (!session) {
-        return res.status(404).json({ error: 'Session not found' });
-    }
-
-    const points = calculatePointsSecurely(session);
-    session.finalPoints = points;
-    processedSessions.add(sessionId);
-
-    console.log(`🏆 Points awarded for ${sessionId}: ${points.totalPoints}`);
-
-    res.json({
-        success: true,
-        pointsAwarded: points.totalPoints,
-        breakdown: points
-    });
-});
-
-// 3. بدء الجلسة (Next.js API calls this)
 app.post('/start-session', (req, res) => {
-    const { videoId, userId, durationSeconds } = req.body;
-
+    // This is now primarily handled by Next.js, but kept for legacy/direct calls
+    const { videoId, userId } = req.body;
     const sessionId = `sess_${crypto.randomBytes(8).toString('hex')}`;
     const sessionToken = crypto.randomBytes(32).toString('hex');
 
@@ -173,55 +174,23 @@ app.post('/start-session', (req, res) => {
         sessionToken,
         videoId,
         userId: userId || 'anonymous',
-        videoDuration: durationSeconds || 0,
         startTime: Date.now(),
-        heartbeats: [],
         validSeconds: 0,
-        rewardSeconds: 0,
-        status: 'active'
+        synced: false,
+        lastHeartbeat: Date.now()
     });
 
-    console.log(`🚀 Session Created: ${sessionId} for video ${videoId}`);
-
-    res.json({
-        success: true,
-        sessionId,
-        sessionToken,
-        message: 'Proceed to connect via WebSocket'
-    });
+    console.log(`🚀 [LEGACY-START] Session ${sessionId} created locally`);
+    res.json({ success: true, sessionId, sessionToken });
 });
 
-// Helper Functions
-function validateHeartbeatData(session, heartbeat) {
-    if (heartbeat.videoTime === undefined || heartbeat.videoTime < 0) return false;
-    // Ensure we don't get pulses too fast (anti-spam)
-    const timeSinceLast = heartbeat.timestamp - (session.lastHeartbeat || session.startTime);
-    if (timeSinceLast < 3000) return false;
-    return true;
-}
-
-function calculatePointsSecurely(session) {
-    const validSeconds = session.validSeconds || 0;
-    const pointsPerSec = 0.05;
-    const totalPoints = Math.round(validSeconds * pointsPerSec * 100) / 100;
-
-    return {
-        totalPoints,
-        validSeconds,
-        videoId: session.videoId
-    };
-}
-
-// Health checks
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        activeSessions: secureSessions.size,
-        connectedSockets: socketToSession.size
-    });
+app.post('/sync', (req, res) => {
+    const { sessionId } = req.body;
+    syncSessionToDatabase(sessionId);
+    res.json({ success: true, message: "Sync triggered" });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = 3001;
 server.listen(PORT, () => {
-    console.log(`🚀 Secure ViewLoop Server running on port ${PORT}`);
+    console.log(`🚀 Secure Pulse-Brain Server running on port ${PORT}`);
 });

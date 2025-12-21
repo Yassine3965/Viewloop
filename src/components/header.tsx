@@ -99,11 +99,11 @@ function UserSection() {
           </DeleteAccountDialog>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="flex items-center gap-2" title="النقاط">
+      <div className="flex items-center gap-2" title="وحدات النشاط">
         <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
         <span className="font-semibold">{user.points ?? 0}</span>
       </div>
-      <div className="flex items-center gap-2" title="المجوهرات">
+      <div className="flex items-center gap-2" title="وحدات التقدم">
         <Gem className="h-5 w-5 text-sky-400 fill-sky-400" />
         <span className="font-semibold">{user.gems ?? 0}</span>
       </div>

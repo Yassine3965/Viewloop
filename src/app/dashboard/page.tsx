@@ -84,7 +84,7 @@ function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImpr
                         <AlertDialogHeader>
                             <AlertDialogTitle>تأكيد تحسين السمعة</AlertDialogTitle>
                             <AlertDialogDescription>
-                                هل أنت متأكد أنك تريد إنفاق <span className="font-bold text-primary">50 جوهرة</span> لزيادة سمعتك بمقدار <span className="font-bold text-primary">0.5</span>؟
+                                هل أنت متأكد أنك تريد إنفاق <span className="font-bold text-primary">50 وحدة تقدم</span> لزيادة سمعتك بمقدار <span className="font-bold text-primary">0.5</span>؟
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -125,8 +125,8 @@ function LevelDisplay({ currentLevel }: { currentLevel: number }) {
                                 </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{info.points} نقطة/ثانية</p>
-                                {Number(levelKey) > 1 && <p>يتطلب {info.gems} جوهرة</p>}
+                                <p>{info.points} وحدة نشاط/ثانية</p>
+                                {Number(levelKey) > 1 && <p>يتطلب {info.gems} وحدة تقدم</p>}
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -269,14 +269,14 @@ export default function DashboardPage() {
                                         <span className="text-2xl font-black font-outfit text-glow text-pink-400 tracking-tighter">
                                             {Number(user.gems || 0).toLocaleString()}
                                         </span>
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">الجواهر</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">وحدات التقدم</span>
                                     </div>
                                     <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center">
                                         <Star className="h-5 w-5 text-amber-400 mb-2" />
                                         <span className="text-2xl font-black font-outfit text-glow text-amber-400 tracking-tighter">
                                             {Number(user.points || 0).toLocaleString()}
                                         </span>
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">النقاط</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">وحدات النشاط</span>
                                     </div>
                                 </div>
 
@@ -325,10 +325,10 @@ export default function DashboardPage() {
                                 <div className="p-3 bg-primary/20 rounded-2xl text-primary ring-1 ring-primary/30 group-hover:scale-110 transition-transform">
                                     <PlusCircle className="h-7 w-7" />
                                 </div>
-                                <span>إنشاء حملة إعلانية</span>
+                                <span>إنشاء سجل نشاط جديد</span>
                             </CardTitle>
                             <CardDescription className="pt-2 text-base leading-relaxed">
-                                ابدأ في زيادة انتشار محتواك الآن من خلال إنشاء حملة جديدة.
+                                ابدأ في توثيق حضورك الرقمي من خلال إنشاء سجل نشاط جديد.
                                 {!user.emailVerified && <span className="text-destructive font-bold block mt-2 animate-pulse">⚠️ يرجى تفعيل بريدك الإلكتروني.</span>}
                             </CardDescription>
                         </CardHeader>
@@ -341,7 +341,7 @@ export default function DashboardPage() {
                                 )}
                                 disabled={!canCreateCampaign || (user.points || 0) <= 0}
                             >
-                                <Link href={`/campaign`}>أنشئ حملتك الآن</Link>
+                                <Link href={`/campaign`}>أنشئ سجل نشاط الآن</Link>
                             </Button>
                         </CardContent>
                     </Card>
@@ -352,15 +352,15 @@ export default function DashboardPage() {
                                 <div className="p-3 bg-accent/20 rounded-2xl text-accent ring-1 ring-accent/30 group-hover:scale-110 transition-transform">
                                     <PlayCircle className="h-7 w-7" />
                                 </div>
-                                <span>تصفح الفيديوهات</span>
+                                <span>استكشاف الأنشطة</span>
                             </CardTitle>
                             <CardDescription className="pt-2 text-base leading-relaxed">
-                                شاهد فيديوهات الآخرين واكتشف محتوى جديداً لتربح النقاط والجواهر.
+                                تفاعل مع سجلات المستخدمين الآخرين وقم بتطوير مستواك التقني.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow relative z-10">
                             <Button asChild className="w-full h-14 text-lg font-bold rounded-2xl premium-gradient hover:opacity-90 shadow-[0_10px_20px_-10px_rgba(139,92,246,0.3)]">
-                                <Link href={`/watch`}>ابدأ المشاهدة الآن</Link>
+                                <Link href={`/watch`}>ابدأ الاستكشاف الآن</Link>
                             </Button>
                         </CardContent>
                     </Card>

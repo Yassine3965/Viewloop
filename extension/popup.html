@@ -20,8 +20,8 @@
       </div>
       <div id="connectionStatus" class="status-badge">
         <span class="status-dot"></span>
-        <span id="statusText">جاري الاتصال...</span>
-        <button id="refreshSyncBtn" title="تجديد المزامنة"
+        <span id="statusText">Connection Active</span>
+        <button id="refreshSyncBtn" title="Refresh Session"
           style="background:none; border:none; cursor:pointer; padding:0 4px; color:rgba(255,255,255,0.7);">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 4v6h-6"></path>
@@ -45,7 +45,7 @@
     <div id="loginPrompt" class="auth-card" style="display: none;">
       <div class="auth-header-card">
         <h3 class="auth-title">ViewLoop</h3>
-        <p class="auth-subtitle">سجل دخولك للمزامنة وكسب الجوائز</p>
+        <p class="auth-subtitle">سجل دخولك للمزامنة ومتابعة نشاطك</p>
       </div>
 
       <div class="auth-actions-container">
@@ -83,38 +83,45 @@
       <p class="auth-footer-help">سيتم توجيهك للموقع لإتمام العملية بأمان</p>
     </div>
 
-    <!-- STATS -->
     <div class="stats-grid">
       <div class="stat-item stat-points">
-        <span class="stat-icon">🏆</span>
+        <span class="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10" />
+          </svg></span>
         <span id="userPoints" class="stat-value">--</span>
-        <span class="stat-label">نقاط</span>
+        <span class="stat-label">Activity Units</span>
       </div>
       <div class="stat-item stat-gems">
-        <span class="stat-icon">💎</span>
+        <span class="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+          </svg></span>
         <span id="userGems" class="stat-value">--</span>
-        <span class="stat-label">جواهر</span>
+        <span class="stat-label">Progress Units</span>
       </div>
     </div>
+
+    <p style="text-align: center; font-size: 10px; color: rgba(255,255,255,0.5); margin: -8px 0 10px 0;">
+      Values are synchronized from your account dashboard
+    </p>
 
     <!-- INVALID SESSION ALERT -->
     <div id="invalidSessionAlert" class="alert-card alert-error" style="display: none;">
       <span class="alert-icon">⚠️</span>
       <div class="alert-content">
         <h4 class="alert-title">جلسة غير صالحة</h4>
-        <p class="alert-desc">هذا الفيديو ليس جزءاً من حملة ViewLoop. لن يتم احتساب أي نقاط.</p>
+        <p class="alert-desc">هذا الفيديو ليس جزءاً من نظام ViewLoop. لن يتم احتساب أي نشاط.</p>
       </div>
     </div>
 
     <!-- PROGRESS BARS (Active Session) -->
     <div id="progressSection" class="progress-section" style="display: none;">
       <div class="progress-header">
-        <span class="badge badge-active">جاري المشاهدة</span>
+        <span class="badge badge-active">جلسة نشطة</span>
         <span class="video-duration">المدة: <span id="videoDurationLabel">0:00</span></span>
       </div>
 
       <div class="progress-label">
-        <span>المشاهدة الأساسية</span>
+        <span>مدة الجلسة</span>
         <span id="progTextMain">0%</span>
       </div>
       <div class="progress-track">
@@ -122,7 +129,7 @@
       </div>
 
       <div class="progress-label">
-        <span>وقت إضافي (مكافأة 10x)</span>
+        <span>وقت إضافي (مستوى مرتفع)</span>
         <span id="progTextExtra" style="color:#f59e0b">0%</span>
       </div>
       <div class="progress-track">
@@ -136,7 +143,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
-        ابدأ المشاهدة
+        بدء جلسة
       </button>
 
       <button id="openDashboardBtn" class="btn btn-secondary">
@@ -150,7 +157,7 @@
     </div>
 
     <div class="footer">
-      Version 1.0.1 • Running Securely
+      Version 1.0.1 • Secure Channel Established
     </div>
   </div>
 

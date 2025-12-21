@@ -84,6 +84,14 @@ export async function POST(req: Request) {
     }
 
     // Calculate final points using secure server-side logic
+    // We prioritize validSeconds passed in the body by our WebSocket server
+    const pulseSeconds = body.sessionData?.validSeconds;
+    if (pulseSeconds !== undefined) {
+      console.log(`📡 [API] Using pulse-based validSeconds: ${pulseSeconds}`);
+      await sessionRef.update({ validSeconds: pulseSeconds });
+      session.validSeconds = pulseSeconds;
+    }
+
     const { totalPoints, totalGems, reputationDelta, validSeconds, extraSeconds } = calculatePointsSecurely(session);
 
     // Update user points and reputation in database

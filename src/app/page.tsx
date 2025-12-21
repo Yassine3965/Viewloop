@@ -74,23 +74,21 @@ export default function HomePage() {
         <div className="container px-4 md:px-6">
           <div className="flex flex-col justify-center space-y-6 text-center">
             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
-              ضاعف أرباح إعلانات يوتيوب
+              إدارة ذكية لجلسات النشاط الرقمي
             </h1>
             <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
-              منصة ViewLoop تحفز مشاهديك على مشاهدة الإعلانات بالكامل، مما يزيد
-              من أرباح قناتك بشكل مباشر. انضم إلينا وحوّل كل مشاهدة إلى دخل
-              إضافي.
+              منصة ViewLoop توفر حلاً متكاملاً لمزامنة تفاعلاتك الرقمية وتحليل أنماط النشاط عبر المتصفحات، مما يضمن تجربة متسقة ومنظمة لإدارة الجلسات.
             </p>
             <div className="flex flex-col gap-4 sm:flex-row justify-center">
               <Button asChild size="lg">
                 <Link href={user ? "/dashboard" : "/register"}>
-                  ابدأ الآن
+                  البدء الآن
                   <ArrowRight className="mr-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/how-it-works">
-                  كيف يعمل؟
+                <Link href="/about">
+                  تعرف على النظام
                   <PlayCircle className="mr-2 h-5 w-5" />
                 </Link>
               </Button>
@@ -112,11 +110,10 @@ export default function HomePage() {
         <div className="container px-4 md:px-6">
           <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-              Viewloop مصمم لزيادة أرباح منشئي المحتوى
+              أدوات متطورة لمزامنة وتحليل الجلسات
             </h2>
             <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-              نحن نقدم نظامًا مبتكرًا يربط بين منشئي المحتوى والمشاهدين. زيادة
-              أرباحك من الإعلانات لم تكن أسهل من أي وقت مضى.
+              نظامنا يركز على توفير بيانات دقيقة حول تفاعلات المستخدمين، مما يساعد في تحسين جودة النشاط الرقمي وتنظيمه بشكل احترافي.
             </p>
           </div>
           <div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 md:gap-12 lg:max-w-5xl lg:grid-cols-3">
@@ -124,30 +121,27 @@ export default function HomePage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
                 <TrendingUp className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-bold">زيادة أرباح الإعلانات</h3>
+              <h3 className="text-lg font-bold">مزامنة الحالة اللحظية</h3>
               <p className="text-sm text-muted-foreground">
-                نظامنا يشجع على مشاهدة الإعلانات بالكامل، مما يرفع من قيمة
-                الظهور ويزيد من دخلك من يوتيوب.
+                تقنية النبض (Pulse) تضمن مزامنة حالة الجلسة بدقة متناهية مع الخادم السحابي، مما يضمن عدم فقدان أي بيانات حول النشاط الرقمي.
               </p>
             </div>
             <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
                 <Star className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-bold">مكافآت للمشاهدين</h3>
+              <h3 className="text-lg font-bold">وحدات التقدم والنشاط</h3>
               <p className="text-sm text-muted-foreground">
-                يكسب المشاهدون نقاطًا مقابل كل ثانية مشاهدة، مع مكافأة خاصة عند
-                إكمال الإعلانات، مما يخلق تفاعلًا مربحًا للطرفين.
+                كسب وحدات تفصيلية تعكس مستوى التزام المستخدم واستمرارية النشاط، مما يساهم في بناء ملف شخصي موثوق.
               </p>
             </div>
             <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
                 <Eye className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-bold">زيادة مشاهدات الفيديو</h3>
+              <h3 className="text-lg font-bold">تحليل البيانات والتقارير</h3>
               <p className="text-sm text-muted-foreground">
-                استخدم النقاط التي تجمعها لإنشاء حملات لفيديوهاتك الخاصة، واحصل
-                على مشاهدات حقيقية من مجتمعنا.
+                تقارير شاملة حول وقت النشاط وأنماط التفاعل الرقمي، مما يساعد في تحسين الإنتاجية وفهم سلوك التصفح.
               </p>
             </div>
           </div>

@@ -43,7 +43,7 @@ function SubmitButton({ disabled, onCalculate }: { disabled?: boolean, onCalcula
           جارٍ التحقق...
         </>
       ) : (
-        "إضافة فيديو"
+        "إضافة سجل نشاط"
       )}
     </Button>
   );
@@ -142,7 +142,7 @@ export default function CampaignForm() {
     } else {
       toast({
         variant: "destructive",
-        title: "فشل إنشاء الحملة",
+        title: "فشل إنشاء السجل",
         description: result.message,
       });
     }
@@ -160,16 +160,16 @@ export default function CampaignForm() {
     <>
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>إنشاء حملة جديدة</CardTitle>
+          <CardTitle>إنشاء سجل نشاط جديد</CardTitle>
           <CardDescription>
-            أدخل رابط فيديو يوتيوب وعنوانًا لإضافته إلى قائمة الانتظار ليشاهده الآخرون.
+            أدخل رابط المصدر وعنواناً لإضافته إلى نظام المزامنة والتحليل التقني.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             <input type="hidden" name="userId" value={user?.id || ''} />
             <div className="space-y-2">
-              <Label htmlFor="title">عنوان الفيديو</Label>
+              <Label htmlFor="title">عنوان السجل</Label>
               <Input
                 id="title"
                 name="title"
@@ -184,7 +184,7 @@ export default function CampaignForm() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="url">رابط يوتيوب</Label>
+              <Label htmlFor="url">رابط المصدر (YouTube)</Label>
               <Input
                 id="url"
                 name="url"
@@ -206,7 +206,7 @@ export default function CampaignForm() {
                 مدة الفيديو (تلقائية)
               </Label>
               <p className="text-xs text-muted-foreground">
-                سيقوم النظام تلقائياً بجلب مدة الفيديو الدقيقة من يوتيوب لضمان عدالة توزيع النقاط.
+                سيقوم النظام تلقائياً بجلب بيانات الجلسة الدقيقة لضمان المزامنة الصحيحة لوحدات النشاط.
               </p>
             </div>
           </form>
@@ -219,7 +219,7 @@ export default function CampaignForm() {
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد تفاصيل الحملة</AlertDialogTitle>
+            <AlertDialogTitle>تأكيد تفاصيل سجل النشاط</AlertDialogTitle>
             <AlertDialogDescription>
               هل أنت متأكد أنك تريد إضافة هذا الفيديو؟
             </AlertDialogDescription>
@@ -248,7 +248,7 @@ export default function CampaignForm() {
                   جارٍ الإنشاء...
                 </>
               ) : (
-                "تأكيد وإنشاء الحملة"
+                "تأكيد وحفظ السجل"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

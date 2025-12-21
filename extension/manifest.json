@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ViewLoop Secure Monitor",
+  "name": "ViewLoop State Client",
   "version": "1.0.1",
-  "description": "Secure YouTube monitoring system",
+  "description": "A lightweight session state client that synchronizes browsing session status with a secure cloud service. It helps users maintain accurate activity states across tabs using a passive, server-driven connection model.",
   "icons": {
     "16": "icon16.png",
     "32": "icon32.png",
@@ -16,7 +16,7 @@
   "permissions": [
     "storage",
     "tabs",
-    "scripting"
+    "activeTab"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",

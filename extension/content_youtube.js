@@ -1,313 +1,78 @@
-// Simple YouTube Monitor for ViewLoop
-console.log("🚀 [CONTENT] ViewLoop Monitor loaded");
-
-// Simple monitor class
-class SimpleYouTubeMonitor {
+// Minimal ViewLoop Monitor - Just a State Provider
+class ViewLoopMonitor {
     constructor() {
+        this.isWatching = false;
         this.sessionId = null;
         this.videoId = null;
-        this.isWatching = false;
-        this.heartbeatInterval = null;
-        this.currentVideo = null;
-        this.heartbeatCount = 0;
-        this.metaSent = false; // Track if metadata was sent
-        this._startingSession = false; // Prevent race conditions
-
-        console.log('🎬 [CONTENT] Initializing YouTube monitor');
-        this.initialize();
+        this.video = null;
+        this.init();
     }
 
-    initialize() {
-        // Wait for YouTube to load
-        const checkYouTube = () => {
-            const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
-            const isYouTube = window.location.hostname.includes('youtube.com');
-
-            if (isYouTube && video) {
-                console.log('✅ [CONTENT] YouTube ready, setting up monitor');
-                this.setupVideoListeners(video);
-                // Start the global poller ensures we catch playback even if we missed the event
-                this.startGlobalPoller();
+    init() {
+        const findVideo = () => {
+            this.video = document.querySelector('video');
+            if (this.video) {
+                this.video.addEventListener('play', () => this.onPlay());
+                this.video.addEventListener('ended', () => this.onEnd());
+                console.log("✅ [ViewLoop] Monitor Ready");
+                if (!this.video.paused) this.onPlay();
             } else {
-                setTimeout(checkYouTube, 1000);
+                setTimeout(findVideo, 1000);
             }
         };
-
-        setTimeout(checkYouTube, 1000);
-    }
-
-
-    setupVideoListeners(video) {
-        if (!video) return;
-
-        this.currentVideo = video;
-        console.log('🎯 [CONTENT] Video listeners attached');
-
-        // Check immediately if already playing (Autoplay fix)
-        if (!video.paused) {
-            console.log("⚡ [CONTENT] Video already playing -> Triggering handlePlay");
-            this.handlePlay();
-        }
-
-        // Send video metadata when loaded (or immediately if already loaded)
-        if (video.readyState >= 1) {
-            this.sendVideoMeta(video);
-        }
-        video.addEventListener('loadedmetadata', () => this.sendVideoMeta(video));
-
-        video.addEventListener('play', () => this.handlePlay());
-        video.addEventListener('pause', () => this.handlePause());
-        video.addEventListener('ended', () => this.handleEnd());
+        findVideo();
     }
 
     getVideoId() {
-        try {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('v');
-        } catch (error) {
-            return null;
-        }
+        return new URLSearchParams(window.location.search).get('v');
     }
 
-    async handlePlay() {
-        const videoId = this.getVideoId();
-        if (!videoId) return;
+    async onPlay() {
+        const vid = this.getVideoId();
+        if (!vid || (this.isWatching && this.videoId === vid)) return;
 
-        // Prevent duplicate start if already watching or starting
-        if (this._startingSession) return;
-        if (this.isWatching && this.videoId === videoId) {
-            console.log('▶️ [CONTENT] Video already being watched/started. Skipping NEW session.');
-            return;
-        }
-
-        console.log('▶️ [CONTENT] Starting NEW session for video:', videoId);
-
-        this._startingSession = true;
+        console.log("▶️ [ViewLoop] Starting Session...");
         this.isWatching = true;
-        this.videoId = videoId;
-        this.sessionId = 'session_' + Date.now();
+        this.videoId = vid;
 
-        // Start session with background
-        try {
-            const response = await this.sendToBackground('START_WATCHING', {
-                sessionId: this.sessionId,
-                videoId: videoId
-            });
+        const res = await chrome.runtime.sendMessage({
+            type: 'START_WATCHING',
+            videoId: vid
+        });
 
-            if (response.success) {
-                console.log('✅ [CONTENT] Session started and authorized');
-                this.startHeartbeats();
-            } else {
-                console.warn(`🛑 [CONTENT] Session REJECTED:`, response.error || 'Unknown error');
-                this.reset();
-            }
-        } catch (error) {
-            console.error('❌ [CONTENT] Error starting session:', error);
-            this.reset();
-        } finally {
-            this._startingSession = false;
+        if (res.success) {
+            this.sessionId = res.sessionId;
+            console.log("✅ [ViewLoop] Session Active:", this.sessionId);
+        } else {
+            this.isWatching = false;
+            console.warn("❌ [ViewLoop] Session Rejected:", res.error);
         }
     }
 
-    handlePause() {
+    onEnd() {
         if (!this.isWatching) return;
-
-        const currentTime = this.currentVideo ? this.currentVideo.currentTime : 0;
-        const duration = this.currentVideo ? this.currentVideo.duration : 0;
-        const isAd = document.querySelector('.ad-showing') !== null;
-
-        console.log(`🔍 [CONTENT] Checking Pause State: Current=${currentTime.toFixed(2)}, Duration=${duration.toFixed(2)}, Ended=${this.currentVideo?.ended}, Ad=${isAd}`);
-
-        // Check if this pause is actually an "End"
-        // 1. If explicit 'ended' flag is true
-        // 2. If we are within 2 seconds of duration (relaxed from 1s)
-        // 3. If an Ad is showing at the end of its duration (Post-roll ad end)
-        if (this.currentVideo && (
-            this.currentVideo.ended ||
-            (duration > 0 && currentTime >= (duration - 2))
-        )) {
-            console.log('🏁 [CONTENT] Video (or Ad) ended -> Treating as Session End');
-            this.handleEnd();
-            return;
-        }
-
-        console.log('⏸️ [CONTENT] Video paused (Session kept alive)');
-        this.stopHeartbeats();
-    }
-
-    handleEnd() {
-        if (!this.isWatching) return;
-
-        console.log('🏁 [CONTENT] Video ended');
-        this.stopHeartbeats();
-
-        this.sendToBackground('STOP_WATCHING', {
-            sessionId: this.sessionId
-        });
-
-        this.reset();
-    }
-
-    startHeartbeats() {
-        console.log('💓 [CONTENT] Passive monitoring active (Waiting for server pulses)');
-        // No more internal heartbeat interval. 
-        // Background will ping us via GET_STATE.
-    }
-
-    stopHeartbeats() {
-        console.log('🛑 [CONTENT] Monitoring stopped');
-    }
-
-    sendHeartbeat() {
-        // Function retained for legacy calls but does nothing
-    }
-
-    // Send video metadata to server
-    sendVideoMeta(video) {
-        if (!video || !video.duration || isNaN(video.duration) || this.metaSent) return;
-
-        const videoId = this.getVideoId();
-        if (!videoId) return;
-
-        const duration = Math.floor(video.duration);
-
-        // Send metadata to server
-        // Send metadata to background to proxy to server
-        this.sendToBackground('SEND_VIDEO_META', {
-            sessionId: this.sessionId,
-            videoId: videoId,
-            duration: duration
-        }).then(() => {
-            console.log(`📊 [CONTENT] Video metadata queued for sending: ${videoId}`);
-            this.metaSent = true;
-        }).catch(err => {
-            console.error("❌ [CONTENT] Failed to queue metadata:", err);
-        });
-    }
-
-    async sendToBackground(type, data) {
-        return new Promise((resolve, reject) => {
-            try {
-                if (!chrome.runtime || !chrome.runtime.id) {
-                    throw new Error("Extension context invalidated.");
-                }
-
-                chrome.runtime.sendMessage({ type, ...data }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        const error = chrome.runtime.lastError.message;
-                        console.error(`❌ [CONTENT] Message error:`, error);
-
-                        // If context is dead, we must stop everything
-                        if (error.includes("context invalidated") || error.includes("connection. Receiving end does not exist")) {
-                            this.selfDestruct();
-                        }
-                        reject(error);
-                    } else {
-                        resolve(response);
-                    }
-                });
-            } catch (err) {
-                console.error(`❌ [CONTENT] Fatal message error:`, err.message);
-                if (err.message.includes("context invalidated")) {
-                    this.selfDestruct();
-                }
-                reject(err);
-            }
-        });
-    }
-
-    selfDestruct() {
-        console.warn("⚠️ [CONTENT] Extension context invalidated! Self-destructing monitor...");
-        this.stopHeartbeats();
-        if (this.pollerInterval) {
-            clearInterval(this.pollerInterval);
-            this.pollerInterval = null;
-        }
-        // Remove monitor from window to prevent further calls
-        window.youtubeMonitor = null;
-    }
-
-    reset() {
+        console.log("🏁 [ViewLoop] Video Ended");
+        chrome.runtime.sendMessage({ type: 'STOP_WATCHING', sessionId: this.sessionId });
         this.isWatching = false;
         this.sessionId = null;
-        this.videoId = null;
-        this.stopHeartbeats();
-        this.heartbeatCount = 0;
-        this.metaSent = false; // Reset metadata flag
-        console.log('🔄 [CONTENT] Monitor reset');
     }
 }
 
-// Separate interval storage to allow cleanup
-SimpleYouTubeMonitor.prototype.pollerInterval = null;
-
-SimpleYouTubeMonitor.prototype.startGlobalPoller = function () {
-    // Check every second for playback state
-    if (this.pollerInterval) clearInterval(this.pollerInterval);
-
-    this.pollerInterval = setInterval(() => {
-        try {
-            if (!this.currentVideo) {
-                this.currentVideo = document.querySelector('video.html5-main-video') || document.querySelector('video');
-            }
-
-            if (this.currentVideo && !this.currentVideo.paused && !this.isWatching) {
-                // Prevent multiple simultaneous start attempts
-                if (this._startingSession) return;
-                this._startingSession = true;
-
-                console.log("⚠️ [CONTENT] Playback detected via Global Poller -> Starting Session");
-                this.handlePlay().finally(() => {
-                    this._startingSession = false;
-                });
-            }
-        } catch (e) {
-            // If context is dead, this might throw
-            if (e.message.includes("context invalidated")) {
-                clearInterval(this.pollerInterval);
-            }
-        }
-    }, 1000);
-};
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        window.youtubeMonitor = new SimpleYouTubeMonitor();
-    });
-} else {
-    window.youtubeMonitor = new SimpleYouTubeMonitor();
-}
-
-// Add state listener for background pulse
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'GET_STATE' && window.youtubeMonitor) {
-        const video = window.youtubeMonitor.currentVideo;
+// Global state provider for pulses
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === 'GET_STATE') {
+        const v = document.querySelector('video');
         sendResponse({
-            videoTime: video ? Math.floor(video.currentTime) : 0,
-            isPlaying: video ? !video.paused : false,
-            isFocused: document.hasFocus(),
-            visibility: document.visibilityState,
-            playbackRate: video ? video.playbackRate : 1
+            isPlaying: v ? !v.paused : false,
+            videoTime: v ? Math.floor(v.currentTime) : 0
         });
     }
-    return false;
 });
 
-// Handle page navigation
+// Navigation support
 window.addEventListener('yt-navigate-finish', () => {
-    console.log('🔄 [CONTENT] YouTube navigation detected');
-    if (window.youtubeMonitor) {
-        // CRITICAL: If we were watching, close the old session properly before starting a new one!
-        if (window.youtubeMonitor.isWatching && window.youtubeMonitor.sessionId) {
-            console.log('👋 [CONTENT] Closing previous session before navigation reset');
-            window.youtubeMonitor.handleEnd();
-        } else {
-            window.youtubeMonitor.reset();
-        }
-
-        setTimeout(() => window.youtubeMonitor.initialize(), 1000);
-    }
+    if (window.vLoop) window.vLoop.onEnd();
+    window.vLoop = new ViewLoopMonitor();
 });
 
-console.log("✅ [CONTENT] ViewLoop Monitor initialized");
+window.vLoop = new ViewLoopMonitor();
