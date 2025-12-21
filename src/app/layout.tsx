@@ -26,7 +26,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&family=Outfit:wght@400;600;800&family=Inter:wght@400;600&display=swap"
           rel="stylesheet"
         />
         <link
@@ -49,7 +49,6 @@ export default function RootLayout({
           // فقط تأكد من أن Firebase مهيأ
           if (!window.firebase || !window.firebase.__bridgeInitialized) {
             console.log('⚡ تهيئة Firebase للامتداد...');
-            // The main firebase/client.ts will handle the actual initialization
           }
           
           return; // لا تحمّل جسراً إضافياً
@@ -64,7 +63,7 @@ export default function RootLayout({
         
         // تحميل الجسر المحلي المبسط
         setTimeout(() => {
-          if(window.__viewloopMinBridgeLoaded) return; // do not load it twice
+          if(window.__viewloopMinBridgeLoaded) return;
           const script = document.createElement('script');
           script.src = '/js/content_bridge.min.js';
           script.async = true;
@@ -78,7 +77,10 @@ export default function RootLayout({
         />
         <script src="/js/extension-compat.js" defer></script>
       </head>
-      <body className="font-body antialiased">
+      <body className="font-body antialiased relative selection:bg-primary/30">
+        {/* Global Noise Overlay */}
+        <div className="fixed inset-0 bg-noise pointer-events-none z-[9999]" />
+
         <Providers>
           <FirebaseClientProvider>
             <ClientBoundary>{children}</ClientBoundary>

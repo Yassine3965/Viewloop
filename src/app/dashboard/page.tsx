@@ -220,105 +220,151 @@ export default function DashboardPage() {
     const creationDate = user.createdAt?.toDate ? format(user.createdAt.toDate(), 'PPP', { locale: ar }) : 'غير معروف';
 
     return (
-        <>
-            <main className="flex-1 bg-muted/20 p-4 md:p-8">
-                <div className="container mx-auto max-w-6xl space-y-8">
+        <main className="flex-1 bg-background relative overflow-hidden pb-12">
+            {/* Background Decorative Blobs */}
+            <div className="absolute top-0 -right-20 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-40 -left-20 w-80 h-80 bg-accent/10 rounded-full blur-[100px] pointer-events-none" />
 
-                    <Card className="overflow-hidden shadow-lg">
-                        <CardContent className="p-6">
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                                {/* User Info & Levels */}
-                                <div className="flex flex-col md:flex-row items-center gap-6 flex-1">
-                                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                                        <Avatar className="h-24 w-24 border-4 border-card ring-4 ring-primary">
+            <div className="container mx-auto max-w-6xl space-y-8 p-4 md:p-8 animate-scale-in relative z-10">
+
+                {/* User Header Card */}
+                <Card className="overflow-hidden glass-card border-white/5 shadow-2xl">
+                    <CardContent className="p-6 md:p-10">
+                        <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
+                            {/* User Info & Levels */}
+                            <div className="flex flex-col md:flex-row items-center gap-8 flex-1 w-full">
+                                <div className="flex flex-col sm:flex-row items-center gap-6">
+                                    <div className="relative group">
+                                        <div className="absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-full blur opacity-40 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                                        <Avatar className="h-28 w-28 border-4 border-background ring-2 ring-white/10 relative">
                                             <AvatarImage src={user.avatar} alt={user.name} />
-                                            <AvatarFallback>{user.name.trim().charAt(0)}</AvatarFallback>
+                                            <AvatarFallback className="text-3xl bg-muted">{user.name.trim().charAt(0)}</AvatarFallback>
                                         </Avatar>
-                                        <div className="flex flex-col gap-1 items-center sm:items-start">
-                                            <h1 className="text-2xl font-bold">{user.name}</h1>
-                                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className='text-sm w-fit'>
-                                                {user.role === 'admin' ? "مسؤول" : "مستخدم"}
+                                    </div>
+                                    <div className="flex flex-col gap-2 items-center sm:items-start text-center sm:text-right">
+                                        <div className="flex items-center gap-3">
+                                            <h1 className="text-3xl font-extrabold tracking-tight">{user.name}</h1>
+                                            <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className="rounded-full px-3 py-1 text-xs">
+                                                {user.role === 'admin' ? "المسؤول" : "عضو مميز"}
                                             </Badge>
                                         </div>
+                                        <p className="text-muted-foreground flex items-center gap-2">
+                                            <Mail className="h-4 w-4" />
+                                            {user.email}
+                                        </p>
                                     </div>
-                                    <div className='flex-1 md:border-r md:pr-6 md:mr-6'>
-                                        <LevelDisplay currentLevel={user.level} />
+                                </div>
+                                <div className='flex-1 lg:border-r border-white/10 lg:pr-8 w-full'>
+                                    <LevelDisplay currentLevel={user.level} />
+                                </div>
+                            </div>
+
+                            {/* Wallet & Stats */}
+                            <div className="flex flex-col items-center gap-6 pt-8 lg:pt-0 lg:border-l border-white/10 border-dashed w-full lg:w-72 lg:pl-10">
+                                <div className="grid grid-cols-2 gap-4 w-full">
+                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center">
+                                        <Gem className="h-5 w-5 text-pink-400 mb-2" />
+                                        <span className="text-2xl font-black font-outfit text-glow text-pink-400 tracking-tighter">
+                                            {parseFloat(user.gems || 0).toLocaleString()}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">الجواهر</span>
+                                    </div>
+                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center">
+                                        <Star className="h-5 w-5 text-amber-400 mb-2" />
+                                        <span className="text-2xl font-black font-outfit text-glow text-amber-400 tracking-tighter">
+                                            {parseFloat(user.points || 0).toLocaleString()}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">النقاط</span>
                                     </div>
                                 </div>
 
-                                {/* Reputation */}
-                                <div className="flex flex-col items-center gap-2 pt-4 md:pt-0 border-t md:border-t-0 md:border-l border-dashed w-full md:w-auto md:pl-6">
-                                    <span className="text-sm font-bold text-muted-foreground">السمعة</span>
+                                <div className="w-full space-y-3">
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">مستوى السمعة</span>
+                                        <span className="text-xs font-outfit font-bold text-primary">{user.reputation?.toFixed(1)} / 5.0</span>
+                                    </div>
                                     <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
-
-                                    {/* Extension Connection Helper */}
-                                    <div className="mt-4 pt-4 border-t w-full flex justify-center">
+                                    <div className="pt-4 flex justify-center border-t border-white/5">
                                         <ExtensionConnectButton />
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                        <CardFooter className='bg-muted/30 p-4 border-t'>
-                            <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div className="flex items-center gap-2">
-                                    <Mail className="h-4 w-4 text-muted-foreground" />
-                                    <span className='truncate'>{user.email}</span>
+                        </div>
+                    </CardContent>
+                    <CardFooter className='bg-primary/5 p-5 border-t border-white/5'>
+                        <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-sm text-muted-foreground/80">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-background/50 rounded-lg">
+                                    <MapPin className="h-4 w-4" />
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                                    <span>{user.city || 'غير معروف'}, {user.country}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                                    <span>انضم في {creationDate}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4 text-muted-foreground" />
-                                    <span>آخر ظهور {lastLoginDate}</span>
-                                </div>
+                                <span className="font-medium">{user.city || 'غير معروف'}, {user.country}</span>
                             </div>
-                        </CardFooter>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-background/50 rounded-lg">
+                                    <Calendar className="h-4 w-4" />
+                                </div>
+                                <span className="font-medium">انضم في {creationDate}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-background/50 rounded-lg">
+                                    <Clock className="h-4 w-4" />
+                                </div>
+                                <span className="font-medium">آخر نشاط {lastLoginDate}</span>
+                            </div>
+                        </div>
+                    </CardFooter>
+                </Card>
+
+                {/* Quick Actions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <Card className="glass group hover:border-primary/50 transition-all duration-500 flex flex-col shadow-xl overflow-hidden shine-effect">
+                        <CardHeader className="relative z-10">
+                            <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                                <div className="p-3 bg-primary/20 rounded-2xl text-primary ring-1 ring-primary/30 group-hover:scale-110 transition-transform">
+                                    <PlusCircle className="h-7 w-7" />
+                                </div>
+                                <span>إنشاء حملة إعلانية</span>
+                            </CardTitle>
+                            <CardDescription className="pt-2 text-base leading-relaxed">
+                                ابدأ في زيادة انتشار محتواك الآن من خلال إنشاء حملة جديدة.
+                                {!user.emailVerified && <span className="text-destructive font-bold block mt-2 animate-pulse">⚠️ يرجى تفعيل بريدك الإلكتروني.</span>}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow relative z-10">
+                            <Button
+                                asChild
+                                className={cn(
+                                    "w-full h-14 text-lg font-bold rounded-2xl transition-all shadow-[0_10px_20px_-10px_rgba(34,197,94,0.3)]",
+                                    user.points > 0 ? "bg-success hover:bg-success/90 hover:shadow-success/40" : "bg-muted cursor-not-allowed opacity-50"
+                                )}
+                                disabled={!canCreateCampaign || (user.points || 0) <= 0}
+                            >
+                                <Link href={`/campaign`}>أنشئ حملتك الآن</Link>
+                            </Button>
+                        </CardContent>
                     </Card>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <Card className="hover:shadow-lg transition-shadow flex flex-col">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <PlusCircle className="h-6 w-6 text-primary" />
-                                    <span>إنشاء حملة إعلانية جديدة</span>
-                                </CardTitle>
-                                <CardDescription>
-                                    أضف الفيديو الخاص بك ليبدأ الآخرون بمشاهدته وتفاعلهم معه.
-                                    {!user.emailVerified && <span className="text-destructive font-semibold block mt-1">يجب تفعيل حسابك أولاً.</span>}
-                                    {user.emailVerified && user.points <= 0 && <span className="text-destructive font-semibold block mt-1">ليس لديك نقاط كافية لإنشاء حملة.</span>}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-grow flex flex-col justify-end">
-                                <Button asChild className={cn("w-full", user.points > 0 ? "bg-success hover:bg-success/90" : "bg-gray-400 cursor-not-allowed hover:bg-gray-400")} disabled={!canCreateCampaign || user.points <= 0}>
-                                    <Link href={`/campaign`}>ابدأ الآن</Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                        <Card className="hover:shadow-lg transition-shadow flex flex-col">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <PlayCircle className="h-6 w-6 text-primary" />
-                                    <span>شاهد واكسب</span>
-                                </CardTitle>
-                                <CardDescription>
-                                    شاهد فيديوهات المستخدمين الآخرين.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-grow flex flex-col justify-end">
-                                <Button asChild className="w-full">
-                                    <Link href={`/watch`}>تصفح الفيديوهات</Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
-
+                    <Card className="glass group hover:border-accent/50 transition-all duration-500 flex flex-col shadow-xl overflow-hidden shine-effect" style={{ '--shine-delay': '1s' } as any}>
+                        <CardHeader className="relative z-10">
+                            <CardTitle className="flex items-center gap-3 text-xl font-bold">
+                                <div className="p-3 bg-accent/20 rounded-2xl text-accent ring-1 ring-accent/30 group-hover:scale-110 transition-transform">
+                                    <PlayCircle className="h-7 w-7" />
+                                </div>
+                                <span>تصفح الفيديوهات</span>
+                            </CardTitle>
+                            <CardDescription className="pt-2 text-base leading-relaxed">
+                                شاهد فيديوهات الآخرين واكتشف محتوى جديداً لتربح النقاط والجواهر.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow relative z-10">
+                            <Button asChild className="w-full h-14 text-lg font-bold rounded-2xl premium-gradient hover:opacity-90 shadow-[0_10px_20px_-10px_rgba(139,92,246,0.3)]">
+                                <Link href={`/watch`}>ابدأ المشاهدة الآن</Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
                 </div>
-            </main>
-        </>
+
+            </div>
+        </main>
     );
 }
