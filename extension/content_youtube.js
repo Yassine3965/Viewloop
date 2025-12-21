@@ -1,10 +1,13 @@
-// Minimal ViewLoop Monitor - Just a State Provider
+// Minimal ViewLoop Monitor - REST API Heartbeat System
 class ViewLoopMonitor {
     constructor() {
         this.isWatching = false;
         this.sessionId = null;
+        this.sessionToken = null;
         this.videoId = null;
         this.video = null;
+        this.heartbeatInterval = null;
+        this.heartbeatBatch = [];
         this.init();
     }
 
@@ -14,6 +17,7 @@ class ViewLoopMonitor {
             if (this.video) {
                 this.video.addEventListener('play', () => this.onPlay());
                 this.video.addEventListener('ended', () => this.onEnd());
+                this.video.addEventListener('pause', () => this.onPause());
                 console.log("✅ [ViewLoop] Monitor Ready");
                 if (!this.video.paused) this.onPlay();
             } else {
@@ -29,7 +33,13 @@ class ViewLoopMonitor {
 
     async onPlay() {
         const vid = this.getVideoId();
-        if (!vid || (this.isWatching && this.videoId === vid)) return;
+        if (!vid || (this.isWatching && this.videoId === vid)) {
+            // Resume heartbeats if paused
+            if (this.isWatching && !this.heartbeatInterval) {
+                this.startHeartbeats();
+            }
+            return;
+        }
 
         console.log("▶️ [ViewLoop] Starting Session...");
         this.isWatching = true;
@@ -42,19 +52,108 @@ class ViewLoopMonitor {
 
         if (res.success) {
             this.sessionId = res.sessionId;
+            this.sessionToken = res.sessionToken;
             console.log("✅ [ViewLoop] Session Active:", this.sessionId);
+            this.startHeartbeats();
         } else {
             this.isWatching = false;
             console.warn("❌ [ViewLoop] Session Rejected:", res.error);
         }
     }
 
-    onEnd() {
+    onPause() {
+        console.log("⏸️ [ViewLoop] Video Paused");
+        this.stopHeartbeats();
+    }
+
+    startHeartbeats() {
+        if (this.heartbeatInterval) return;
+
+        console.log("💓 [ViewLoop] Starting heartbeats...");
+
+        // Send heartbeat every 8 seconds
+        this.heartbeatInterval = setInterval(() => {
+            this.sendHeartbeat();
+        }, 8000);
+
+        // Send first heartbeat immediately
+        this.sendHeartbeat();
+    }
+
+    stopHeartbeats() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+            console.log("⏹️ [ViewLoop] Stopped heartbeats");
+        }
+    }
+
+    async sendHeartbeat() {
+        if (!this.isWatching || !this.video) return;
+
+        const heartbeat = {
+            sessionId: this.sessionId,
+            sessionToken: this.sessionToken,
+            videoId: this.videoId,
+            timestamp: Date.now(),
+            videoTime: Math.floor(this.video.currentTime),
+            isPlaying: !this.video.paused,
+            isTabActive: !document.hidden,
+            isEnded: this.video.ended
+        };
+
+        this.heartbeatBatch.push(heartbeat);
+
+        // Send batch every 3 heartbeats (24 seconds)
+        if (this.heartbeatBatch.length >= 3) {
+            await this.flushHeartbeats();
+        }
+    }
+
+    async flushHeartbeats() {
+        if (this.heartbeatBatch.length === 0) return;
+
+        const batch = [...this.heartbeatBatch];
+        this.heartbeatBatch = [];
+
+        try {
+            const response = await fetch('https://viewloop.vercel.app/api/heartbeat-batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sessionId: this.sessionId,
+                    sessionToken: this.sessionToken,
+                    heartbeats: batch
+                })
+            });
+
+            if (response.ok) {
+                console.log(`💓 [ViewLoop] Sent ${batch.length} heartbeats`);
+            } else {
+                console.warn('⚠️ [ViewLoop] Heartbeat failed:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ [ViewLoop] Heartbeat error:', error);
+        }
+    }
+
+    async onEnd() {
         if (!this.isWatching) return;
         console.log("🏁 [ViewLoop] Video Ended");
+
+        this.stopHeartbeats();
+
+        // Flush any remaining heartbeats
+        await this.flushHeartbeats();
+
+        // Stop watching
         chrome.runtime.sendMessage({ type: 'STOP_WATCHING', sessionId: this.sessionId });
+
         this.isWatching = false;
         this.sessionId = null;
+        this.sessionToken = null;
     }
 }
 
@@ -75,6 +174,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 window.addEventListener('yt-navigate-finish', () => {
     if (window.vLoop) window.vLoop.onEnd();
     window.vLoop = new ViewLoopMonitor();
+});
+
+// Page unload - flush heartbeats
+window.addEventListener('beforeunload', () => {
+    if (window.vLoop) {
+        window.vLoop.flushHeartbeats();
+    }
 });
 
 window.vLoop = new ViewLoopMonitor();
