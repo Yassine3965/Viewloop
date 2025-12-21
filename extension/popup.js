@@ -131,6 +131,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     // === Monitoring UI Logic ===
     const monitorEls = {
         section: document.getElementById('progressSection'),
+        alert: document.getElementById('invalidSessionAlert'), // Add the alert element
         barMain: document.getElementById('barMain'),
         textMain: document.getElementById('progTextMain'),
         barExtra: document.getElementById('barExtra'),
@@ -144,12 +145,27 @@ document.addEventListener('DOMContentLoaded', async function () {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
-    function updateMonitoring() {
-        chrome.runtime.sendMessage({ type: 'GET_SESSIONS' }, (response) => {
+    async function updateMonitoring() {
+        // Find active tab to get its specific status
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        if (!tab) return;
+
+        chrome.runtime.sendMessage({ type: 'GET_SESSIONS', tabId: tab.id }, (response) => {
             if (chrome.runtime.lastError) return;
 
+            // 1. Handle Invalid State (Unauthorized Video)
+            if (response && response.invalid) {
+                monitorEls.alert.style.display = 'flex';
+                monitorEls.section.style.display = 'none';
+                return;
+            } else {
+                monitorEls.alert.style.display = 'none';
+            }
+
+            // 2. Handle Active Sessions
             if (response && response.success && response.sessions && response.sessions.length > 0) {
-                const session = response.sessions[response.sessions.length - 1];
+                // Find session for current tab if possible, otherwise use last
+                const session = response.sessions.find(s => s.tabId === tab.id) || response.sessions[response.sessions.length - 1];
                 const duration = session.duration || 0;
 
                 if (monitorEls.durationLabel && duration > 0) {

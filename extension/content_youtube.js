@@ -337,6 +337,21 @@ if (document.readyState === 'loading') {
     window.youtubeMonitor = new SimpleYouTubeMonitor();
 }
 
+// Add state listener for background pulse
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'GET_STATE' && window.youtubeMonitor) {
+        const video = window.youtubeMonitor.currentVideo;
+        sendResponse({
+            videoTime: video ? Math.floor(video.currentTime) : 0,
+            isPlaying: video ? !video.paused : false,
+            isFocused: document.hasFocus(),
+            visibility: document.visibilityState,
+            playbackRate: video ? video.playbackRate : 1
+        });
+    }
+    return false;
+});
+
 // Handle page navigation
 window.addEventListener('yt-navigate-finish', () => {
     console.log('🔄 [CONTENT] YouTube navigation detected');

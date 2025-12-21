@@ -97,10 +97,24 @@
       </div>
     </div>
 
+    <!-- INVALID SESSION ALERT -->
+    <div id="invalidSessionAlert" class="alert-card alert-error" style="display: none;">
+      <span class="alert-icon">⚠️</span>
+      <div class="alert-content">
+        <h4 class="alert-title">جلسة غير صالحة</h4>
+        <p class="alert-desc">هذا الفيديو ليس جزءاً من حملة ViewLoop. لن يتم احتساب أي نقاط.</p>
+      </div>
+    </div>
+
     <!-- PROGRESS BARS (Active Session) -->
-    <div id="progressSection" class="progress-section">
+    <div id="progressSection" class="progress-section" style="display: none;">
+      <div class="progress-header">
+        <span class="badge badge-active">جاري المشاهدة</span>
+        <span class="video-duration">المدة: <span id="videoDurationLabel">0:00</span></span>
+      </div>
+
       <div class="progress-label">
-        <span>المدة الأصلية: <span id="videoDurationLabel">0:00</span></span>
+        <span>المشاهدة الأساسية</span>
         <span id="progTextMain">0%</span>
       </div>
       <div class="progress-track">
@@ -108,7 +122,7 @@
       </div>
 
       <div class="progress-label">
-        <span>وقت إضافي (مكافآت أعلى)</span>
+        <span>وقت إضافي (مكافأة 10x)</span>
         <span id="progTextExtra" style="color:#f59e0b">0%</span>
       </div>
       <div class="progress-track">
