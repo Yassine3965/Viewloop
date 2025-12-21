@@ -144,6 +144,13 @@ class ViewLoopMonitor {
         // Flush any remaining heartbeats
         await this.flushHeartbeats();
 
+        // Complete session to award points
+        await chrome.runtime.sendMessage({
+            type: 'COMPLETE_SESSION',
+            sessionId: this.sessionId,
+            sessionToken: this.sessionToken
+        });
+
         // Stop watching
         chrome.runtime.sendMessage({ type: 'STOP_WATCHING', sessionId: this.sessionId });
 

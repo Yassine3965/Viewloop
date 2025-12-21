@@ -81,6 +81,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'SEND_HEARTBEATS':
       handleHeartbeats(message, sendResponse);
       return true;
+    case 'COMPLETE_SESSION':
+      handleCompleteSession(message, sendResponse);
+      return true;
     case 'FETCH_PROFILE':
       handleFetchProfile(sendResponse);
       return true;
@@ -126,16 +129,39 @@ async function handleHeartbeats(message, sendResponse) {
   await loadConfig();
 
   try {
+    // Generate signature for authentication
+    const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
+    const payload = JSON.stringify({
+      sessionId: message.sessionId,
+      sessionToken: message.sessionToken,
+      heartbeats: message.heartbeats
+    });
+
+    // Create HMAC signature
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(EXTENSION_SECRET);
+    const messageData = encoder.encode(payload);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+    const signatureHex = Array.from(new Uint8Array(signature))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
     const res = await fetch(`${ViewLoopConfig.API_BASE_URL}/api/heartbeat-batch`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-signature': signatureHex
       },
-      body: JSON.stringify({
-        sessionId: message.sessionId,
-        sessionToken: message.sessionToken,
-        heartbeats: message.heartbeats
-      })
+      body: payload
     });
 
     const data = await res.json();
@@ -149,6 +175,35 @@ async function handleHeartbeats(message, sendResponse) {
     }
   } catch (e) {
     console.error(`❌ [HEARTBEAT] Error:`, e.message);
+    sendResponse({ success: false, error: 'NETWORK_ERROR' });
+  }
+}
+
+async function handleCompleteSession(message, sendResponse) {
+  await loadConfig();
+
+  try {
+    const res = await fetch(`${ViewLoopConfig.API_BASE_URL}/api/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionToken: message.sessionToken
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      console.log(`✅ [COMPLETE] Session completed. Status: ${data.status}`);
+      sendResponse({ success: true, data });
+    } else {
+      console.warn(`⚠️ [COMPLETE] Failed:`, data.error);
+      sendResponse({ success: false, error: data.error });
+    }
+  } catch (e) {
+    console.error(`❌ [COMPLETE] Error:`, e.message);
     sendResponse({ success: false, error: 'NETWORK_ERROR' });
   }
 }
