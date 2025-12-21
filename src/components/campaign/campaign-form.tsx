@@ -58,25 +58,24 @@ type ConfirmationData = {
 export default function CampaignForm() {
   const { toast } = useToast();
   const { user, addVideo, isUserLoading } = useApp();
-  
+
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
-  const [duration, setDuration] = useState<number | ''>(60);
-  
-  const [errors, setErrors] = useState<{ title?: string, url?: string, duration?: string; }>({});
+  const [durationManual, setDurationManual] = useState<number | ''>(60);
+  const [errors, setErrors] = useState<{ title?: string, url?: string; }>({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationData, setConfirmationData] = useState<ConfirmationData>(null);
-  
+
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
     if (!title || title.length < 3) {
       newErrors.title = "يجب أن يكون العنوان 3 أحرف على الأقل.";
     }
-    
+
     try {
       if (!url) throw new Error("URL فارغ");
       const parsedUrl = new URL(url);
@@ -87,9 +86,8 @@ export default function CampaignForm() {
       newErrors.url = "الرجاء إدخال رابط يوتيوب صالح.";
     }
 
-    if (duration === '' || Number(duration) < 30) {
-      newErrors.duration = "الحد الأدنى للمدة هو 30 ثانية.";
-    }
+    // Duration is now server-side verified, client input is a secondary suggestion or can be ignored.
+    // We'll keep a basic check for form sanity but server has final word.
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -101,21 +99,21 @@ export default function CampaignForm() {
     setDuration(60);
     setErrors({});
   };
-  
+
   const handleCalculateAndConfirm = () => {
     if (!validateForm()) {
-        toast({
-            title: "خطأ في الإدخال",
-            description: "يرجى مراجعة الحقول وإصلاح الأخطاء.",
-            variant: 'destructive'
-        });
-        return;
+      toast({
+        title: "خطأ في الإدخال",
+        description: "يرجى مراجعة الحقول وإصلاح الأخطاء.",
+        variant: 'destructive'
+      });
+      return;
     }
 
     setConfirmationData({
-        title,
-        url,
-        duration: Number(duration),
+      title,
+      url,
+      duration: 0, // Server will fetch accurate duration
     });
     setShowConfirmation(true);
   };
@@ -123,16 +121,16 @@ export default function CampaignForm() {
 
   const handleConfirmSubmit = async () => {
     if (!confirmationData || !user) return;
-    
+
     setIsSubmitting(true);
 
     const { title, url, duration } = confirmationData;
 
     const result = await addVideo({
-        title,
-        url,
-        duration,
-        submitterId: user.id
+      title,
+      url,
+      duration,
+      submitterId: user.id
     });
 
     if (result.success) {
@@ -160,112 +158,102 @@ export default function CampaignForm() {
 
   return (
     <>
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>إنشاء حملة جديدة</CardTitle>
-        <CardDescription>
-          أدخل رابط فيديو يوتيوب وعنوانًا لإضافته إلى قائمة الانتظار ليشاهده الآخرون.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-          <input type="hidden" name="userId" value={user?.id || ''} />
-          <div className="space-y-2">
-            <Label htmlFor="title">عنوان الفيديو</Label>
-            <Input
-              id="title"
-              name="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-            {errors.title && (
-              <p className="text-sm font-medium text-destructive">
-                {errors.title}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="url">رابط يوتيوب</Label>
-            <Input
-              id="url"
-              name="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              required
-              type="url"
-            />
-            {errors.url && (
-              <p className="text-sm font-medium text-destructive">
-                {errors.url}
-              </p>
-            )}
-          </div>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>إنشاء حملة جديدة</CardTitle>
+          <CardDescription>
+            أدخل رابط فيديو يوتيوب وعنوانًا لإضافته إلى قائمة الانتظار ليشاهده الآخرون.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+            <input type="hidden" name="userId" value={user?.id || ''} />
+            <div className="space-y-2">
+              <Label htmlFor="title">عنوان الفيديو</Label>
+              <Input
+                id="title"
+                name="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
+              {errors.title && (
+                <p className="text-sm font-medium text-destructive">
+                  {errors.title}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="url">رابط يوتيوب</Label>
+              <Input
+                id="url"
+                name="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+                type="url"
+              />
+              {errors.url && (
+                <p className="text-sm font-medium text-destructive">
+                  {errors.url}
+                </p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="duration">مدة المشاهدة (بالثواني)</Label>
-            <Input
-              id="duration"
-              name="duration"
-              type="number"
-              placeholder="مثال: 60"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value === '' ? '' : Number(e.target.value))}
-              required
-              min="30"
-            />
-             {errors.duration && (
-                <p className="text-sm font-medium text-destructive">{errors.duration}</p>
-             )}
-            <p className="text-sm text-muted-foreground">
-             الحد الأدنى لمدة المشاهدة هو 30 ثانية.
-            </p>
-          </div>
-        </form>
-      </CardContent>
-      <CardFooter className="flex-col items-stretch gap-4 p-6 pt-4">
-        <SubmitButton onCalculate={handleCalculateAndConfirm} disabled={isSubmitting} />
-      </CardFooter>
-    </Card>
+            <div className="space-y-2 p-3 bg-primary/5 rounded-md border border-primary/20">
+              <Label className='flex items-center gap-2 text-primary'>
+                <Clock className="w-4 h-4" />
+                مدة الفيديو (تلقائية)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                سيقوم النظام تلقائياً بجلب مدة الفيديو الدقيقة من يوتيوب لضمان عدالة توزيع النقاط.
+              </p>
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter className="flex-col items-stretch gap-4 p-6 pt-4">
+          <SubmitButton onCalculate={handleCalculateAndConfirm} disabled={isSubmitting} />
+        </CardFooter>
+      </Card>
 
-    <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>تأكيد تفاصيل الحملة</AlertDialogTitle>
-          <AlertDialogDescription>
-            هل أنت متأكد أنك تريد إضافة هذا الفيديو؟
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="my-4 space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد تفاصيل الحملة</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد أنك تريد إضافة هذا الفيديو؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
-                <div className='flex items-center gap-2 text-muted-foreground'>
-                    <Clock className="w-4 h-4"/>
-                    <span>مدة المشاهدة: {confirmationData?.duration || '0'} ثانية</span>
-                </div>
+              <div className='flex items-center gap-2 text-primary font-bold'>
+                <Sparkles className="w-4 h-4" />
+                <span>سيتم جلب المدة الحقيقية تلقائياً</span>
+              </div>
             </div>
             <div className="flex items-start justify-between">
-                <div className='flex items-center gap-2 text-muted-foreground'>
-                    <svg xmlns="http://www.w3.org/2000/svg" className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21a9 9 0 0 0 9-9h-9v9Z"/><path d="M12 3a9 9 0 0 1 9 9h-9V3Z"/><path d="M12 12a9 9 0 0 1-9-9h9v9Z"/><path d="M12 12a9 9 0 0 0-9 9h9v-9Z"/></svg>
-                    <span>عنوان الفيديو</span>
-                </div>
-                <div className='font-semibold text-right max-w-[70%] truncate'>{confirmationData?.title}</div>
+              <div className='flex items-center gap-2 text-muted-foreground'>
+                <svg xmlns="http://www.w3.org/2000/svg" className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21a9 9 0 0 0 9-9h-9v9Z" /><path d="M12 3a9 9 0 0 1 9 9h-9V3Z" /><path d="M12 12a9 9 0 0 1-9-9h9v9Z" /><path d="M12 12a9 9 0 0 0-9 9h9v-9Z" /></svg>
+                <span>عنوان الفيديو</span>
+              </div>
+              <div className='font-semibold text-right max-w-[70%] truncate'>{confirmationData?.title}</div>
             </div>
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel>إلغاء</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirmSubmit} disabled={isSubmitting}>
-            {isSubmitting ? (
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
                 <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                جارٍ الإنشاء...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  جارٍ الإنشاء...
                 </>
-            ) : (
+              ) : (
                 "تأكيد وإنشاء الحملة"
-            )}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

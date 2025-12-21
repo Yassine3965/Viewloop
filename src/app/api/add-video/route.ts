@@ -84,7 +84,10 @@ export async function POST(req: Request) {
         try {
             // Fetch the YouTube page HTML
             const ytRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                }
             });
             const html = await ytRes.text();
 
@@ -92,30 +95,34 @@ export async function POST(req: Request) {
             const titleMatch = html.match(/<meta name="title" content="([^"]+)">/);
             if (titleMatch && titleMatch[1]) title = titleMatch[1];
 
-            // Regex for Duration <meta itemprop="duration" content="PT6M33S">
-            const durMatch = html.match(/<meta itemprop="duration" content="([^"]+)">/);
-            if (durMatch && durMatch[1]) {
-                duration = parseDuration(durMatch[1]);
-                console.log(`✅ [ADD-VIDEO] Parsed Duration: ${duration}s (${durMatch[1]})`);
+            // 1. Primary Scrape: approxDurationMs in ytInitialPlayerResponse
+            // This is the most reliable source in the page source
+            const approxMatch = html.match(/\\"approxDurationMs\\":\\"(\\d+)\\"/);
+            if (approxMatch && approxMatch[1]) {
+                duration = Math.floor(parseInt(approxMatch[1]) / 1000);
+                console.log(`✅ [ADD-VIDEO] Scraped Duration via JSON: ${duration}s`);
             } else {
-                // Try Regex for approximate duration used in scripts approxDurationMs":"363000"
-                const approxMatch = html.match(/"approxDurationMs":"(\d+)"/);
-                if (approxMatch && approxMatch[1]) {
-                    duration = Math.floor(parseInt(approxMatch[1]) / 1000);
-                    console.log(`✅ [ADD-VIDEO] Parsed Approx Duration: ${duration}s`);
+                // 2. Fallback: meta itemprop="duration"
+                const durMatch = html.match(/<meta itemprop="duration" content="([^"]+)">/);
+                if (durMatch && durMatch[1]) {
+                    duration = parseDuration(durMatch[1]);
+                    console.log(`✅ [ADD-VIDEO] Scraped Duration via Meta: ${duration}s (${durMatch[1]})`);
+                } else {
+                    // 3. Last Resort Fallback: look for "lengthSeconds":"..."
+                    const lengthMatch = html.match(/"lengthSeconds":"(\d+)"/);
+                    if (lengthMatch && lengthMatch[1]) {
+                        duration = parseInt(lengthMatch[1]);
+                        console.log(`✅ [ADD-VIDEO] Scraped Duration via lengthSeconds: ${duration}s`);
+                    }
                 }
             }
 
         } catch (e) {
-            console.warn("⚠️ [ADD-VIDEO] Failed to scrape metadata:", e);
-            // Fallback: 0 duration. (User will get no rewards until fixed?) 
-            // Or default to 60s? Better 0 to signify issue.
+            console.warn("⚠️ [ADD-VIDEO] Scraper failed:", e);
         }
 
         if (duration === 0) {
-            // Optional: Reject video if duration not found?
-            // User requested STRICT security. A 0-duration video should probably be rejected or flagged.
-            // For now, allow it but warn.
+            console.warn(`❌ [ADD-VIDEO] Could not find duration for ${videoId}. Setting to 0. Rewards will be blocked.`);
         }
 
         // 5. Save to Firestore

@@ -5,31 +5,17 @@ export async function POST(req: NextRequest) {
   try {
     const { videoId, duration, clientType } = await req.json();
 
-    // Validation
-    if (!videoId || !duration || duration < 10) {
-      console.warn('[API] Invalid video-meta data:', { videoId, duration });
-      return NextResponse.json({ success: false, error: 'Invalid data' });
-    }
-
-    // Validate client type
-    if (clientType !== 'extension') {
-      console.warn('[API] Unauthorized client type:', clientType);
-      return NextResponse.json({ success: false, error: 'Unauthorized' });
-    }
-
-    console.log(`[API] Updating video metadata: ${videoId} (${duration}s)`);
-
     const db = getFirestore();
     const videoRef = db.collection('videos').doc(videoId);
 
-    // Update video document with duration
+    // Update video document ONLY with non-sensitive metadata
+    // Duration is NOW EXCLUSIVELY managed by the server (trusted source)
     await videoRef.set({
-      duration: duration,
       updatedAt: new Date(),
       lastMetaUpdate: new Date()
     }, { merge: true });
 
-    console.log(`✅ [API] Video metadata updated: ${videoId}`);
+    console.log(`✅ [API] Video metadata updated (Timestamp only): ${videoId}`);
 
     return NextResponse.json({ success: true });
 
