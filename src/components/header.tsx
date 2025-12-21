@@ -47,7 +47,7 @@ function UserSection() {
       <Button asChild variant="outline">
         <Link href="/login" prefetch={false}>
           <LogIn className="ml-2 h-4 w-4" />
-          <span>تسجيل الدخول</span>
+          <span>Sign In</span>
         </Link>
       </Button>
     );
@@ -78,12 +78,12 @@ function UserSection() {
           <DropdownMenuItem asChild>
             <Link href="/dashboard" prefetch={false}>
               <LayoutDashboard className="ml-2 h-4 w-4" />
-              <span>لوحة التحكم</span>
+              <span>Dashboard</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="ml-2 h-4 w-4" />
-            <span>تسجيل الخروج</span>
+            <span>Sign Out</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DeleteAccountDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -93,20 +93,13 @@ function UserSection() {
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <Trash2 className="ml-2 h-4 w-4" />
-                <span>حذف الحساب</span>
+                <span>Terminate Account</span>
               </DropdownMenuItem>
             </DialogTrigger>
           </DeleteAccountDialog>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="flex items-center gap-2 group/header-units" title="وحدات النشاط">
-        <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
-        <span className="font-semibold blur-sm group-hover/header-units:blur-none transition-all duration-300">{Number(user.points || 0).toLocaleString()}</span>
-      </div>
-      <div className="flex items-center gap-2 group/header-units" title="وحدات التقدم">
-        <Gem className="h-5 w-5 text-sky-400 fill-sky-400" />
-        <span className="font-semibold blur-sm group-hover/header-units:blur-none transition-all duration-300">{Number(user.gems || 0).toLocaleString()}</span>
-      </div>
+
     </div>
   );
 }
@@ -141,7 +134,7 @@ export function Header() {
               >
                 <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                 <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">تبديل السمة</span>
+                <span className="sr-only">Toggle Theme</span>
               </Button>
             ) : <Skeleton className="h-8 w-8" />}
           </div>
@@ -153,7 +146,7 @@ export function Header() {
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="ابحث عن فيديو..."
+                placeholder="Search resources..."
                 className="w-full pr-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

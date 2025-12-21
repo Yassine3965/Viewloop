@@ -40,10 +40,10 @@ function SubmitButton({ disabled, onCalculate }: { disabled?: boolean, onCalcula
       {isPending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          جارٍ التحقق...
+          Verifying...
         </>
       ) : (
-        "إضافة سجل نشاط"
+        "Initialize Activity Record"
       )}
     </Button>
   );
@@ -73,17 +73,17 @@ export default function CampaignForm() {
     const newErrors: typeof errors = {};
 
     if (!title || title.length < 3) {
-      newErrors.title = "يجب أن يكون العنوان 3 أحرف على الأقل.";
+      newErrors.title = "Label must be at least 3 characters.";
     }
 
     try {
-      if (!url) throw new Error("URL فارغ");
+      if (!url) throw new Error("URL required");
       const parsedUrl = new URL(url);
       if (!parsedUrl.hostname.includes('youtube.com') && !parsedUrl.hostname.includes('youtu.be')) {
-        newErrors.url = "الرجاء إدخال رابط يوتيوب صالح.";
+        newErrors.url = "Provide a valid YouTube resource URL.";
       }
     } catch (_) {
-      newErrors.url = "الرجاء إدخال رابط يوتيوب صالح.";
+      newErrors.url = "Provide a valid YouTube resource URL.";
     }
 
     // Duration is now server-side verified, client input is a secondary suggestion or can be ignored.
@@ -103,8 +103,8 @@ export default function CampaignForm() {
   const handleCalculateAndConfirm = () => {
     if (!validateForm()) {
       toast({
-        title: "خطأ في الإدخال",
-        description: "يرجى مراجعة الحقول وإصلاح الأخطاء.",
+        title: "Validation Error",
+        description: "Please review input fields and correct parameters.",
         variant: 'destructive'
       });
       return;
@@ -135,14 +135,14 @@ export default function CampaignForm() {
 
     if (result.success) {
       toast({
-        title: "نجاح!",
+        title: "Success",
         description: result.message,
       });
       resetForm();
     } else {
       toast({
         variant: "destructive",
-        title: "فشل إنشاء السجل",
+        title: "Initialization Failed",
         description: result.message,
       });
     }
@@ -160,16 +160,16 @@ export default function CampaignForm() {
     <>
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>إنشاء سجل نشاط جديد</CardTitle>
+          <CardTitle>Initialize New Activity Record</CardTitle>
           <CardDescription>
-            أدخل رابط المصدر وعنواناً لإضافته إلى نظام المزامنة والتحليل التقني.
+            Input digital resource identifier for scheduled synchronization and heuristic analysis.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             <input type="hidden" name="userId" value={user?.id || ''} />
             <div className="space-y-2">
-              <Label htmlFor="title">عنوان السجل</Label>
+              <Label htmlFor="title">Activity Label</Label>
               <Input
                 id="title"
                 name="title"
@@ -184,7 +184,7 @@ export default function CampaignForm() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="url">رابط المصدر (YouTube)</Label>
+              <Label htmlFor="url">Resource URL (YouTube)</Label>
               <Input
                 id="url"
                 name="url"
@@ -203,10 +203,10 @@ export default function CampaignForm() {
             <div className="space-y-2 p-3 bg-primary/5 rounded-md border border-primary/20">
               <Label className='flex items-center gap-2 text-primary'>
                 <Clock className="w-4 h-4" />
-                مدة الفيديو (تلقائية)
+                Automatic Temporal Calibration
               </Label>
               <p className="text-xs text-muted-foreground">
-                سيقوم النظام تلقائياً بجلب بيانات الجلسة الدقيقة لضمان المزامنة الصحيحة لوحدات النشاط.
+                The system will automatically calibrate the resource duration to ensure protocol alignment with real-time standards.
               </p>
             </div>
           </form>
@@ -219,36 +219,36 @@ export default function CampaignForm() {
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد تفاصيل سجل النشاط</AlertDialogTitle>
+            <AlertDialogTitle>Confirm Activity Record Parameters</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد أنك تريد إضافة هذا الفيديو؟
+              Are you sure you want to initialize synchronization for this resource?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="my-4 space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div className='flex items-center gap-2 text-primary font-bold'>
                 <Sparkles className="w-4 h-4" />
-                <span>سيتم جلب المدة الحقيقية تلقائياً</span>
+                <span>Automatic duration detection active</span>
               </div>
             </div>
             <div className="flex items-start justify-between">
               <div className='flex items-center gap-2 text-muted-foreground'>
                 <svg xmlns="http://www.w3.org/2000/svg" className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21a9 9 0 0 0 9-9h-9v9Z" /><path d="M12 3a9 9 0 0 1 9 9h-9V3Z" /><path d="M12 12a9 9 0 0 1-9-9h9v9Z" /><path d="M12 12a9 9 0 0 0-9 9h9v-9Z" /></svg>
-                <span>عنوان الفيديو</span>
+                <span>Resource Label</span>
               </div>
               <div className='font-semibold text-right max-w-[70%] truncate'>{confirmationData?.title}</div>
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmSubmit} disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  جارٍ الإنشاء...
+                  Initializing...
                 </>
               ) : (
-                "تأكيد وحفظ السجل"
+                "Confirm and Persist Record"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

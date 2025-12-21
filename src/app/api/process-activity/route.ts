@@ -1,9 +1,10 @@
-// /app/api/calculate-points/route.ts - Final points calculation
+// /app/api/process-activity/route.ts - Activity and pulse processing
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { handleOptions, addCorsHeaders } from "../../../lib/cors";
 import { createHmac, createHash } from 'crypto';
 import { getFirestore } from "@/lib/firebase/admin";
+import admin from 'firebase-admin';
 
 // Use Firestore as the source of truth for session state
 
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { sessionId, videoId, points, sessionData } = body;
+    const { sessionId, videoId, sessionData } = body;
 
     if (!sessionId) {
       const response = NextResponse.json({ error: 'MISSING_SESSION_ID' }, { status: 400 });
@@ -92,61 +93,61 @@ export async function POST(req: Request) {
       session.validSeconds = pulseSeconds;
     }
 
-    const { totalPoints, totalGems, reputationDelta, validSeconds, extraSeconds } = calculatePointsSecurely(session);
+    const { activityPulse, systemCapacity, reputationDelta, validSeconds, extraSeconds, qualityMessage } = processActivityUnits(session);
 
-    // Update user points and reputation in database
+    // Update session indicators and reputation in database
     if (session.userId && session.userId !== 'anonymous') {
       try {
         const userRef = firestore.collection("users").doc(session.userId);
         const userSnap = await userRef.get();
 
         if (userSnap.exists) {
-          const currentPoints = userSnap.data()?.points || 0;
-          const currentGems = userSnap.data()?.gems || 0;
-          const currentReputation = userSnap.data()?.reputation || 4.5;
-          const newTotalPoints = currentPoints + totalPoints;
-          const newTotalGems = currentGems + totalGems;
+          const userData = userSnap.data();
+          const currentPulse = userData?.activityPulse || userData?.points || 0;
+          const currentCapacity = userData?.systemCapacity || userData?.gems || 0;
+          const currentReputation = userData?.reputation || 4.5;
+          const newTotalPulse = currentPulse + activityPulse;
+          const newTotalCapacity = currentCapacity + systemCapacity;
 
           const newReputation = Math.max(0, Math.min(5, currentReputation + reputationDelta));
 
           await userRef.update({
-            points: newTotalPoints,
-            gems: newTotalGems,
+            activityPulse: newTotalPulse,
+            systemCapacity: newTotalCapacity,
             reputation: newReputation,
             lastUpdated: Date.now(),
-            totalSessions: (userSnap.data()?.totalSessions || 0) + 1,
-            totalWatchTime: (userSnap.data()?.totalWatchTime || 0) + validSeconds
+            totalSessions: (userData?.totalSessions || 0) + 1,
+            totalWatchTime: (userData?.totalWatchTime || 0) + validSeconds,
+            lastSessionStatus: {
+              type: session.completedAt ? 'completion' : 'partial',
+              activityPulse: activityPulse,
+              qualityMessage: qualityMessage,
+              timestamp: admin.firestore.FieldValue.serverTimestamp()
+            }
           });
 
-          console.log(`✅ User ${session.userId} updated:`);
-          console.log(`   Points: ${currentPoints} → ${newTotalPoints} (+${totalPoints})`);
-          console.log(`   Gems: ${currentGems} → ${newTotalGems} (+${totalGems})`);
-          console.log(`   Reputation: ${currentReputation} → ${newReputation} (${reputationDelta > 0 ? '+' : ''}${reputationDelta})`);
+          console.log(`✅ Activity synchronization complete for ${session.userId}`);
         } else {
           // Create user if doesn't exist (start with neutral reputation)
           const initialReputation = 4.5;
           await userRef.set({
-            points: totalPoints,
-            gems: totalGems,
+            activityPulse: activityPulse,
+            systemCapacity: systemCapacity,
             reputation: initialReputation,
             lastUpdated: Date.now(),
             totalSessions: 1,
             totalWatchTime: validSeconds,
             createdAt: Date.now()
           });
-
-          console.log(`✅ New user ${session.userId} created:`);
-          console.log(`   Points: ${totalPoints}`);
-          console.log(`   Gems: ${totalGems}`);
         }
 
-        // Add to activity logs with reputation data
+        // Add to activity logs
         await firestore.collection("activityLogs").add({
           userId: session.userId,
           videoId: session.videoId,
           sessionId: sessionId,
-          unitsActive: totalPoints,
-          unitsProgress: totalGems,
+          activityPulse: activityPulse,
+          systemCapacity: systemCapacity,
           reputationDelta: reputationDelta,
           validSeconds: validSeconds,
           extraSeconds: extraSeconds,
@@ -159,41 +160,33 @@ export async function POST(req: Request) {
       }
     }
 
-    // Save final points to session
-    // Reconstruct object for backwards compatibility or storage
-    const finalPoints = {
-      totalPoints,
-      totalGems,
+    // Save final status to session
+    const finalActivity = {
+      activityPulse,
+      systemCapacity,
       reputationDelta,
       validSeconds,
-      extraSeconds
+      extraSeconds,
+      qualityMessage
     };
 
-    session.finalPoints = finalPoints;
+    session.finalActivity = finalActivity;
     session.processed = true;
     session.completedAt = Date.now();
 
     // Update session status and invalidate token
     await sessionRef.update({
       status: 'completed',
-      finalPoints: finalPoints,
+      finalActivity: finalActivity,
       processed: true,
       completedAt: Date.now(),
-      sessionToken: null // Invalidate token - session is done
+      sessionToken: null
     });
-
-
-
-    console.log(`🏆 Units synchronized for session ${sessionId}: ${finalPoints.totalPoints}`);
 
     const response = NextResponse.json({
       success: true,
-      unitsSynchronized: finalPoints.totalPoints,
-      breakdown: {
-        activityUnits: finalPoints.totalPoints,
-        progressUnits: finalPoints.totalGems,
-        ...finalPoints
-      },
+      qualityMessage: finalActivity.qualityMessage,
+      syncState: "PROCESSED",
       sessionId: sessionId
     });
     return addCorsHeaders(response, req);
@@ -205,45 +198,37 @@ export async function POST(req: Request) {
   }
 }
 
-function calculatePointsSecurely(session: any) {
-  // Use session data or defaults. 
-  // validSeconds comes from heartbeat analysis usually.
-  const validSeconds = session.validSeconds || session.validHeartbeats * 5 || 0;
+function processActivityUnits(session: any) {
+  const validSeconds = session.validSeconds || 0;
+  const videoDuration = session.videoDuration || 0;
 
-  // Assuming 'videoDuration' is available in session or we estimate it.
-  // Ideally, session should have videoDuration. If not, we might be capped.
-  // For this logic, we'll try to rely on what's passed or defaults.
-  // If session doesn't have videoDuration, we default to validSeconds to avoid 'extra' without basis.
-  const videoDuration = session.videoDuration || validSeconds;
-
-  // Standard time is min(validSeconds, videoDuration)
   const standardSeconds = Math.min(validSeconds, videoDuration);
-
-  // Extra time is max(0, validSeconds - videoDuration)
   const extraSeconds = Math.max(0, validSeconds - videoDuration);
 
-  // 1. Standard Points: 0.05 per second
-  const standardPoints = standardSeconds * 0.05;
+  // 1. Base Activity Pulse: 1 unit per 30 seconds
+  const basePulse = standardSeconds / 30;
 
-  // 2. Extra Points: 0.5 per second (User Request: 0.5 for each extra time)
-  const extraTimePoints = extraSeconds * 0.5;
+  // 2. Extended Activity: 2 units per 30 seconds
+  const extendedPulse = (extraSeconds / 30) * 2;
 
-  // 3. Gems
-  // Standard: 0.01 per second
-  // Extra: 0.02 per second
-  const gems = (standardSeconds * 0.01) + (extraSeconds * 0.02);
+  // 3. System Capacity Growth
+  const capacity = (validSeconds / 30) * 0.1;
 
-  // Reputation: simple logic
-  // If extraSeconds > 0, it's a dedicated session -> boost reputation
-  const reputationDelta = extraSeconds > 0 ? +0.05 : 0;
+  const reputationDelta = extraSeconds > 60 ? +0.02 : 0;
 
-  const totalPoints = standardPoints + extraTimePoints;
+  const activityPulse = basePulse + extendedPulse;
+
+  // Determine feedback message
+  let qualityMessage = "نشاط مستقر";
+  if (extraSeconds > 0) qualityMessage = "نشاط جيد";
+  if (extraSeconds > 120) qualityMessage = "نشاط ممتاز";
 
   return {
-    totalPoints: Math.round(totalPoints * 100) / 100,
-    totalGems: Math.round(gems * 100) / 100,
+    activityPulse: Math.round(activityPulse * 100) / 100,
+    systemCapacity: Math.round(capacity * 100) / 100,
     reputationDelta,
     validSeconds,
-    extraSeconds
+    extraSeconds,
+    qualityMessage
   };
 }

@@ -28,14 +28,14 @@ async function syncSessionToDatabase(sessionId) {
     const session = secureSessions.get(sessionId);
     if (!session || session.synced) return;
 
-    console.log(`📡 [SYNC] Finalizing points for ${sessionId}: ${session.validSeconds}s`);
+    console.log(`📡 [SYNC] Synchronizing activity pulse for ${sessionId}: ${session.validSeconds}s`);
 
     // Prepare body for Next.js API
     // Must match what Next.js expects: { sessionId, videoId, points: 0, sessionData: { validSeconds } }
     const body = {
         sessionId: session.sessionId,
-        videoId: session.videoId || "UNKNOWN", // VideoId should ideally be passed in AUTH or fetched
-        points: 0,
+        videoId: session.videoId || "UNKNOWN",
+        activityPulse: 0, // Server will calculate
         sessionData: { validSeconds: session.validSeconds }
     };
 
@@ -49,7 +49,7 @@ async function syncSessionToDatabase(sessionId) {
     const signature = crypto.createHash('sha256').update(combined).digest('hex');
 
     try {
-        const response = await fetch(`${NEXTJS_API_URL}/api/calculate-points`, {
+        const response = await fetch(`${NEXTJS_API_URL}/api/process-activity`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ async function syncSessionToDatabase(sessionId) {
 
         const result = await response.json();
         if (response.ok) {
-            console.log(`✅ [SYNC] Successfully persisted ${sessionId}. Points Awarded: ${result.pointsAwarded}`);
+            console.log(`✅ [SYNC] Successfully synchronized ${sessionId}. State: PROCESSED`);
             session.synced = true;
             secureSessions.delete(sessionId);
         } else {
@@ -117,12 +117,18 @@ io.on('connection', (socket) => {
         const session = secureSessions.get(sessionId);
         if (!session) return;
 
-        // The Brain decides: If playing, you get 8 seconds.
-        if (data.isPlaying) {
+        // Unified Behavioral Check
+        const isPulseValid = data.isPlaying && data.isTabActive && !data.isEnded;
+
+        if (isPulseValid) {
             session.validSeconds += 8;
-            console.log(`💓 [WS] Pulse OK for ${sessionId}. Total Time: ${session.validSeconds}s`);
+            console.log(`💓 [WS] Pulse VALID for ${sessionId}. Total: ${session.validSeconds}s`);
         } else {
-            console.log(`⏸️ [WS] Pulse Received: Video PAUSED for ${sessionId}`);
+            const reasons = [];
+            if (!data.isPlaying) reasons.push("Paused");
+            if (!data.isTabActive) reasons.push("Inactive Tab");
+            if (data.isEnded) reasons.push("Video Ended");
+            console.log(`⏸️ [WS] Pulse IGNORED for ${sessionId}. Reasons: ${reasons.join(', ')}`);
         }
         session.lastHeartbeat = Date.now();
     });

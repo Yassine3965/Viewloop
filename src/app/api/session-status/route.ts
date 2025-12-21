@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     firestore = adminApp.firestore();
     auth = adminApp.auth();
   } catch (error: any) {
-    const response = NextResponse.json({ 
+    const response = NextResponse.json({
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed."
     }, { status: 503 });
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     const response = NextResponse.json({ error: "INVALID_USER_TOKEN" }, { status: 401 });
     return addCorsHeaders(response, req);
   }
-  
+
   const userId = decoded.uid;
 
   try {
@@ -60,25 +60,25 @@ export async function POST(req: Request) {
 
     const sessionData = sessionSnap.data();
     if (!sessionData) {
-        const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
-        return addCorsHeaders(response, req);
+      const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
+      return addCorsHeaders(response, req);
     }
 
     // Security check: ensure the user requesting the status is the owner of the session
     if (sessionData.userId !== userId) {
-        const response = NextResponse.json({ error: "UNAUTHORIZED" }, { status: 403 });
-        return addCorsHeaders(response, req);
+      const response = NextResponse.json({ error: "UNAUTHORIZED" }, { status: 403 });
+      return addCorsHeaders(response, req);
     }
 
     // Return only the necessary, safe-to-view data
     const clientSafeData = {
-        totalWatchedSeconds: sessionData.validSeconds || 0,
-        status: sessionData.status,
-        points: sessionData.points || 0,
-        gems: sessionData.gems || 0,
-        penaltyReasons: sessionData.penaltyReasons || [],
+      totalWatchedSeconds: sessionData.validSeconds || 0,
+      status: sessionData.status,
+      activityPulse: sessionData.activityPulse || 0,
+      systemCapacity: sessionData.systemCapacity || 0,
+      penaltyReasons: sessionData.penaltyReasons || [],
     };
-    
+
     const response = NextResponse.json({ success: true, session: clientSafeData });
     return addCorsHeaders(response, req);
 

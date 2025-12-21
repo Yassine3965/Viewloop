@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  // 🔒 التحقق من التوقيع للـ start-session
+  // 🔒 Start-session signature verification
   console.log('🧪 START-SESSION HEADERS:', {
     signature: req.headers.get('x-signature'),
     all: Object.fromEntries(req.headers.entries())
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // ⬅️ هنا فقط نكمل منطق إنشاء الجلسة
+  // Proceed with session initialization
   console.log('✅ [START-SESSION] INIT accepted');
 
   let auth: admin.auth.Auth;
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       console.log("No userAuthToken provided, using anonymous user for extension testing");
     }
 
-    // 🔍 البحث عن جلسات نشطة للمستخدم (تخطي للـ anonymous users للاختبار)
+    // Search for active sessions (skip for anonymous users for testing)
     let accepted = true;
     let activeVideoId = undefined;
 
@@ -104,33 +104,12 @@ export async function POST(req: Request) {
 
     // استخدام sessionId من الطلب إذا وُجد، وإلا أنشئ جديد
     const requestSessionId = body.sessionId;
-    const sessionId = requestSessionId && requestSessionId.startsWith('session_') ? requestSessionId : `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = requestSessionId && requestSessionId.startsWith('session_') ? requestSessionId : `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
     // Generate session token
     const sessionToken = randomBytes(32).toString('hex');
 
-    // إنشاء الجلسة في Firebase
-    const sessionData: any = {
-      sessionId: sessionId,
-      userId: userId,
-      videoId: videoId,
-      status: accepted ? 'active' : 'rejected', // إذا كان غير مقبول، حدد status كـ rejected
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      totalWatchedSeconds: 0,
-      validSeconds: 0,
-      rewardSeconds: 0,
-      points: 0,
-      gems: 0,
-      accepted: accepted, // حقل جديد لتحديد إذا كانت الجلسة مقبولة
-      sessionTokenHash: createHash('sha256').update(sessionToken).digest('hex')
-    };
 
-    // أضف activeVideoId فقط إذا كان موجود
-    if (activeVideoId !== undefined) {
-      sessionData.activeVideoId = activeVideoId;
-    }
-
-    await firestore.collection('sessions').doc(sessionId).set(sessionData);
 
     console.log(`Created session: ${sessionId}, accepted: ${accepted}`);
 
@@ -139,7 +118,7 @@ export async function POST(req: Request) {
     let videoTitle = `Video ${videoId}`;
     let videoThumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
-    // 🔒 SECURTY: Fetch duration and verify video exists in DB
+    // 🔒 SECURITY: Fetch duration and verify video exists in DB
     const videoDoc = await firestore.collection('videos').doc(videoId).get();
     if (!videoDoc.exists) {
       console.warn(`[START-SESSION] Video ${videoId} not found in DB. Rejecting session.`);
@@ -164,6 +143,29 @@ export async function POST(req: Request) {
       title: videoTitle,
       thumbnail: videoThumbnail
     };
+
+    // 🚀 LATE-BINDING SESSION CREATION with accurate video metrics
+    const sessionData: any = {
+      sessionId: sessionId,
+      userId: userId,
+      videoId: videoId,
+      videoDuration: videoDuration,
+      status: accepted ? 'active' : 'rejected',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      totalWatchedSeconds: 0,
+      validSeconds: 0,
+      activityPulse: 0,
+      systemCapacity: 0,
+      accepted: accepted,
+      sessionTokenHash: createHash('sha256').update(sessionToken).digest('hex')
+    };
+
+    if (activeVideoId !== undefined) {
+      sessionData.activeVideoId = activeVideoId;
+    }
+
+    await firestore.collection('sessions').doc(sessionId).set(sessionData);
+
 
     return addCorsHeaders(NextResponse.json({
       success: true,

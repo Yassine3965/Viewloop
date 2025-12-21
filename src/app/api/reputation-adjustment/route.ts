@@ -1,12 +1,12 @@
-// /app/api/improve-reputation/route.ts
+// /app/api/reputation-adjustment/route.ts
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
-const REPUTATION_IMPROVEMENT_COST = 50; // Cost in gems
-const REPUTATION_IMPROVEMENT_AMOUNT = 0.5; // Amount to increase reputation by
+const REPUTATION_IMPROVEMENT_COST = 50; // Cost in system capacity
+const REPUTATION_IMPROVEMENT_AMOUNT = 0.5;
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     firestore = adminApp.firestore();
     auth = adminApp.auth();
   } catch (error: any) {
-    const response = NextResponse.json({ 
+    const response = NextResponse.json({
       error: "SERVER_NOT_READY",
       message: "Firebase Admin initialization failed. Check server logs for details."
     }, { status: 503 });
@@ -46,12 +46,12 @@ export async function POST(req: Request) {
   try {
     decoded = await auth.verifyIdToken(userAuthToken);
   } catch (err) {
-    const response = NextResponse.json({ error: "INVALID_USER_TOKEN", message: "رمز المستخدم غير صالح" }, { status: 401 });
+    const response = NextResponse.json({ error: "INVALID_USER_TOKEN", message: "Invalid user token" }, { status: 401 });
     return addCorsHeaders(response, req);
   }
-  
+
   const userId = decoded.uid;
-  
+
   try {
     let success = false;
     let message = '';
@@ -65,38 +65,38 @@ export async function POST(req: Request) {
       }
 
       const userData = userSnap.data()!;
-      const currentGems = userData.gems || 0;
+      const currentCapacity = userData.systemCapacity || 0;
       const currentReputation = userData.reputation || 0;
 
       if (currentReputation >= 5) {
         success = false;
-        message = "سمعتك بالفعل في أقصى درجة.";
+        message = "Reputation already at maximum level.";
         return;
       }
 
-      if (currentGems < REPUTATION_IMPROVEMENT_COST) {
+      if (currentCapacity < REPUTATION_IMPROVEMENT_COST) {
         success = false;
-        message = `ليس لديك ما يكفي من المجوهرات. التكلفة هي ${REPUTATION_IMPROVEMENT_COST} مجوهرة.`;
+        message = `Insufficient system capacity. Cost is ${REPUTATION_IMPROVEMENT_COST} units.`;
         return;
       }
-      
-      const newGems = currentGems - REPUTATION_IMPROVEMENT_COST;
+
+      const newCapacity = currentCapacity - REPUTATION_IMPROVEMENT_COST;
       const newReputation = Math.min(5, currentReputation + REPUTATION_IMPROVEMENT_AMOUNT);
 
       transaction.update(userRef, {
-        gems: newGems,
+        systemCapacity: newCapacity,
         reputation: newReputation,
       });
 
       success = true;
-      message = `تم تحسين سمعتك بنجاح! سمعتك الجديدة هي ${newReputation.toFixed(1)}.`;
+      message = `Reputation successfully improved! New reputation: ${newReputation.toFixed(1)}.`;
     });
 
     const response = NextResponse.json({ success, message });
     return addCorsHeaders(response, req);
 
   } catch (err: any) {
-    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message, message: "حدث خطأ أثناء محاولة تحسين السمعة." }, { status: 500 });
+    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message, message: "Error occurred while attempting to improve reputation." }, { status: 500 });
     return addCorsHeaders(response, req);
   }
 }

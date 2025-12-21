@@ -10,7 +10,8 @@ import {
   TrendingUp,
   ArrowDown,
   ArrowUp,
-  Loader2
+  Loader2,
+  HeartPulse
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -73,11 +74,11 @@ export default function HomePage() {
       >
         <div className="container px-4 md:px-6">
           <div className="flex flex-col justify-center space-y-6 text-center">
-            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary">
-              إدارة ذكية لجلسات النشاط الرقمي
+            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary font-outfit">
+              Advanced Session Synchronization Protocol
             </h1>
-            <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
-              منصة ViewLoop توفر حلاً متكاملاً لمزامنة تفاعلاتك عبر منصات المحتوى المختلفة، مما يضمن تجربة متسقة ومنظمة لإدارة الجلسات الرقمية.
+            <p className="max-w-[700px] mx-auto text-muted-foreground md:text-xl leading-relaxed">
+              توفر منصة ViewLoop بنية تحتية تقنية لمزامنة تدفق البيانات وتوثيق التفاعلات الرقمية اللحظية، مما يضمن دقة الامتثال للبروتوكولات التشغيلية عبر مختلف المنصات.
             </p>
             <div className="flex flex-col gap-4 sm:flex-row justify-center">
               <Button asChild size="lg">
@@ -117,31 +118,31 @@ export default function HomePage() {
             </p>
           </div>
           <div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 md:gap-12 lg:max-w-5xl lg:grid-cols-3">
-            <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow">
+            <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow border border-white/5">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
                 <TrendingUp className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-bold">مزامنة الحالة اللحظية</h3>
+              <h3 className="text-lg font-bold">مزامنة الحالة اللحظية (RTS)</h3>
               <p className="text-sm text-muted-foreground">
-                تقنية النبض (Pulse) تضمن مزامنة حالة الجلسة بدقة متناهية عبر مختلف المنصات، مما يضمن توثيق كافة بيانات النشاط الرقمي.
+                تقنية النبض (Pulse) تضمن مزامنة حالة الجلسة بدقة متناهية، مما يضمن توثيق كافة بيانات الامتثال للبروتوكول.
               </p>
             </div>
-            <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
-                <Star className="h-6 w-6 text-primary" />
+            <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow border border-white/5">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pink-500/10 mb-4">
+                <HeartPulse className="h-6 w-6 text-pink-500" />
               </div>
-              <h3 className="text-lg font-bold">وحدات التقدم والنشاط</h3>
+              <h3 className="text-lg font-bold">إدارة سعة النظام (Capacity)</h3>
               <p className="text-sm text-muted-foreground">
-                كسب وحدات تفصيلية تعكس مستوى التزام المستخدم واستمرارية النشاط، مما يساهم في بناء ملف شخصي موثوق.
+                تحليل دقيق لمدى استيعاب العميل للأنشطة الرقمية وتنظيمها وفق معايير الكفاءة التقنية العالية.
               </p>
             </div>
-            <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
-                <Eye className="h-6 w-6 text-primary" />
+            <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow border border-white/5">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 mb-4">
+                <Eye className="h-6 w-6 text-accent" />
               </div>
-              <h3 className="text-lg font-bold">تحليل البيانات والتقارير</h3>
+              <h3 className="text-lg font-bold">تقارير الامتثال والمراقبة</h3>
               <p className="text-sm text-muted-foreground">
-                تقارير شاملة حول وقت النشاط وأنماط التفاعل الرقمي، مما يساعد في تحسين الإنتاجية وفهم سلوك التصفح.
+                تحليلات شاملة حول أنماط التفاعل الرقمي، مما يساعد في تحسين الإنتاجية وضمان استقرار الجلسات النشطة.
               </p>
             </div>
           </div>

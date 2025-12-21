@@ -35,16 +35,26 @@ export async function GET(req: NextRequest) {
         }
 
         const userData = userDoc.data();
+        const clientType = req.headers.get('x-client-type');
+        const isExtension = clientType === 'extension';
 
-        // Return public info
-        const response = NextResponse.json({
-            name: userData?.name || 'مستخدم',
-            points: userData?.points || 0,
-            gems: userData?.gems || 0,
+        // Return public info - Filter sensitive data for web clients
+        const responseData: any = {
+            name: userData?.name || 'Client',
             level: userData?.level || 1,
             avatar: userData?.avatar || '',
-            role: userData?.role || 'user'
-        });
+            role: userData?.role || 'user',
+            status: 'Authorized'
+        };
+
+        // Only include pulse and capacity for extension
+        if (isExtension) {
+            responseData.activityPulse = userData?.points || 0;
+            responseData.systemCapacity = userData?.gems || 0;
+            responseData.qualityStatus = userData?.lastSessionStatus?.qualityMessage || "نشاط مستقر";
+        }
+
+        const response = NextResponse.json(responseData);
         return addCorsHeaders(response, req);
 
     } catch (error) {

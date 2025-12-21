@@ -16,7 +16,8 @@ const DEFAULT_CONFIG = {
         START_SESSION: '/api/start-session',
         HEARTBEAT: '/api/heartbeat-data',
         HEARTBEAT_BATCH: '/api/heartbeat-batch',
-        CALCULATE_POINTS: '/api/calculate-points',
+        PROCESS_ACTIVITY: '/api/process-activity',
+        SYNC_STATE: '/api/sync-state',
         HEALTH: '/api/health',
         VALIDATE_VIDEO: '/api/check-video'
     },

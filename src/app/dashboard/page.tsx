@@ -29,20 +29,20 @@ import {
 } from "@/components/ui/alert-dialog";
 
 
-const levelInfo: { [key: number]: { name: string; points: number; gems: number; icon: React.ElementType; color: string; bgColor: string; } } = {
-    1: { name: "أساسي", points: 0.05, gems: 0, icon: Sparkles, color: "text-slate-500", bgColor: "bg-slate-500/10" },
-    2: { name: "Bronze Wave", points: 0.1, gems: 100, icon: Waves, color: "text-amber-600", bgColor: "bg-amber-600/10" },
-    3: { name: "Silver Pulse", points: 0.2, gems: 200, icon: HeartPulse, color: "text-slate-400", bgColor: "bg-slate-400/10" },
-    4: { name: "Golden Storm", points: 0.3, gems: 300, icon: Zap, color: "text-yellow-500", bgColor: "bg-yellow-500/10" },
-    5: { name: "Titan Flame", points: 0.5, gems: 400, icon: Flame, color: "text-red-500", bgColor: "bg-red-500/10" },
+const levelInfo: { [key: number]: { name: string; activityPulse: number; systemCapacity: number; icon: React.ElementType; color: string; bgColor: string; } } = {
+    1: { name: "Standard", activityPulse: 0.05, systemCapacity: 0, icon: Sparkles, color: "text-slate-500", bgColor: "bg-slate-500/10" },
+    2: { name: "Bronze Wave", activityPulse: 0.1, systemCapacity: 100, icon: Waves, color: "text-amber-600", bgColor: "bg-amber-600/10" },
+    3: { name: "Silver Pulse", activityPulse: 0.2, systemCapacity: 200, icon: HeartPulse, color: "text-slate-400", bgColor: "bg-slate-400/10" },
+    4: { name: "Golden Storm", activityPulse: 0.3, systemCapacity: 300, icon: Zap, color: "text-yellow-500", bgColor: "bg-yellow-500/10" },
+    5: { name: "Titan Flame", activityPulse: 0.5, systemCapacity: 400, icon: Flame, color: "text-red-500", bgColor: "bg-red-500/10" },
 };
 
 const reputationInfo: { [key: number]: { text: string; stars: number } } = {
-    1: { text: "ضعيفة", stars: 1 },
-    2: { text: "متوسطة", stars: 2 },
-    3: { text: "جيدة", stars: 3 },
-    4: { text: "قوية", stars: 4 },
-    5: { text: "قوية جداً", stars: 5 },
+    1: { text: "Basic", stars: 1 },
+    2: { text: "Reliable", stars: 2 },
+    3: { text: "Verified", stars: 3 },
+    4: { text: "Enterprise", stars: 4 },
+    5: { text: "Authoritative", stars: 5 },
 };
 
 function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImprove: () => void, isImproving: boolean }) {
@@ -50,7 +50,8 @@ function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImpr
     const roundedReputation = Math.max(1, Math.min(5, Math.round(reputation)));
     const info = reputationInfo[roundedReputation];
 
-    const canImprove = reputation < 5 && user?.gems >= 50;
+    // Disabled on web to protect sensitive capacity data
+    const canImprove = false;
 
     return (
         <div className="flex flex-col items-center gap-2">
@@ -77,20 +78,20 @@ function ReputationDisplay({ user, onImprove, isImproving }: { user: any, onImpr
                     <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" className="h-7 text-xs" disabled={!canImprove || isImproving}>
                             <ArrowUp className="ml-1 h-3 w-3" />
-                            تحسين
+                            Optimize
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>تأكيد تحسين السمعة</AlertDialogTitle>
+                            <AlertDialogTitle>Confirm Reputation Optimization</AlertDialogTitle>
                             <AlertDialogDescription>
-                                هل أنت متأكد أنك تريد إنفاق <span className="font-bold text-primary">50 وحدة تقدم</span> لزيادة سمعتك بمقدار <span className="font-bold text-primary">0.5</span>؟
+                                Requesting <span className="font-bold text-primary">Protocol Optimization</span> to enhance verification level? (Processed via secure channel only)
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={onImprove} disabled={isImproving}>
-                                {isImproving ? <Loader2 className="h-4 w-4 animate-spin" /> : "تأكيد"}
+                                {isImproving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
@@ -125,8 +126,7 @@ function LevelDisplay({ currentLevel }: { currentLevel: number }) {
                                 </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{info.points} وحدات نشاط/فاصل</p>
-                                {Number(levelKey) > 1 && <p>يتطلب {info.gems} وحدة تقدم</p>}
+                                <p>Activity Protocol Level {levelKey}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -151,7 +151,7 @@ function ExtensionConnectButton() {
             setTimeout(() => setStatus('idle'), 2000);
         } else {
             setStatus('idle');
-            alert("فشل في استرداد الرمز، حاول تسجيل الدخول مجدداً");
+            alert("Failed to retrieve token. Please authenticate again.");
         }
     };
 
@@ -162,12 +162,12 @@ function ExtensionConnectButton() {
                     <Button variant="ghost" size="sm" className="gap-2 text-xs h-7" onClick={handleCopyToken}>
                         <Zap className={cn("h-3 w-3", status === 'copied' ? "text-green-500" : "text-sky-500")} />
                         <span className={status === 'copied' ? "text-green-500" : ""}>
-                            {status === 'copied' ? "تم النسخ!" : "ربط الإضافة يدوياً"}
+                            {status === 'copied' ? "Copied!" : "Manual Link"}
                         </span>
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                    <p>إذا لم تعمل المزامنة التلقائية، انسخ الرمز وضعه في الإضافة</p>
+                    <p>Copy token to extension if automatic synchronization fails</p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
@@ -207,8 +207,8 @@ export default function DashboardPage() {
         return (
             <main className="flex h-[80vh] items-center justify-center">
                 <div className='text-center'>
-                    <p className='text-destructive'>لم يتم العثور على ملف تعريف المستخدم.</p>
-                    <Button onClick={logout} variant="link">تسجيل الخروج</Button>
+                    <p className='text-destructive'>User profile not found.</p>
+                    <Button onClick={logout} variant="link">Sign Out</Button>
                 </div>
             </main>
         );
@@ -216,8 +216,8 @@ export default function DashboardPage() {
 
     const canCreateCampaign = user.emailVerified;
 
-    const lastLoginDate = user.lastLogin?.toDate ? formatDistanceToNow(user.lastLogin.toDate(), { addSuffix: true, locale: ar }) : 'غير معروف';
-    const creationDate = user.createdAt?.toDate ? format(user.createdAt.toDate(), 'PPP', { locale: ar }) : 'غير معروف';
+    const lastLoginDate = user.lastLogin?.toDate ? formatDistanceToNow(user.lastLogin.toDate(), { addSuffix: true }) : 'Unknown';
+    const creationDate = user.createdAt?.toDate ? format(user.createdAt.toDate(), 'PPP') : 'Unknown';
 
     return (
         <main className="flex-1 bg-background relative overflow-hidden pb-12">
@@ -247,7 +247,7 @@ export default function DashboardPage() {
                                         <div className="flex items-center gap-3">
                                             <h1 className="text-3xl font-extrabold tracking-tight">{user.name}</h1>
                                             <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'} className="rounded-full px-3 py-1 text-xs">
-                                                {user.role === 'admin' ? "المسؤول" : "عضو مميز"}
+                                                {user.role === 'admin' ? "Administrator" : "Verified Entity"}
                                             </Badge>
                                         </div>
                                         <p className="text-muted-foreground flex items-center gap-2">
@@ -261,28 +261,16 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* Wallet & Stats */}
                             <div className="flex flex-col items-center gap-6 pt-8 lg:pt-0 lg:border-l border-white/10 border-dashed w-full lg:w-72 lg:pl-10">
-                                <div className="grid grid-cols-2 gap-4 w-full">
-                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center group/units hover:bg-white/10 transition-colors">
-                                        <Gem className="h-5 w-5 text-pink-400 mb-2" />
-                                        <span className="text-2xl font-black font-outfit text-glow text-pink-400 tracking-tighter blur-sm group-hover/units:blur-none transition-all duration-500">
-                                            {Number(user.gems || 0).toLocaleString()}
-                                        </span>
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">وحدات التقدم</span>
-                                    </div>
-                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center group/units hover:bg-white/10 transition-colors">
-                                        <Star className="h-5 w-5 text-amber-400 mb-2" />
-                                        <span className="text-2xl font-black font-outfit text-glow text-amber-400 tracking-tighter blur-sm group-hover/units:blur-none transition-all duration-500">
-                                            {Number(user.points || 0).toLocaleString()}
-                                        </span>
-                                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">وحدات النشاط</span>
-                                    </div>
+                                <div className="w-full bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col items-center group/status hover:bg-white/10 transition-colors">
+                                    <HeartPulse className="h-8 w-8 text-sky-400 mb-3 animate-pulse" />
+                                    <span className="text-sm font-bold text-sky-400 uppercase tracking-widest">Client State: Synchronized</span>
+                                    <span className="text-[10px] text-muted-foreground mt-1">Real-time Session Monitoring Active</span>
                                 </div>
 
                                 <div className="w-full space-y-3">
                                     <div className="flex justify-between items-center px-1">
-                                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">مستوى التوثيق</span>
+                                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Auth Level</span>
                                         <span className="text-xs font-outfit font-bold text-primary">{user.reputation?.toFixed(1)} / 5.0</span>
                                     </div>
                                     <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
@@ -299,19 +287,19 @@ export default function DashboardPage() {
                                 <div className="p-2 bg-background/50 rounded-lg">
                                     <MapPin className="h-4 w-4" />
                                 </div>
-                                <span className="font-medium">{user.city || 'غير معروف'}, {user.country}</span>
+                                <span className="font-medium">{user.city || 'Unknown'}, {user.country}</span>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-background/50 rounded-lg">
                                     <Calendar className="h-4 w-4" />
                                 </div>
-                                <span className="font-medium">انضم في {creationDate}</span>
+                                <span className="font-medium">Joined {creationDate}</span>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-background/50 rounded-lg">
                                     <Clock className="h-4 w-4" />
                                 </div>
-                                <span className="font-medium">آخر مزامنة {lastLoginDate}</span>
+                                <span className="font-medium">Last Sync {lastLoginDate}</span>
                             </div>
                         </div>
                     </CardFooter>
@@ -325,11 +313,11 @@ export default function DashboardPage() {
                                 <div className="p-3 bg-primary/20 rounded-2xl text-primary ring-1 ring-primary/30 group-hover:scale-110 transition-transform">
                                     <PlusCircle className="h-7 w-7" />
                                 </div>
-                                <span>إنشاء سجل نشاط جديد</span>
+                                <span>Initialize Activity Sync</span>
                             </CardTitle>
                             <CardDescription className="pt-2 text-base leading-relaxed">
-                                ابدأ في توثيق حضورك الرقمي من خلال إنشاء سجل نشاط جديد.
-                                {!user.emailVerified && <span className="text-destructive font-bold block mt-2 animate-pulse">⚠️ يرجى تفعيل بريدك الإلكتروني.</span>}
+                                Document your digital presence by synchronizing a new activity log.
+                                {!user.emailVerified && <span className="text-destructive font-bold block mt-2 animate-pulse">⚠️ Please verify your account.</span>}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow relative z-10">
@@ -337,11 +325,11 @@ export default function DashboardPage() {
                                 asChild
                                 className={cn(
                                     "w-full h-14 text-lg font-bold rounded-2xl transition-all shadow-[0_10px_20px_-10px_rgba(34,197,94,0.3)]",
-                                    user.points > 0 ? "bg-success hover:bg-success/90 hover:shadow-success/40" : "bg-muted cursor-not-allowed opacity-50"
+                                    canCreateCampaign ? "bg-success hover:bg-success/90 hover:shadow-success/40" : "bg-muted cursor-not-allowed opacity-50"
                                 )}
-                                disabled={!canCreateCampaign || (user.points || 0) <= 0}
+                                disabled={!canCreateCampaign}
                             >
-                                <Link href={`/campaign`}>أنشئ سجل نشاط الآن</Link>
+                                <Link href={`/campaign`}>Start New Session</Link>
                             </Button>
                         </CardContent>
                     </Card>
@@ -352,15 +340,15 @@ export default function DashboardPage() {
                                 <div className="p-3 bg-accent/20 rounded-2xl text-accent ring-1 ring-accent/30 group-hover:scale-110 transition-transform">
                                     <PlayCircle className="h-7 w-7" />
                                 </div>
-                                <span>استكشاف الأنشطة</span>
+                                <span>Explore Open Protocols</span>
                             </CardTitle>
                             <CardDescription className="pt-2 text-base leading-relaxed">
-                                تفاعل مع سجلات المستخدمين الآخرين وقم بتطوير مستواك التقني.
+                                Contribute to data synchronization and expand digital activity coverage.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow relative z-10">
                             <Button asChild className="w-full h-14 text-lg font-bold rounded-2xl premium-gradient hover:opacity-90 shadow-[0_10px_20px_-10px_rgba(139,92,246,0.3)]">
-                                <Link href={`/watch`}>ابدأ الاستكشاف الآن</Link>
+                                <Link href={`/watch`}>Begin Sync Now</Link>
                             </Button>
                         </CardContent>
                     </Card>

@@ -33,7 +33,7 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
   const handleWatchClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!user) {
-      toast({ title: "خطأ", description: "يجب تسجيل الدخول لبدء المشاهدة.", variant: "destructive" });
+      toast({ title: "Error", description: "Authentication required to initiate synchronization.", variant: "destructive" });
       return;
     }
 
@@ -66,9 +66,9 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
       // Redirect to YouTube
       window.open(`https://www.youtube.com/watch?v=${video.id}`, '_blank');
 
-      toast({ title: "نجاح", description: "تم بدء الجلسة التقنية! جاري المزامنة..." });
+      toast({ title: "Success", description: "Technical session initialized. Synchronization active." });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -112,15 +112,15 @@ function VideoCard({ video, user, onDelete }: { video: Video, user: ReturnType<t
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                سيؤدي هذا إلى حذف سجل النشاط بشكل دائم. لا يمكن التراجع عن هذا الإجراء.
+                This will permanently delete the activity record. This action cannot be reversed within the secure ledger.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => onDelete(video)}>
-                حذف
+                Terminate
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -154,7 +154,7 @@ export default function WatchPage() {
   const handleDelete = async (video: Video) => {
     const result = await deleteVideo(video);
     toast({
-      title: result.success ? "نجاح" : "فشل",
+      title: result.success ? "Success" : "Failed",
       description: result.message,
       variant: result.success ? "default" : "destructive",
     });
@@ -173,13 +173,13 @@ export default function WatchPage() {
       <main className="container py-8">
         <Alert className="max-w-xl mx-auto">
           <AlertTitle className="font-bold">
-            الرجاء تسجيل الدخول
+            Authentication Required
           </AlertTitle>
           <AlertDescription>
-            يجب عليك تسجيل الدخول لمشاهدة مقاطع الفيديو.
+            Please authenticate to access activity synchronization.
             <div className="mt-4">
               <Button asChild>
-                <Link href="/login">تسجيل الدخول</Link>
+                <Link href="/login">Identify State</Link>
               </Button>
             </div>
           </AlertDescription>
@@ -191,8 +191,8 @@ export default function WatchPage() {
   return (
     <main className="container mx-auto max-w-7xl py-8">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold tracking-tight">استكشاف الأنشطة الرقمية</h1>
-        <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">اختر سجلاً من القائمة أدناه للبدء في مزامنة جلسة النشاط.</p>
+        <h1 className="text-4xl font-bold tracking-tight">Explore Digital Activities</h1>
+        <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Select a record below to initialize activity synchronization.</p>
       </div>
 
       {videos && videos.length > 0 ? (
@@ -206,18 +206,18 @@ export default function WatchPage() {
           ) : (
             <div className="flex flex-col items-center justify-center text-center py-16 border-2 border-dashed rounded-lg">
               <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <h2 className="text-xl font-semibold">لا توجد نتائج بحث</h2>
-              <p className="mt-2 text-muted-foreground">لم نتمكن من العثور على أي فيديوهات تطابق بحثك.</p>
-              <Button variant="link" onClick={() => setSearchQuery('')}>امسح البحث</Button>
+              <h2 className="text-xl font-semibold">No results found</h2>
+              <p className="mt-2 text-muted-foreground">We couldn't find any resources matching your search.</p>
+              <Button variant="link" onClick={() => setSearchQuery('')}>Clear search</Button>
             </div>
           )}
         </>
       ) : (
         <div className="flex flex-col items-center justify-center text-center py-16 border-2 border-dashed rounded-lg">
-          <h2 className="text-xl font-semibold">لا توجد فيديوهات متاحة</h2>
-          <p className="mt-2 text-muted-foreground">لا توجد حاليًا مقاطع فيديو في قائمة الانتظار. تحقق مرة أخرى لاحقًا أو كن أول من يضيف واحدًا!</p>
+          <h2 className="text-xl font-semibold">No activities available</h2>
+          <p className="mt-2 text-muted-foreground">There are currently no resources in the queue. Check back soon or initialize a new record.</p>
           <Button asChild className="mt-6">
-            <Link href="/campaign">أضف سجلاً الآن</Link>
+            <Link href="/campaign">Initialize Record</Link>
           </Button>
         </div>
       )}

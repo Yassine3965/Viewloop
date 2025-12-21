@@ -12,8 +12,8 @@ const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
 const secureSessions = new Map();
 const processedSessions = new Set();
 
-async function calculatePointsSecurely(session: any) {
-  console.log(`🧠 [BEHAVIOR-ANALYSIS] Analyzing session ${session.sessionId}`);
+async function processActivityUnits(session: any) {
+  console.log(`🧠 [ACTIVITY-ANALYSIS] Analyzing session ${session.sessionId}`);
 
   // 🎯 تحليل السلوك: احصل على مدة الفيديو من قاعدة البيانات
   const db = getFirestore();
@@ -37,73 +37,64 @@ async function calculatePointsSecurely(session: any) {
   console.log(`   Last heartbeat time: ${lastHeartbeatTime}s`);
   console.log(`   Overtime: ${overtime}s`);
 
-  // 🎯 تحليل السلوك: كشف الأنماط غير الطبيعية
+  // Behavioral Analysis: Detect abnormal patterns
   const behaviorAnalysis = analyzeBehavioralPatterns(session.heartbeats);
 
-  // استخدام الثوابت من التكوين المركزي
-  const pointsConfig = {
-    VIDEO_POINTS_PER_SECOND: 0.05,
-    GEMS_PER_SECOND: 0.01,
-    EXTRA_TIME_POINTS_PER_SECOND: 0.5
+  const activityConfig = {
+    BASE_UNIT_RATE: 0.05,
+    CAPACITY_RATE: 0.01,
+    OFFSET_UNIT_RATE: 0.5
   };
 
-  // حساب النقاط الأساسية
-  // حساب النقاط الأساسية (Real Time based on heartbeats)
-  // كل نبضة تمثل 5 ثوانٍ من الوقت الفعلي
-  // User Logic: "If video is 4 mins, but user spent 5 mins (due to ads/buffering) -> 1 min extra time"
-  // Condition: Pulses MUST stop if paused or tab hidden. (Handled by Extension)
+  // Units based on heartbeats (each heartbeat represents 5s)
   const activeSeconds = session.heartbeats.length * 5;
-  const validSeconds = Math.min(activeSeconds, videoDuration); // النقاط الأساسية لا تتجاوز مدة الفيديو
-  const extraSeconds = Math.max(0, activeSeconds - videoDuration); // الوقت الإضافي هو ما زاد عن مدة الفيديو
+  const validSeconds = Math.min(activeSeconds, videoDuration);
+  const offsetSeconds = Math.max(0, activeSeconds - videoDuration);
 
-  // 1. نقاط الفيديو الأساسية
-  const videoPoints = validSeconds * pointsConfig.VIDEO_POINTS_PER_SECOND;
+  // 1. Standard Units
+  const baseUnits = validSeconds * activityConfig.BASE_UNIT_RATE;
 
-  // 2. نقاط الوقت الإضافي
-  const extraTimePoints = extraSeconds * pointsConfig.EXTRA_TIME_POINTS_PER_SECOND;
+  // 2. Offset Units
+  const offsetUnits = offsetSeconds * activityConfig.OFFSET_UNIT_RATE;
 
-  // 3. الجواهر (Updated Logic)
-  // Standard Time: 0.01 gems/sec
-  // Extra Time: 0.02 gems/sec
-  const standardGems = validSeconds * 0.01;
-  const extraGems = extraSeconds * 0.02;
-  const gems = standardGems + extraGems;
+  // 3. Capacity (Updated Logic)
+  const standardCapacity = validSeconds * 0.01;
+  const offsetCapacity = offsetSeconds * 0.02;
+  const capacity = standardCapacity + offsetCapacity;
 
-  // 🎯 منطق Reward الذكي: تعزيز السمعة بدلاً من النقاط المباشرة
-  let rewardSignal = 0;
-  const sessionCompletionRate = activeSeconds / videoDuration; // نسبة الوقت المقضي
+  // Reputation optimization: focus on verification signal
+  let reputationSignal = 0;
+  const sessionCompletionRate = activeSeconds / videoDuration;
 
-  if (extraSeconds > 20 && sessionCompletionRate > 1.0) {
-    // جلسة طويلة + التزام = إشارة Reward
-    rewardSignal = 1.0; // نقطة سمعة كاملة
-    console.log(`🎯 [REWARD-SIGNAL] Long committed session: +${rewardSignal} reputation points`);
+  if (offsetSeconds > 20 && sessionCompletionRate > 1.0) {
+    reputationSignal = 1.0;
+    console.log(`🎯 [REPUTATION-SIGNAL] High engagement detected: +${reputationSignal} reputation coefficient`);
   }
 
-  // 🎯 تحليل السلوك: تعديل النقاط بناءً على السلوك
-  let finalPoints = videoPoints + extraTimePoints;
-  let finalGems = gems;
-  let penalty = 0;
+  // Final units adjustment based on behavior
+  let activityPulse = baseUnits + offsetUnits;
+  let systemCapacity = capacity;
+  let optimizationCorrection = 0;
 
   if (behaviorAnalysis.suspiciousActivity) {
-    penalty = Math.floor(finalPoints * 0.5); // خصم 50% للنشاط المشبوه
-    finalPoints -= penalty;
-    finalGems = 0; // No gems for suspicious activity? Or maybe half? Let's zero it for strictness.
-    console.log(`🚨 [PENALTY] Suspicious activity detected: -${penalty} points`);
+    optimizationCorrection = Math.floor(activityPulse * 0.5);
+    activityPulse -= optimizationCorrection;
+    systemCapacity = 0;
+    console.log(`🚨 [ADJUSTMENT] Heuristic deviation detected. Correcting parameters.`);
   }
 
   return {
-    videoPoints: Math.round(videoPoints * 100) / 100,
-    extraTimePoints: Math.round(extraTimePoints * 100) / 100,
-    rewardSignal: Math.round(rewardSignal * 100) / 100,
-    totalPoints: Math.round(finalPoints * 100) / 100,
-    totalGems: Math.round(finalGems * 100) / 100,
+    baseUnits: Math.round(baseUnits * 100) / 100,
+    offsetUnits: Math.round(offsetUnits * 100) / 100,
+    reputationSignal: Math.round(reputationSignal * 100) / 100,
+    activityPulse: Math.round(activityPulse * 100) / 100,
+    systemCapacity: Math.round(systemCapacity * 100) / 100,
     validSeconds: validSeconds,
-    rewardSeconds: extraSeconds,
+    offsetSeconds: offsetSeconds,
     videoDuration: videoDuration,
     lastHeartbeatTime: lastHeartbeatTime,
-    overtime: extraSeconds,
     behaviorAnalysis: behaviorAnalysis,
-    penalty: penalty
+    optimizationCorrection: optimizationCorrection
   };
 }
 
@@ -250,18 +241,18 @@ export async function POST(req: Request) {
 
     console.log(`✅ Processed heartbeat batch: ${validCount} valid, ${invalidCount} invalid for session ${sessionId}`);
 
-    // إذا اكتملت الجلسة، قم بتحليل السلوك وحساب النقاط
-    let pointsAwarded = null;
+    // If session is completed, process activity units
+    let unitsProcessed = null;
     if (session.status === 'completed') {
-      pointsAwarded = await calculatePointsSecurely(session);
-      console.log(`🏆 Points calculated for session ${sessionId}: ${pointsAwarded.totalPoints} points`);
+      unitsProcessed = await processActivityUnits(session);
+      console.log(`🏆 Activity pulse calculated for session ${sessionId}: ${unitsProcessed.activityPulse} units`);
 
-      // حفظ النتائج في الجلسة في الذاكرة
-      session.points = pointsAwarded.totalPoints;
-      session.gems = pointsAwarded.totalGems; // Save gems too
-      session.rewardSignal = pointsAwarded.rewardSignal;
-      session.analysis = pointsAwarded.behaviorAnalysis;
-      session.overtime = pointsAwarded.overtime;
+      // Update session state in memory
+      session.activityPulse = unitsProcessed.activityPulse;
+      session.systemCapacity = unitsProcessed.systemCapacity;
+      session.reputationSignal = unitsProcessed.reputationSignal;
+      session.analysis = unitsProcessed.behaviorAnalysis;
+      session.offsetSeconds = unitsProcessed.offsetSeconds;
 
       // 💾 SAVE TO FIRESTORE (CRITICAL FIX)
       // We must save the results to the database and update the user's balance.
@@ -272,14 +263,13 @@ export async function POST(req: Request) {
         // 1. Update Session
         await sessionRef.set({
           status: 'completed',
-          points: pointsAwarded.totalPoints,
-          gems: pointsAwarded.totalGems,
-          validSeconds: pointsAwarded.validSeconds,
-          rewardSeconds: pointsAwarded.rewardSeconds,
-          overtime: pointsAwarded.overtime,
+          activityPulse: unitsProcessed.activityPulse,
+          systemCapacity: unitsProcessed.systemCapacity,
+          validSeconds: unitsProcessed.validSeconds,
+          offsetSeconds: unitsProcessed.offsetSeconds,
           completedAt: Date.now(),
           processed: true,
-          finalPoints: pointsAwarded
+          finalState: unitsProcessed
         }, { merge: true });
 
         // 2. Update User Balance (if userId is available)
@@ -291,21 +281,21 @@ export async function POST(req: Request) {
           const userId = sessionDoc.data()?.userId;
           if (userId && userId !== 'anonymous') {
             const userRef = db.collection('users').doc(userId);
-            // Determine feedback type based on points (assuming roughly 1 point = 1 full view approx)
-            const feedbackType = pointsAwarded.totalPoints >= 0.8 ? 'completion' : 'partial';
+            // Feedback type based on activity (completion vs partial)
+            const feedbackType = unitsProcessed.activityPulse >= 0.8 ? 'completion' : 'partial';
 
             await userRef.set({
-              points: admin.firestore.FieldValue.increment(pointsAwarded.totalPoints),
-              gems: admin.firestore.FieldValue.increment(pointsAwarded.totalGems),
-              reputation: admin.firestore.FieldValue.increment(pointsAwarded.rewardSignal),
-              totalTimeWatched: admin.firestore.FieldValue.increment(pointsAwarded.validSeconds + pointsAwarded.rewardSeconds),
+              activityPulse: admin.firestore.FieldValue.increment(unitsProcessed.activityPulse),
+              systemCapacity: admin.firestore.FieldValue.increment(unitsProcessed.systemCapacity),
+              reputation: admin.firestore.FieldValue.increment(unitsProcessed.reputationSignal),
+              totalTimeWatched: admin.firestore.FieldValue.increment(unitsProcessed.validSeconds + unitsProcessed.offsetSeconds),
               lastSessionStatus: {
                 type: feedbackType,
-                points: pointsAwarded.totalPoints,
+                activityPulse: unitsProcessed.activityPulse,
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
               }
             }, { merge: true });
-            console.log(`👤 [DB] Updated user ${userId} balance: +${pointsAwarded.totalPoints} pts, +${pointsAwarded.totalGems} gems`);
+            console.log(`👤 [DB] Updated user ${userId} state: +${unitsProcessed.activityPulse} pulse, +${unitsProcessed.systemCapacity} capacity`);
           } else {
             console.log(`⚠️ [DB] Anonymous user or no userId, skipping balance update.`);
           }
@@ -324,7 +314,7 @@ export async function POST(req: Request) {
       processed: validCount + invalidCount,
       valid: validCount,
       invalid: invalidCount,
-      pointsAwarded: pointsAwarded,
+      activityPulse: unitsProcessed,
       sessionStatus: session.status
     });
     return addCorsHeaders(response, req);

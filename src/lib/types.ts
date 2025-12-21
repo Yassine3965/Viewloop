@@ -16,10 +16,10 @@ export type Session = {
   createdAt: number;
   lastHeartbeatAt: number;
   totalWatchedSeconds: number;
-  rewardWatched: boolean;
+  stateSynced: boolean;
   status: 'active' | 'completed' | 'suspicious' | 'expired';
-  points: number;
-  gems: number;
+  activityPulse: number;
+  systemCapacity: number;
   inactiveHeartbeats: number;
   rewardHeartbeats: number;
   penaltyReasons: string[];
@@ -37,14 +37,14 @@ export type UserProfile = {
   city: string;
   createdAt: any;
   lastLogin: any;
-  points: number;
-  gems: number;
+  activityPulse: number;
+  systemCapacity: number;
   level: number;
   reputation: number;
   lastUpdated?: number;
   lastSessionStatus?: {
     type: string;
-    points: number;
+    activityPulse: number;
     timestamp: any;
   };
 };

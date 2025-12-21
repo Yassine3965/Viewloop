@@ -33,7 +33,7 @@ import {
 } from 'firebase/auth';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { PointsAwardedModal } from '@/components/points-awarded-modal';
+import { SessionStatusModal } from '@/components/session-status-modal';
 import { getYoutubeVideoId } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -81,7 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sessionSyncStatus, setSessionSyncStatus] = useState<{ points: number, type: string } | null>(null);
+  const [sessionSyncStatus, setSessionSyncStatus] = useState<{ activityPulse: number, type: string, qualityMessage?: string } | null>(null);
 
   // Videos listener
   // Videos listener
@@ -111,7 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     let unsubscribeProfile: (() => void) | undefined;
-    let previousPoints: number | null = null;
+    let previousPulse: number | null = null;
 
 
     const handleUserChange = (authUser: FirebaseUser | null) => {
@@ -188,19 +188,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 // Only show if session happened in the last 10 seconds (fresh) 
                 // AND points > previousPoints OR we just want to show feedback.
 
-                if (previousPoints !== null && userProfile.points > previousPoints) {
-                  const unitsSynchronized = userProfile.points - previousPoints;
+                if (previousPulse !== null && userProfile.activityPulse > previousPulse) {
+                  const pulseSynchronized = userProfile.activityPulse - previousPulse;
                   setSessionSyncStatus({
-                    points: unitsSynchronized,
-                    type: lastSession.type || 'partial'
+                    activityPulse: pulseSynchronized,
+                    type: lastSession.type || 'partial',
+                    qualityMessage: (lastSession as any).qualityMessage
                   });
                 }
               }
-              previousPoints = userProfile.points;
+              previousPulse = userProfile.activityPulse;
 
             } else {
               setUser(null);
-              previousPoints = null;
+              previousPulse = null;
             }
             setIsUserLoading(false);
           },
@@ -213,7 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               errorEmitter.emit('permission-error', permissionError);
             }
             setUser(null);
-            previousPoints = null;
+            previousPulse = null;
             setIsUserLoading(false);
           }
         );
@@ -222,7 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('userAuthToken');
         }
         setUser(null);
-        previousPoints = null;
+        previousPulse = null;
         setIsUserLoading(false);
       }
     };
@@ -340,7 +341,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       const userAuthToken = await currentUser.getIdToken();
-      const response = await fetch('/api/improve-reputation', {
+      const response = await fetch('/api/reputation-adjustment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userAuthToken }),
@@ -416,8 +417,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
-        points: 100,
-        gems: 0,
+        activityPulse: 100,
+        systemCapacity: 0,
         level: 1,
         reputation: 4.5,
         lastUpdated: Date.now(),
@@ -491,8 +492,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           city: locationData.city || '',
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
-          points: 100,
-          gems: 0,
+          activityPulse: 100,
+          systemCapacity: 0,
           level: 1,
           reputation: 4.5,
           lastUpdated: Date.now(),
@@ -569,7 +570,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppStateContext.Provider value={stateContextValue}>
       <AppDispatchContext.Provider value={dispatchContextValue}>
         {children}
-        <PointsAwardedModal
+        <SessionStatusModal
           open={!!sessionSyncStatus}
           data={sessionSyncStatus}
           onConfirm={() => setSessionSyncStatus(null)}

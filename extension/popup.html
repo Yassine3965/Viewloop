@@ -20,7 +20,7 @@
       </div>
       <div id="connectionStatus" class="status-badge">
         <span class="status-dot"></span>
-        <span id="statusText">Connection Active</span>
+        <span id="statusText">Session Sync: Active</span>
         <button id="refreshSyncBtn" title="Refresh Session"
           style="background:none; border:none; cursor:pointer; padding:0 4px; color:rgba(255,255,255,0.7);">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -36,8 +36,8 @@
     <div id="userCard" class="user-card" style="display: none;">
       <img id="userAvatar" src="icon48.png" alt="Avatar" class="avatar">
       <div class="user-details">
-        <h2 id="userName" class="username">المستخدم</h2>
-        <span id="userLevel" class="user-level">المستوى 1</span>
+        <h2 id="userName" class="username">Identity</h2>
+        <span id="userLevel" class="user-level">Tier 1</span>
       </div>
     </div>
 
@@ -45,7 +45,7 @@
     <div id="loginPrompt" class="auth-card" style="display: none;">
       <div class="auth-header-card">
         <h3 class="auth-title">ViewLoop</h3>
-        <p class="auth-subtitle">سجل دخولك للمزامنة ومتابعة نشاطك</p>
+        <p class="auth-subtitle">Register state to synchronize activity</p>
       </div>
 
       <div class="auth-actions-container">
@@ -64,23 +64,23 @@
               d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C42.022,35.138,44,30.025,44,24C44,22.659,43.862,21.35,43.611,20.083z">
             </path>
           </svg>
-          <span>المتابعة باستخدام Google</span>
+          <span>Identify via Google</span>
         </button>
 
         <div class="auth-divider">
-          <span>أو</span>
+          <span>OR</span>
         </div>
 
         <button id="webLoginBtn" class="btn btn-primary">
-          <span>تسجيل دخول</span>
+          <span>Authenticate</span>
         </button>
 
         <button id="webRegisterBtn" class="btn btn-secondary">
-          <span>إنشاء حساب جديد</span>
+          <span>Register New Alias</span>
         </button>
       </div>
 
-      <p class="auth-footer-help">سيتم توجيهك للموقع لإتمام العملية بأمان</p>
+      <p class="auth-footer-help">Secure external authentication required</p>
     </div>
 
     <div class="stats-grid">
@@ -88,15 +88,15 @@
         <span class="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="10" />
           </svg></span>
-        <span id="userPoints" class="stat-value">--</span>
-        <span class="stat-label">Activity Units</span>
+        <span id="activityPulse" class="stat-value">--</span>
+        <span class="stat-label">Client Activity Pulse</span>
       </div>
       <div class="stat-item stat-gems">
         <span class="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <rect x="4" y="4" width="16" height="16" rx="2" />
           </svg></span>
-        <span id="userGems" class="stat-value">--</span>
-        <span class="stat-label">Progress Units</span>
+        <span id="systemCapacity" class="stat-value">--</span>
+        <span class="stat-label">Priority Capacity</span>
       </div>
     </div>
 
@@ -143,7 +143,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
-        بدء جلسة
+        بدء المزامنة
       </button>
 
       <button id="openDashboardBtn" class="btn btn-secondary">

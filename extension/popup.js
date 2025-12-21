@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         loginPrompt: document.getElementById('loginPrompt'),
         userName: document.getElementById('userName'),
         userAvatar: document.getElementById('userAvatar'),
-        userPoints: document.getElementById('userPoints'),
-        userGems: document.getElementById('userGems'),
+        activityPulse: document.getElementById('activityPulse'),
+        systemCapacity: document.getElementById('systemCapacity'),
         statusBadge: document.getElementById('connectionStatus'),
         statusText: document.getElementById('statusText'),
         startWatchBtn: document.getElementById('startWatchBtn'),
@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 'viewloop_user_id',
                 'viewloop_auth_token',
                 'viewloop_user_name',
-                'viewloop_user_points',
-                'viewloop_user_gems',
+                'viewloop_user_pulse',
+                'viewloop_user_capacity',
                 'viewloop_user_level'
             ]);
 
@@ -40,41 +40,42 @@ document.addEventListener('DOMContentLoaded', async function () {
                 // Logged In
                 els.userCard.style.display = 'flex';
                 els.loginPrompt.style.display = 'none';
-                els.statusText.textContent = 'Connection Active';
+                els.statusText.textContent = 'Session Sync: Active';
                 els.statusBadge.classList.add('active');
 
                 // Set User Data with Fallback
-                els.userName.textContent = userName || (userId ? userId.substring(0, 10) + '...' : 'جاري التحميل...');
+                els.userName.textContent = userName || (userId ? userId.substring(0, 10) + '...' : 'Synchronizing...');
 
                 // 🚀 PROACTIVE FETCH: If name or points are old, ask background to refresh
                 chrome.runtime.sendMessage({ type: 'FETCH_PROFILE' }, (response) => {
                     if (response && response.success && response.profile) {
                         const p = response.profile;
                         els.userName.textContent = p.name;
-                        els.userPoints.textContent = parseFloat(p.points || 0).toFixed(2);
-                        els.userGems.textContent = parseFloat(p.gems || 0).toFixed(2);
+                        els.activityPulse.textContent = parseFloat(p.activityPulse || 0).toFixed(2);
+                        els.systemCapacity.textContent = parseFloat(p.systemCapacity || 0).toFixed(2);
+                        if (p.qualityStatus) els.statusText.textContent = `Monitor: ${p.qualityStatus}`;
                         const levelEl = document.getElementById('userLevel');
-                        if (levelEl) levelEl.textContent = `المستوى ${p.level}`;
+                        if (levelEl) levelEl.textContent = `Tier ${p.level}`;
                     }
                 });
 
                 // Stats Formatting
-                if (stored.viewloop_user_points !== undefined) {
-                    els.userPoints.textContent = parseFloat(stored.viewloop_user_points).toFixed(2);
+                if (stored.viewloop_user_pulse !== undefined) {
+                    els.activityPulse.textContent = parseFloat(stored.viewloop_user_pulse).toFixed(2);
                 }
-                if (stored.viewloop_user_gems !== undefined) {
-                    els.userGems.textContent = parseFloat(stored.viewloop_user_gems).toFixed(2);
+                if (stored.viewloop_user_capacity !== undefined) {
+                    els.systemCapacity.textContent = parseFloat(stored.viewloop_user_capacity).toFixed(2);
                 }
 
                 const level = stored.viewloop_user_level || 1;
                 const levelEl = document.getElementById('userLevel');
-                if (levelEl) levelEl.textContent = `المستوى ${level}`;
+                if (levelEl) levelEl.textContent = `Tier ${level}`;
 
             } else {
                 // Anonymous / Not Logged In
                 els.userCard.style.display = 'none';
                 els.loginPrompt.style.display = 'block';
-                els.statusText.textContent = 'Connection Idle';
+                els.statusText.textContent = 'Session Sync: Standby';
                 els.statusBadge.classList.remove('active');
             }
 

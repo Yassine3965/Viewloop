@@ -1,12 +1,12 @@
-// /app/api/reward-watched/route.ts
+// /app/api/sync-state/route.ts - Activity State Synchronization
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { initializeFirebaseAdmin, verifySignature } from "@/lib/firebase/admin";
 import { handleOptions, addCorsHeaders } from "@/lib/cors";
 import admin from 'firebase-admin';
 
-const REWARD_BONUS_RATE_PER_SECOND = 0.5; // 0.5 points per second
-const GEMS_FOR_REWARD = 1; // 1 Gem bonus for watching any reward
+const SYNC_OFFSET_RATE = 0.5;
+const CAPACITY_OFFSET = 1;
 
 export async function OPTIONS(req: Request) {
   return handleOptions(req);
@@ -23,31 +23,30 @@ export async function POST(req: Request) {
     return addCorsHeaders(response, req);
   }
 
-  // التحقق من نوع الطلب - body يجب أن يكون كائن صحيح
   if (!body || typeof body !== 'object') {
     const response = NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
     return addCorsHeaders(response, req);
   }
 
   if (!verifySignature(req, body)) {
-      const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
-      return addCorsHeaders(response, req);
+    const response = NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 403 });
+    return addCorsHeaders(response, req);
   }
 
   try {
     const adminApp = initializeFirebaseAdmin();
     firestore = adminApp.firestore();
   } catch (error: any) {
-    const response = NextResponse.json({ 
+    const response = NextResponse.json({
       error: "SERVER_NOT_READY",
-      message: "Firebase Admin initialization failed. Check server logs for details."
+      message: "Processing system initialization failed."
     }, { status: 503 });
     return addCorsHeaders(response, req);
   }
-  
+
   try {
-    const { sessionToken, rewardDuration } = body;
-    if (!sessionToken || typeof rewardDuration !== 'number' || rewardDuration <= 0) {
+    const { sessionToken, syncDuration } = body;
+    if (!sessionToken || typeof syncDuration !== 'number' || syncDuration <= 0) {
       const response = NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
@@ -62,47 +61,47 @@ export async function POST(req: Request) {
 
     const sessionData = sessionSnap.data();
     if (!sessionData) {
-        const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
-        return addCorsHeaders(response, req);
+      const response = NextResponse.json({ error: "INVALID_SESSION_DATA" }, { status: 500 });
+      return addCorsHeaders(response, req);
     }
 
-    if (sessionData.rewardWatched === true) {
-        return addCorsHeaders(NextResponse.json({
-            success: false,
-            error: "REWARD_ALREADY_PROCESSED",
-            message: "This reward has already been processed for this session."
-          }, { status: 200 }), req);
+    if (sessionData.stateSynced === true) {
+      return addCorsHeaders(NextResponse.json({
+        success: false,
+        error: "STATE_ALREADY_SYNCED",
+        message: "State synchronization has already been processed."
+      }, { status: 200 }), req);
     }
 
-    const pointsForReward = rewardDuration * REWARD_BONUS_RATE_PER_SECOND;
+    const pulseAdjustment = syncDuration * SYNC_OFFSET_RATE;
 
     await firestore.runTransaction(async (transaction) => {
       const userRef = firestore.collection("users").doc(sessionData.userId);
       const userSnap = await transaction.get(userRef);
 
       if (!userSnap.exists) {
-        throw new Error("User not found during transaction");
+        throw new Error("Target identity not found");
       }
 
       transaction.update(userRef, {
-        points: admin.firestore.FieldValue.increment(pointsForReward),
-        gems: admin.firestore.FieldValue.increment(GEMS_FOR_REWARD)
+        activityPulse: admin.firestore.FieldValue.increment(pulseAdjustment),
+        systemCapacity: admin.firestore.FieldValue.increment(CAPACITY_OFFSET)
       });
       transaction.update(sessionRef, {
-        rewardWatched: true,
-        rewardHeartbeats: admin.firestore.FieldValue.increment(Math.ceil(rewardDuration / 15)) // Assuming 15s per heartbeat
+        stateSynced: true,
+        activityHeartbeats: admin.firestore.FieldValue.increment(Math.ceil(syncDuration / 15))
       });
     });
 
     return addCorsHeaders(NextResponse.json({
       success: true,
-      message: `تم منح ${pointsForReward.toFixed(2)} نقطة و ${GEMS_FOR_REWARD} جوهرة للمكافأة.`,
-      pointsAdded: pointsForReward,
-      gemsAdded: GEMS_FOR_REWARD
+      message: "State synchronization complete.",
+      pulseAdded: pulseAdjustment,
+      capacityAdded: CAPACITY_OFFSET
     }), req);
 
   } catch (err: any) {
-    const response = NextResponse.json({ error: "SERVER_ERROR", details: err.message }, { status: 500 });
+    const response = NextResponse.json({ error: "SYNC_ERROR", details: err.message }, { status: 500 });
     return addCorsHeaders(response, req);
   }
 }

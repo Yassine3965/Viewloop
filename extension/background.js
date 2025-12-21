@@ -47,6 +47,8 @@ function connectWebSocket(sessionId, sessionToken, videoId) {
       socket.emit('PULSE_RESPONSE', {
         sessionId,
         isPlaying: response.isPlaying,
+        isTabActive: response.isTabActive,
+        isEnded: response.isEnded,
         videoTime: response.videoTime
       });
     });

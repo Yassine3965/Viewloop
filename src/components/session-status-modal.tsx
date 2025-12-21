@@ -1,23 +1,20 @@
-'use client';
-
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogContent,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "./ui/button";
-import { PartyPopper, Star } from "lucide-react";
+import { ShieldCheck, Activity } from "lucide-react";
 
-interface PointsAwardedModalProps {
+interface SessionStatusModalProps {
   open: boolean;
-  data: { points: number; type: string } | null;
+  data: { activityPulse: number; type: string; qualityMessage?: string } | null;
   onConfirm: () => void;
 }
 
-export function PointsAwardedModal({ open, data, onConfirm }: PointsAwardedModalProps) {
+export function SessionStatusModal({ open, data, onConfirm }: SessionStatusModalProps) {
   if (!open || !data) return null;
 
   const isCompletion = data.type === 'completion';
@@ -28,28 +25,28 @@ export function PointsAwardedModal({ open, data, onConfirm }: PointsAwardedModal
         <AlertDialogHeader className="p-6 pb-2 space-y-2">
           <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center border-4 animate-scale-in ${isCompletion ? 'bg-primary/20 border-primary text-primary' : 'bg-muted border-muted-foreground/30 text-muted-foreground'
             }`}>
-            {isCompletion ? <PartyPopper className="w-8 h-8" /> : <Star className="w-8 h-8" />}
+            {isCompletion ? <ShieldCheck className="w-8 h-8" /> : <Activity className="w-8 h-8" />}
           </div>
           <AlertDialogTitle className="text-xl font-bold">
-            {isCompletion ? 'تم توثيق الجلسة' : 'تم تحديث الحالة'}
+            {data.qualityMessage || (isCompletion ? 'Session Verified' : 'State Updated')}
           </AlertDialogTitle>
         </AlertDialogHeader>
         <div className="px-6 pb-6">
           <p className="text-sm text-muted-foreground mb-4">
             {isCompletion
-              ? 'تمت مزامنة بيانات النشاط بنجاح مع الخادم.'
-              : 'تم تسجيل سجل نشاط جزئي في النظام السحابي.'}
+              ? 'Activity data has been successfully synchronized.'
+              : 'Partial activity state has been registered.'}
           </p>
-          <div className="bg-muted rounded-lg p-3 flex flex-col items-center justify-center gap-1">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Activity Units Recorded</span>
-            <div className={`flex items-center gap-2 font-black text-2xl ${isCompletion ? 'text-primary' : 'text-muted-foreground'}`}>
-              <span>{data.points.toFixed(2)}</span>
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex flex-col items-center justify-center gap-1">
+            <span className="text-[10px] text-primary uppercase font-bold tracking-widest">Protocol Sync Status</span>
+            <div className={`flex items-center gap-2 font-black text-xl text-primary`}>
+              <span>ENCRYPTED & SYNCED</span>
             </div>
           </div>
         </div>
         <AlertDialogFooter className="bg-muted/50 p-4">
           <Button onClick={onConfirm} className="w-full">
-            إغلاق التقرير
+            Dismiss
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

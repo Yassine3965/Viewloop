@@ -64,6 +64,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const v = document.querySelector('video');
         sendResponse({
             isPlaying: v ? !v.paused : false,
+            isTabActive: !document.hidden,
+            isEnded: v ? v.ended : false,
             videoTime: v ? Math.floor(v.currentTime) : 0
         });
     }
