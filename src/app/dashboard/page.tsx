@@ -125,7 +125,7 @@ function LevelDisplay({ currentLevel }: { currentLevel: number }) {
                                 </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>{info.points} وحدة نشاط/ثانية</p>
+                                <p>{info.points} وحدات نشاط/فاصل</p>
                                 {Number(levelKey) > 1 && <p>يتطلب {info.gems} وحدة تقدم</p>}
                             </TooltipContent>
                         </Tooltip>
@@ -264,16 +264,16 @@ export default function DashboardPage() {
                             {/* Wallet & Stats */}
                             <div className="flex flex-col items-center gap-6 pt-8 lg:pt-0 lg:border-l border-white/10 border-dashed w-full lg:w-72 lg:pl-10">
                                 <div className="grid grid-cols-2 gap-4 w-full">
-                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center">
+                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center group/units hover:bg-white/10 transition-colors">
                                         <Gem className="h-5 w-5 text-pink-400 mb-2" />
-                                        <span className="text-2xl font-black font-outfit text-glow text-pink-400 tracking-tighter">
+                                        <span className="text-2xl font-black font-outfit text-glow text-pink-400 tracking-tighter blur-sm group-hover/units:blur-none transition-all duration-500">
                                             {Number(user.gems || 0).toLocaleString()}
                                         </span>
                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">وحدات التقدم</span>
                                     </div>
-                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center">
+                                    <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center group/units hover:bg-white/10 transition-colors">
                                         <Star className="h-5 w-5 text-amber-400 mb-2" />
-                                        <span className="text-2xl font-black font-outfit text-glow text-amber-400 tracking-tighter">
+                                        <span className="text-2xl font-black font-outfit text-glow text-amber-400 tracking-tighter blur-sm group-hover/units:blur-none transition-all duration-500">
                                             {Number(user.points || 0).toLocaleString()}
                                         </span>
                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">وحدات النشاط</span>
@@ -282,7 +282,7 @@ export default function DashboardPage() {
 
                                 <div className="w-full space-y-3">
                                     <div className="flex justify-between items-center px-1">
-                                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">مستوى السمعة</span>
+                                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">مستوى التوثيق</span>
                                         <span className="text-xs font-outfit font-bold text-primary">{user.reputation?.toFixed(1)} / 5.0</span>
                                     </div>
                                     <ReputationDisplay user={user} onImprove={handleImproveReputation} isImproving={isImproving} />
@@ -311,7 +311,7 @@ export default function DashboardPage() {
                                 <div className="p-2 bg-background/50 rounded-lg">
                                     <Clock className="h-4 w-4" />
                                 </div>
-                                <span className="font-medium">آخر نشاط {lastLoginDate}</span>
+                                <span className="font-medium">آخر مزامنة {lastLoginDate}</span>
                             </div>
                         </div>
                     </CardFooter>

@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search, PlayCircle, Gem } from 'lucide-react';
+import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search, PlayCircle, Gem, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -99,13 +99,13 @@ function UserSection() {
           </DeleteAccountDialog>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="flex items-center gap-2" title="وحدات النشاط">
+      <div className="flex items-center gap-2 group/header-units" title="وحدات النشاط">
         <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
-        <span className="font-semibold">{user.points ?? 0}</span>
+        <span className="font-semibold blur-sm group-hover/header-units:blur-none transition-all duration-300">{Number(user.points || 0).toLocaleString()}</span>
       </div>
-      <div className="flex items-center gap-2" title="وحدات التقدم">
+      <div className="flex items-center gap-2 group/header-units" title="وحدات التقدم">
         <Gem className="h-5 w-5 text-sky-400 fill-sky-400" />
-        <span className="font-semibold">{user.gems ?? 0}</span>
+        <span className="font-semibold blur-sm group-hover/header-units:blur-none transition-all duration-300">{Number(user.gems || 0).toLocaleString()}</span>
       </div>
     </div>
   );

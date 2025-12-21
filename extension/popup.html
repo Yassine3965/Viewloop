@@ -108,20 +108,20 @@
     <div id="invalidSessionAlert" class="alert-card alert-error" style="display: none;">
       <span class="alert-icon">⚠️</span>
       <div class="alert-content">
-        <h4 class="alert-title">جلسة غير صالحة</h4>
-        <p class="alert-desc">هذا الفيديو ليس جزءاً من نظام ViewLoop. لن يتم احتساب أي نشاط.</p>
+        <h4 class="alert-title">مصدر غير معرف</h4>
+        <p class="alert-desc">هذا المصدر غير مسجل حالياً في نظام المزامنة. لن يتم توثيق أي نشاط.</p>
       </div>
     </div>
 
     <!-- PROGRESS BARS (Active Session) -->
     <div id="progressSection" class="progress-section" style="display: none;">
       <div class="progress-header">
-        <span class="badge badge-active">جلسة نشطة</span>
-        <span class="video-duration">المدة: <span id="videoDurationLabel">0:00</span></span>
+        <span class="badge badge-active">Active Window</span>
+        <span class="video-duration">Span: <span id="videoDurationLabel">0:00</span></span>
       </div>
 
       <div class="progress-label">
-        <span>مدة الجلسة</span>
+        <span>Session Span</span>
         <span id="progTextMain">0%</span>
       </div>
       <div class="progress-track">
@@ -129,7 +129,7 @@
       </div>
 
       <div class="progress-label">
-        <span>وقت إضافي (مستوى مرتفع)</span>
+        <span>Extended Span (L2)</span>
         <span id="progTextExtra" style="color:#f59e0b">0%</span>
       </div>
       <div class="progress-track">

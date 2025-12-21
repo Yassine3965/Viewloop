@@ -140,13 +140,13 @@ export async function POST(req: Request) {
           console.log(`   Gems: ${totalGems}`);
         }
 
-        // Add to watch history with reputation data
-        await firestore.collection("watchHistory").add({
+        // Add to activity logs with reputation data
+        await firestore.collection("activityLogs").add({
           userId: session.userId,
           videoId: session.videoId,
           sessionId: sessionId,
-          pointsEarned: totalPoints,
-          gemsEarned: totalGems,
+          unitsActive: totalPoints,
+          unitsProgress: totalGems,
           reputationDelta: reputationDelta,
           validSeconds: validSeconds,
           extraSeconds: extraSeconds,
@@ -184,12 +184,16 @@ export async function POST(req: Request) {
 
 
 
-    console.log(`🏆 Points awarded for session ${sessionId}: ${finalPoints.totalPoints}`);
+    console.log(`🏆 Units synchronized for session ${sessionId}: ${finalPoints.totalPoints}`);
 
     const response = NextResponse.json({
       success: true,
-      pointsAwarded: finalPoints.totalPoints,
-      breakdown: finalPoints,
+      unitsSynchronized: finalPoints.totalPoints,
+      breakdown: {
+        activityUnits: finalPoints.totalPoints,
+        progressUnits: finalPoints.totalGems,
+        ...finalPoints
+      },
       sessionId: sessionId
     });
     return addCorsHeaders(response, req);

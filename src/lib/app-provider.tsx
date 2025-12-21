@@ -81,7 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [videos, setVideos] = useState<Video[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [awardedPoints, setAwardedPoints] = useState<{ points: number, type: string } | null>(null);
+  const [sessionSyncStatus, setSessionSyncStatus] = useState<{ points: number, type: string } | null>(null);
 
   // Videos listener
   // Videos listener
@@ -189,9 +189,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 // AND points > previousPoints OR we just want to show feedback.
 
                 if (previousPoints !== null && userProfile.points > previousPoints) {
-                  const pointsGained = userProfile.points - previousPoints;
-                  setAwardedPoints({
-                    points: pointsGained,
+                  const unitsSynchronized = userProfile.points - previousPoints;
+                  setSessionSyncStatus({
+                    points: unitsSynchronized,
                     type: lastSession.type || 'partial'
                   });
                 }
@@ -256,9 +256,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        return { success: true, message: "تمت إضافة الفيديو بنجاح." };
+        return { success: true, message: "تم تسجيل مصدر النشاط بنجاح." };
       } else {
-        return { success: false, message: result.error || result.message || "فشل إضافة الفيديو." };
+        return { success: false, message: result.error || result.message || "فشل تسجيل المصدر." };
       }
     } catch (error: any) {
       console.error("Error in addVideo:", error);
@@ -284,9 +284,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           errorEmitter.emit('permission-error', permissionError);
           throw new Error("Firestore deletion failed");
         });
-      return { success: true, message: `تم حذف الفيديو بنجاح.` };
+      return { success: true, message: `تم حذف السجل بنجاح.` };
     } catch (error: any) {
-      return { success: false, message: "فشل حذف الفيديو." };
+      return { success: false, message: "فشل حذف السجل." };
     }
   }, [user, db]);
 
@@ -570,9 +570,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       <AppDispatchContext.Provider value={dispatchContextValue}>
         {children}
         <PointsAwardedModal
-          open={!!awardedPoints}
-          data={awardedPoints}
-          onConfirm={() => setAwardedPoints(null)}
+          open={!!sessionSyncStatus}
+          data={sessionSyncStatus}
+          onConfirm={() => setSessionSyncStatus(null)}
         />
       </AppDispatchContext.Provider>
     </AppStateContext.Provider>

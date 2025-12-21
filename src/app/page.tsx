@@ -77,7 +77,7 @@ export default function HomePage() {
               إدارة ذكية لجلسات النشاط الرقمي
             </h1>
             <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl">
-              منصة ViewLoop توفر حلاً متكاملاً لمزامنة تفاعلاتك الرقمية وتحليل أنماط النشاط عبر المتصفحات، مما يضمن تجربة متسقة ومنظمة لإدارة الجلسات.
+              منصة ViewLoop توفر حلاً متكاملاً لمزامنة تفاعلاتك عبر منصات المحتوى المختلفة، مما يضمن تجربة متسقة ومنظمة لإدارة الجلسات الرقمية.
             </p>
             <div className="flex flex-col gap-4 sm:flex-row justify-center">
               <Button asChild size="lg">
@@ -123,7 +123,7 @@ export default function HomePage() {
               </div>
               <h3 className="text-lg font-bold">مزامنة الحالة اللحظية</h3>
               <p className="text-sm text-muted-foreground">
-                تقنية النبض (Pulse) تضمن مزامنة حالة الجلسة بدقة متناهية مع الخادم السحابي، مما يضمن عدم فقدان أي بيانات حول النشاط الرقمي.
+                تقنية النبض (Pulse) تضمن مزامنة حالة الجلسة بدقة متناهية عبر مختلف المنصات، مما يضمن توثيق كافة بيانات النشاط الرقمي.
               </p>
             </div>
             <div className="grid gap-1 text-center p-6 rounded-lg bg-card shadow-sm hover:shadow-lg transition-shadow">
