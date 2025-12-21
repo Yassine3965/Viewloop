@@ -5,7 +5,7 @@ import { io } from './socket.io.esm.min.js';
 
 let ViewLoopConfig = {
   API_BASE_URL: "https://viewloop.vercel.app", // Next.js Production API
-  WS_URL: "http://localhost:3001"              // Pulse Brain (Update this when deployed)
+  WS_URL: null  // WebSocket disabled - Vercel doesn't support WS servers
 };
 
 let socket = null;
@@ -20,6 +20,11 @@ async function loadConfig() {
 }
 
 function connectWebSocket(sessionId, sessionToken, videoId) {
+  if (!ViewLoopConfig.WS_URL) {
+    console.log('⚠️ [WS] WebSocket disabled - using REST API only');
+    return;
+  }
+
   if (socket) socket.disconnect();
 
   console.log(`🔌 [WS] Connecting to Pulse Brain: ${ViewLoopConfig.WS_URL}`);
