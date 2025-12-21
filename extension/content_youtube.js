@@ -11,6 +11,7 @@ class SimpleYouTubeMonitor {
         this.currentVideo = null;
         this.heartbeatCount = 0;
         this.metaSent = false; // Track if metadata was sent
+        this._startingSession = false; // Prevent race conditions
 
         console.log('🎬 [CONTENT] Initializing YouTube monitor');
         this.initialize();
@@ -35,19 +36,6 @@ class SimpleYouTubeMonitor {
         setTimeout(checkYouTube, 1000);
     }
 
-    startGlobalPoller() {
-        // Check every second for playback state
-        setInterval(() => {
-            if (!this.currentVideo) {
-                this.currentVideo = document.querySelector('video.html5-main-video') || document.querySelector('video');
-            }
-
-            if (this.currentVideo && !this.currentVideo.paused && !this.isWatching) {
-                console.log("⚠️ [CONTENT] Playback detected via Global Poller (Event missed) -> Starting Session");
-                this.handlePlay();
-            }
-        }, 1000);
-    }
 
     setupVideoListeners(video) {
         if (!video) return;
@@ -106,11 +94,17 @@ class SimpleYouTubeMonitor {
             });
 
             if (response.success) {
-                console.log('✅ [CONTENT] Session started');
+                console.log('✅ [CONTENT] Session started and authorized');
                 this.startHeartbeats();
             } else {
-                console.error('❌ [CONTENT] Failed to start session:', response);
+                console.warn(`🛑 [CONTENT] Session REJECTED for video ${videoId}:`, response.error || 'Unknown error');
                 this.isWatching = false; // Reset if failed
+                this.sessionId = null;
+
+                // If the video is not found, we don't need to try again for this specific video ID
+                if (response.error === 'VIDEO_NOT_FOUND') {
+                    console.log('💡 [CONTENT] This video is not part of a ViewLoop campaign. Rewards are disabled.');
+                }
             }
         } catch (error) {
             console.error('❌ [CONTENT] Error starting session:', error);
@@ -316,8 +310,14 @@ SimpleYouTubeMonitor.prototype.startGlobalPoller = function () {
             }
 
             if (this.currentVideo && !this.currentVideo.paused && !this.isWatching) {
-                console.log("⚠️ [CONTENT] Playback detected via Global Poller (Event missed) -> Starting Session");
-                this.handlePlay();
+                // Prevent multiple simultaneous start attempts
+                if (this._startingSession) return;
+                this._startingSession = true;
+
+                console.log("⚠️ [CONTENT] Playback detected via Global Poller -> Starting Session");
+                this.handlePlay().finally(() => {
+                    this._startingSession = false;
+                });
             }
         } catch (e) {
             // If context is dead, this might throw

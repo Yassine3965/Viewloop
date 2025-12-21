@@ -244,7 +244,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       case 'START_WATCHING':
         handleStartWatching(message, sender, sendResponse);
-        return false;
+        return true;
 
       case 'HEARTBEAT':
         handleHeartbeat(message, sendResponse);
@@ -340,30 +340,58 @@ async function handleAuthSync(message, sendResponse) {
   }
 }
 
-function handleStartWatching(message, sender, sendResponse) {
+async function handleStartWatching(message, sender, sendResponse) {
   const session = createSession(message.sessionId, message.videoId, sender.tab.id);
-  chrome.storage.local.get(['viewloop_auth_token'], (result) => {
+
+  try {
+    const result = await chrome.storage.local.get(['viewloop_auth_token']);
     const token = result.viewloop_auth_token;
-    if (token) {
-      fetch(ViewLoopConfig.API_BASE_URL + ViewLoopConfig.ENDPOINTS.START_SESSION, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-signature': 'INIT' },
-        body: JSON.stringify({
-          videoId: message.videoId,
-          sessionId: message.sessionId,
-          userAuthToken: token,
-          clientType: 'extension'
-        })
-      }).then(res => res.json())
-        .then(data => {
-          if (data.success && data.video && data.video.duration) {
-            session.duration = data.video.duration;
-            console.log(`🔒 [BG] Server Authorized Duration: ${session.duration}s`);
-          }
-        }).catch(err => console.error("❌ [BG] Failed to register session:", err));
+
+    if (!token) {
+      console.error("❌ [BG] No auth token available for session start");
+      sendResponse({ success: false, error: 'NO_AUTH_TOKEN' });
+      return;
     }
-  });
-  sendResponse({ success: true, session });
+
+    const response = await fetch(ViewLoopConfig.API_BASE_URL + ViewLoopConfig.ENDPOINTS.START_SESSION, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-signature': 'INIT'
+      },
+      body: JSON.stringify({
+        videoId: message.videoId,
+        sessionId: message.sessionId,
+        userAuthToken: token,
+        clientType: 'extension'
+      })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      if (data.video && data.video.duration) {
+        session.duration = data.video.duration;
+        console.log(`✅ [BG] Session Authorized. Video: ${message.videoId}, Duration: ${session.duration}s`);
+        sendResponse({ success: true, session });
+      } else {
+        console.warn(`⚠️ [BG] Session started but no duration provided`);
+        sendResponse({ success: true, session });
+      }
+    } else {
+      console.error(`❌ [BG] Server rejected session: ${data.error || response.statusText}`);
+      // If rejected by server, cleanup local session immediately
+      endSession(message.sessionId);
+      sendResponse({
+        success: false,
+        error: data.error || 'SERVER_REJECTION',
+        message: data.message || 'Video not authorized'
+      });
+    }
+  } catch (err) {
+    console.error("❌ [BG] Error in handleStartWatching:", err);
+    sendResponse({ success: false, error: 'INTERNAL_ERROR' });
+  }
 }
 
 function handleHeartbeat(message, sendResponse) {

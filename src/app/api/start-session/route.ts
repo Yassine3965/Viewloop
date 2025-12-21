@@ -139,16 +139,23 @@ export async function POST(req: Request) {
     let videoTitle = `Video ${videoId}`;
     let videoThumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
-    // 🔒 SECURTY: Fetch duration from DB
+    // 🔒 SECURTY: Fetch duration and verify video exists in DB
     const videoDoc = await firestore.collection('videos').doc(videoId).get();
-    if (videoDoc.exists) {
-      const vData = videoDoc.data();
-      videoDuration = vData?.duration || 0;
-      videoTitle = vData?.title || videoTitle;
-      videoThumbnail = vData?.thumbnail || videoThumbnail;
-    } else {
-      console.warn(`[START-SESSION] Video ${videoId} not found in DB. Setting duration=0 (No Rewards).`);
+    if (!videoDoc.exists) {
+      console.warn(`[START-SESSION] Video ${videoId} not found in DB. Rejecting session.`);
+      return addCorsHeaders(
+        NextResponse.json({
+          error: "VIDEO_NOT_FOUND",
+          message: "This video is not part of an active campaign."
+        }, { status: 404 }),
+        req
+      );
     }
+
+    const vData = videoDoc.data();
+    videoDuration = vData?.duration || 0;
+    videoTitle = vData?.title || videoTitle;
+    videoThumbnail = vData?.thumbnail || videoThumbnail;
 
     const videoData = {
       id: videoId,
