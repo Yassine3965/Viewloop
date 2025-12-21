@@ -73,15 +73,16 @@ class SimpleYouTubeMonitor {
         const videoId = this.getVideoId();
         if (!videoId) return;
 
-        // If we are already watching/in-session, just ensure heartbeats are running (Resume)
-        if (this.isWatching && this.sessionId) {
-            console.log('▶️ [CONTENT] Resuming session for video:', videoId);
-            this.startHeartbeats();
+        // Prevent duplicate start if already watching or starting
+        if (this._startingSession) return;
+        if (this.isWatching && this.videoId === videoId) {
+            console.log('▶️ [CONTENT] Video already being watched/started. Skipping NEW session.');
             return;
         }
 
         console.log('▶️ [CONTENT] Starting NEW session for video:', videoId);
 
+        this._startingSession = true;
         this.isWatching = true;
         this.videoId = videoId;
         this.sessionId = 'session_' + Date.now();
@@ -97,18 +98,14 @@ class SimpleYouTubeMonitor {
                 console.log('✅ [CONTENT] Session started and authorized');
                 this.startHeartbeats();
             } else {
-                console.warn(`🛑 [CONTENT] Session REJECTED for video ${videoId}:`, response.error || 'Unknown error');
-                this.isWatching = false; // Reset if failed
-                this.sessionId = null;
-
-                // If the video is not found, we don't need to try again for this specific video ID
-                if (response.error === 'VIDEO_NOT_FOUND') {
-                    console.log('💡 [CONTENT] This video is not part of a ViewLoop campaign. Rewards are disabled.');
-                }
+                console.warn(`🛑 [CONTENT] Session REJECTED:`, response.error || 'Unknown error');
+                this.reset();
             }
         } catch (error) {
             console.error('❌ [CONTENT] Error starting session:', error);
-            this.isWatching = false;
+            this.reset();
+        } finally {
+            this._startingSession = false;
         }
     }
 
@@ -152,72 +149,17 @@ class SimpleYouTubeMonitor {
     }
 
     startHeartbeats() {
-        if (this.heartbeatInterval) return;
-
-        console.log('💓 [CONTENT] Starting heartbeats');
-
-        // IMMEDIATE HEARTBEAT (Fix for "start from 1st second")
-        if (this.isWatching && this.currentVideo) {
-            this.sendHeartbeat();
-        }
-
-        this.heartbeatInterval = setInterval(() => {
-            if (!this.isWatching || !this.currentVideo) {
-                this.stopHeartbeats();
-                return;
-            }
-
-            // 🛡️ SECURITY CHECK: Detect if video ended but event wasn't caught
-            if (this.currentVideo.ended) {
-                console.warn('⚠️ [CONTENT] Video ended detected via loop (Event missed)');
-                this.handleEnd();
-                return;
-            }
-
-            // 🛡️ BOUNDS CHECK: Verify we haven't exceeded duration
-            // YouTube sometimes doesn't fire 'ended' if it auto-navigates, but currentTime will be at end.
-            if (this.currentVideo.duration && this.currentVideo.currentTime >= (this.currentVideo.duration - 2)) {
-                console.warn('⚠️ [CONTENT] Video at end duration detected via loop -> Forcing End');
-                this.handleEnd();
-                return;
-            }
-
-            // 🛡️ SECURITY CHECK: Detect if video paused but event wasn't caught
-            if (this.currentVideo.paused) {
-                console.warn('⚠️ [CONTENT] Video paused detected via loop (Event missed)');
-                this.handlePause();
-                return;
-            }
-
-            this.sendHeartbeat();
-        }, 5000);
+        console.log('💓 [CONTENT] Passive monitoring active (Waiting for server pulses)');
+        // No more internal heartbeat interval. 
+        // Background will ping us via GET_STATE.
     }
 
     stopHeartbeats() {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
-            console.log('🛑 [CONTENT] Heartbeats stopped');
-        }
+        console.log('🛑 [CONTENT] Monitoring stopped');
     }
 
     sendHeartbeat() {
-        if (!this.sessionId || !this.currentVideo) return;
-
-        this.heartbeatCount++;
-        const videoTime = Math.floor(this.currentVideo.currentTime);
-
-        const heartbeat = {
-            sessionId: this.sessionId,
-            t: videoTime,                    // current time
-            p: !this.currentVideo.paused,    // playing state
-            v: document.visibilityState === "visible",  // visibility state
-            f: document.hasFocus()           // focus state
-        };
-
-        console.log(`💓 [CONTENT] Heartbeat ${this.heartbeatCount}: t=${heartbeat.t}, p=${heartbeat.p}, v=${heartbeat.v}, f=${heartbeat.f}`);
-
-        this.sendToBackground('HEARTBEAT', heartbeat);
+        // Function retained for legacy calls but does nothing
     }
 
     // Send video metadata to server

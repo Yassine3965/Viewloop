@@ -93,17 +93,25 @@ io.on('connection', (socket) => {
 
         if (validateHeartbeatData(session, heartbeat)) {
             session.heartbeats.push(heartbeat);
+            const prevHeartbeat = session.lastHeartbeat;
             session.lastHeartbeat = heartbeat.timestamp;
 
-            // Simple point accumulation logic
+            // Point accumulation logic: count time between valid pulses
             if (session.heartbeats.length > 1) {
-                const prev = session.heartbeats[session.heartbeats.length - 2];
-                const diff = heartbeat.timestamp - prev.timestamp;
-                if (diff >= 4000 && diff <= 12000 && heartbeat.isPlaying) {
-                    session.validSeconds += Math.floor(diff / 1000);
+                const diff = heartbeat.timestamp - prevHeartbeat;
+                // Allow some jitter (8s +/- 4s)
+                if (diff >= 4000 && diff <= 15000 && heartbeat.isPlaying) {
+                    const addedSecs = Math.floor(diff / 1000);
+                    session.validSeconds += addedSecs;
+                    console.log(`💓 [WS] Heartbeat OK: +${addedSecs}s (Total: ${session.validSeconds}s) for ${sessionId}`);
+                } else {
+                    console.warn(`⚠️ [WS] Heartbeat ignored: diff=${diff}ms, playing=${heartbeat.isPlaying}`);
                 }
+            } else {
+                console.log(`💓 [WS] Initial heartbeat recorded for ${sessionId}`);
             }
-            console.log(`💓 [WS] Heartbeat accepted for ${sessionId}: ${heartbeat.videoTime}s`);
+        } else {
+            console.warn(`❌ [WS] Heartbeat validation failed for ${sessionId}`);
         }
     });
 
@@ -185,7 +193,8 @@ app.post('/start-session', (req, res) => {
 
 // Helper Functions
 function validateHeartbeatData(session, heartbeat) {
-    if (!heartbeat.videoTime || heartbeat.videoTime < 0) return false;
+    if (heartbeat.videoTime === undefined || heartbeat.videoTime < 0) return false;
+    // Ensure we don't get pulses too fast (anti-spam)
     const timeSinceLast = heartbeat.timestamp - (session.lastHeartbeat || session.startTime);
     if (timeSinceLast < 3000) return false;
     return true;
