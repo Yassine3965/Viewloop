@@ -38,25 +38,22 @@ function connectWebSocket(sessionId, sessionToken, videoId) {
     socket.emit('AUTH', { sessionId, sessionToken, videoId });
   });
 
-  socket.on('PULSE_REQUEST', (data) => {
-    const session = activeSessions.get(sessionId);
-    if (!session) return;
+  socket.on('AUTH_SUCCESS', () => {
+    console.log(`✅ [WS] Authenticated: ${sessionId}`);
+  });
 
-    // Ask tab for current state
-    chrome.tabs.sendMessage(session.tabId, { type: 'GET_STATE' }, (response) => {
-      if (chrome.runtime.lastError || !response) {
-        // If tab is dead/cloased, we just don't respond. The server will detect this.
-        return;
-      }
+  socket.on('PULSE_REQUEST', async (data) => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs.length === 0) return;
 
+    const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_STATE' });
+    if (response) {
       socket.emit('PULSE_RESPONSE', {
         sessionId,
-        isPlaying: response.isPlaying,
-        isTabActive: response.isTabActive,
-        isEnded: response.isEnded,
-        videoTime: response.videoTime
+        ...response,
+        timestamp: Date.now()
       });
-    });
+    }
   });
 
   socket.on('disconnect', () => {
@@ -83,6 +80,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
     case 'SEND_HEARTBEATS':
       handleHeartbeats(message, sendResponse);
+      return true;
+    case 'FETCH_PROFILE':
+      handleFetchProfile(sendResponse);
       return true;
   }
 });
@@ -111,7 +111,7 @@ async function handleStart(message, sender, sendResponse) {
       console.log(`✅ [START] Session created: ${data.sessionId}`);
       activeSessions.set(data.sessionId, { ...data, tabId: sender.tab.id });
       connectWebSocket(data.sessionId, data.sessionToken, message.videoId);
-      sendResponse({ success: true, sessionId: data.sessionId });
+      sendResponse({ success: true, sessionId: data.sessionId, sessionToken: data.sessionToken });
     } else {
       console.error(`❌ [START] Rejected:`, data.error);
       sendResponse({ success: false, error: data.error || 'REJECTED' });
@@ -119,6 +119,62 @@ async function handleStart(message, sender, sendResponse) {
   } catch (e) {
     console.error(`❌ [START] Network Error:`, e.message);
     sendResponse({ success: false, error: 'OFFLINE' });
+  }
+}
+
+async function handleHeartbeats(message, sendResponse) {
+  await loadConfig();
+
+  try {
+    const res = await fetch(`${ViewLoopConfig.API_BASE_URL}/api/heartbeat-batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sessionId: message.sessionId,
+        sessionToken: message.sessionToken,
+        heartbeats: message.heartbeats
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      console.log(`💓 [HEARTBEAT] Sent ${message.heartbeats.length} heartbeats`);
+      sendResponse({ success: true });
+    } else {
+      console.warn(`⚠️ [HEARTBEAT] Failed:`, data.error);
+      sendResponse({ success: false, error: data.error });
+    }
+  } catch (e) {
+    console.error(`❌ [HEARTBEAT] Error:`, e.message);
+    sendResponse({ success: false, error: 'NETWORK_ERROR' });
+  }
+}
+
+async function handleFetchProfile(sendResponse) {
+  await loadConfig();
+  const token = (await chrome.storage.local.get(['viewloop_auth_token'])).viewloop_auth_token;
+  if (!token) {
+    sendResponse({ success: false, error: 'NO_TOKEN' });
+    return;
+  }
+
+  try {
+    const res = await fetch(`${ViewLoopConfig.API_BASE_URL}/api/user-info`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userAuthToken: token })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      sendResponse({ success: true, profile: data.user });
+    } else {
+      sendResponse({ success: false, error: data.error });
+    }
+  } catch (e) {
+    sendResponse({ success: false, error: 'NETWORK_ERROR' });
   }
 }
 
