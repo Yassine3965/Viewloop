@@ -69,8 +69,7 @@ const AppDispatchContext = createContext<AppDispatch | undefined>(undefined);
 
 
 const getInitialAvatar = (name: string): string => {
-  const sanitizedName = encodeURIComponent(name.trim());
-  return `https://source.boringavatars.com/beam/120/${sanitizedName}?colors=264653,2a9d8f,e9c46a,f4a261,e76f51`;
+  return `/logo.png`;
 };
 
 

@@ -35,76 +35,78 @@ function UserSection() {
 
   if (isUserLoading) {
     return (
-        <div className="flex items-center gap-4">
-            <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-8 w-8 rounded-full" />
-        </div>
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-8 w-24" />
+        <Skeleton className="h-8 w-8 rounded-full" />
+      </div>
     );
   }
 
   if (!user) {
     return (
-        <Button asChild variant="outline">
-            <Link href="/login" prefetch={false}>
-                <LogIn className="ml-2 h-4 w-4" />
-                <span>تسجيل الدخول</span>
-            </Link>
-        </Button>
+      <Button asChild variant="outline">
+        <Link href="/login" prefetch={false}>
+          <LogIn className="ml-2 h-4 w-4" />
+          <span>تسجيل الدخول</span>
+        </Link>
+      </Button>
     );
   }
-  
+
   return (
     <div className="flex items-center gap-4">
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <div className="flex items-center gap-2 cursor-pointer">
-                    <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.avatar ?? ''} alt={user?.name ?? ''} />
-                        <AvatarFallback>{(user?.name ?? '').charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="font-semibold text-sm">{user.name}</span>
-                </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled>
-                    <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                    </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                    <Link href="/dashboard" prefetch={false}>
-                    <LayoutDashboard className="ml-2 h-4 w-4" />
-                    <span>لوحة التحكم</span>
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="ml-2 h-4 w-4" />
-                    <span>تسجيل الخروج</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DeleteAccountDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                    <DialogTrigger asChild>
-                        <DropdownMenuItem
-                            onSelect={(e) => e.preventDefault()}
-                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                            >
-                            <Trash2 className="ml-2 h-4 w-4" />
-                            <span>حذف الحساب</span>
-                        </DropdownMenuItem>
-                    </DialogTrigger>
-                </DeleteAccountDialog>
-            </DropdownMenuContent>
-        </DropdownMenu>
-        <div className="flex items-center gap-2" title="النقاط">
-            <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
-            <span className="font-semibold">{user.points ?? 0}</span>
-        </div>
-        <div className="flex items-center gap-2" title="المجوهرات">
-            <Gem className="h-5 w-5 text-sky-400 fill-sky-400" />
-            <span className="font-semibold">{user.gems ?? 0}</span>
-        </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div className="flex items-center gap-2 cursor-pointer">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.avatar ?? ''} alt={user?.name ?? ''} />
+              <AvatarFallback className="bg-transparent">
+                <img src="/logo.png" alt="Logo" className="h-full w-full rounded-full" />
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-semibold text-sm">{user.name}</span>
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem disabled>
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{user.name}</p>
+              <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard" prefetch={false}>
+              <LayoutDashboard className="ml-2 h-4 w-4" />
+              <span>لوحة التحكم</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="ml-2 h-4 w-4" />
+            <span>تسجيل الخروج</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DeleteAccountDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <Trash2 className="ml-2 h-4 w-4" />
+                <span>حذف الحساب</span>
+              </DropdownMenuItem>
+            </DialogTrigger>
+          </DeleteAccountDialog>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <div className="flex items-center gap-2" title="النقاط">
+        <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
+        <span className="font-semibold">{user.points ?? 0}</span>
+      </div>
+      <div className="flex items-center gap-2" title="المجوهرات">
+        <Gem className="h-5 w-5 text-sky-400 fill-sky-400" />
+        <span className="font-semibold">{user.gems ?? 0}</span>
+      </div>
     </div>
   );
 }
@@ -126,44 +128,44 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container flex h-16 items-center">
         <div className="flex flex-1 items-center justify-start">
-            <Link href="/" aria-label="ViewLoop Home" prefetch={false}>
-                <Logo />
-            </Link>
-            <div className='mr-6'>
-                {mounted ? (
-                    <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                    aria-label="تبديل السمة"
-                    >
-                    <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                    <span className="sr-only">تبديل السمة</span>
-                    </Button>
-                    ) : <Skeleton className="h-8 w-8" />}
-            </div>
+          <Link href="/" aria-label="ViewLoop Home" prefetch={false}>
+            <Logo />
+          </Link>
+          <div className='mr-6'>
+            {mounted ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                aria-label="تبديل السمة"
+              >
+                <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">تبديل السمة</span>
+              </Button>
+            ) : <Skeleton className="h-8 w-8" />}
+          </div>
         </div>
 
         {isWatchPage && (
           <div className="flex-1 flex justify-center px-4 lg:px-8">
             <div className="relative w-full max-w-md">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    type="search" 
-                    placeholder="ابحث عن فيديو..."
-                    className="w-full pr-10"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="ابحث عن فيديو..."
+                className="w-full pr-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
         )}
 
         <div className="flex items-center justify-end gap-4" dir="ltr">
-            <nav>
-                <UserSection />
-            </nav>
+          <nav>
+            <UserSection />
+          </nav>
         </div>
       </div>
     </header>

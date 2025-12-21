@@ -11,8 +11,8 @@ export function Logo() {
       )}
       style={{ '--shine-delay': '0s' } as React.CSSProperties}
     >
+      <img src="/logo.png" alt="Logo" className="h-8 w-8 rounded-full border-2 border-primary p-0.5 shadow-lg shadow-primary/20" />
       <span>ViewLoop</span>
-      <PlayCircle className="h-7 w-7" />
     </div>
   );
 }

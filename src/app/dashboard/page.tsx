@@ -238,7 +238,9 @@ export default function DashboardPage() {
                                         <div className="absolute -inset-1 bg-gradient-to-r from-primary to-accent rounded-full blur opacity-40 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
                                         <Avatar className="h-28 w-28 border-4 border-background ring-2 ring-white/10 relative">
                                             <AvatarImage src={user.avatar} alt={user.name} />
-                                            <AvatarFallback className="text-3xl bg-muted">{user.name.trim().charAt(0)}</AvatarFallback>
+                                            <AvatarFallback className="text-3xl bg-transparent">
+                                                <img src="/logo.png" alt="Logo" className="h-full w-full rounded-full" />
+                                            </AvatarFallback>
                                         </Avatar>
                                     </div>
                                     <div className="flex flex-col gap-2 items-center sm:items-start text-center sm:text-right">
