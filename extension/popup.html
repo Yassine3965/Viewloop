@@ -41,21 +41,39 @@
       </div>
     </div>
 
-    <!-- LOGIN PROMPT (Shown if no token) -->
-    <div id="loginPrompt" class="user-card"
-      style="display: flex; flex-direction: column; text-align: center; display: none;">
-      <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">قم بتسجيل الدخول في الموقع للمزامنة</p>
-      <button id="openLoginBtn" class="btn btn-primary" style="padding: 8px; font-size: 12px; margin-bottom: 8px;">فتح
-        لوحة التحكم</button>
+    <!-- AUTH PROMPT -->
+    <div id="loginPrompt" class="auth-card" style="display: none;">
+      <div class="auth-tabs">
+        <button id="tabLogin" class="auth-tab active">دخول</button>
+        <button id="tabRegister" class="auth-tab">جديد</button>
+      </div>
 
-      <!-- Manual Fallback -->
-      <details style="width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 8px;">
-        <summary style="font-size: 10px; color: var(--text-muted); cursor: pointer;">إدخال الرمز يدوياً</summary>
-        <div style="margin-top: 8px;">
-          <input type="text" id="manualTokenInput" placeholder="الصق رمز الاتصال هنا"
-            style="width: 100%; padding: 6px; background: rgba(0,0,0,0.2); border: 1px solid #334155; border-radius: 4px; color: white; font-size: 10px; box-sizing: border-box;">
-          <button id="saveTokenBtn" class="btn btn-secondary"
-            style="margin-top: 5px; padding: 6px; font-size: 10px; width: 100%;">اتصال</button>
+      <div id="authContent" class="auth-form-container">
+        <!-- Fields are dynamic or statically toggled -->
+        <input type="text" id="authName" placeholder="الاسم الكامل" class="auth-input" style="display: none;">
+
+        <div id="genderContainer" class="gender-toggle" style="display: none;">
+          <button type="button" class="gender-btn active" data-gender="male">ذكر</button>
+          <button type="button" class="gender-btn" data-gender="female">أنثى</button>
+        </div>
+
+        <input type="email" id="authEmail" placeholder="البريد الإلكتروني" class="auth-input">
+        <input type="password" id="authPassword" placeholder="كلمة المرور" class="auth-input">
+
+        <button id="authSubmitBtn" class="btn btn-primary auth-submit">
+          <span>دخول</span>
+          <div id="authLoader" class="loader-mini" style="display: none;"></div>
+        </button>
+
+        <p class="auth-help">أو <a href="#" id="openDashboardLink">فتح الموقع</a> للمزامنة تلقائياً</p>
+      </div>
+
+      <!-- Manual Fallback (Hidden by default in new UI but kept for extreme cases) -->
+      <details class="manual-fallback">
+        <summary>ربط يدوي (للمحترفين)</summary>
+        <div class="manual-content">
+          <input type="text" id="manualTokenInput" placeholder="الرمز السري">
+          <button id="saveTokenBtn">ربط</button>
         </div>
       </details>
     </div>

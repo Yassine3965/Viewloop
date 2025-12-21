@@ -308,3 +308,185 @@ body::before {
 .pulse-anim {
     animation: pulse-soft 2s infinite ease-in-out;
 }
+
+/* Auth UI */
+.auth-card {
+    background: var(--glass);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+    animation: scale-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-tabs {
+    display: flex;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.auth-tab {
+    flex: 1;
+    padding: 15px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    font-family: 'Tajawal', sans-serif;
+}
+
+.auth-tab.active {
+    color: var(--primary);
+}
+
+.auth-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--primary);
+    box-shadow: 0 0 10px var(--primary);
+}
+
+.auth-form-container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.auth-input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 12px 15px;
+    color: white;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.3s;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.auth-input:focus {
+    border-color: var(--primary);
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.gender-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.gender-btn {
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.gender-btn.active {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+    color: white;
+}
+
+.auth-submit {
+    margin-top: 10px;
+}
+
+.auth-help {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 5px;
+}
+
+.auth-help a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.loader-mini {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes scale-up {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.manual-fallback {
+    margin-top: 5px;
+    border-top: 1px solid var(--glass-border);
+    padding: 8px 24px;
+}
+
+.manual-fallback summary {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    text-align: center;
+}
+
+.manual-content {
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.manual-content input {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 8px;
+    color: white;
+    font-size: 10px;
+}
+
+.manual-content button {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: white;
+    padding: 6px;
+    font-size: 10px;
+    cursor: pointer;
+}

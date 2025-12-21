@@ -265,14 +265,14 @@ export default function DashboardPage() {
                                     <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center">
                                         <Gem className="h-5 w-5 text-pink-400 mb-2" />
                                         <span className="text-2xl font-black font-outfit text-glow text-pink-400 tracking-tighter">
-                                            {parseFloat(user.gems || 0).toLocaleString()}
+                                            {Number(user.gems || 0).toLocaleString()}
                                         </span>
                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">الجواهر</span>
                                     </div>
                                     <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center">
                                         <Star className="h-5 w-5 text-amber-400 mb-2" />
                                         <span className="text-2xl font-black font-outfit text-glow text-amber-400 tracking-tighter">
-                                            {parseFloat(user.points || 0).toLocaleString()}
+                                            {Number(user.points || 0).toLocaleString()}
                                         </span>
                                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">النقاط</span>
                                     </div>

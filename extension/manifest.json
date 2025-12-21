@@ -21,7 +21,8 @@
     "https://www.youtube.com/*",
     "https://youtube.com/*",
     "https://*.youtube.com/*",
-    "https://viewloop.vercel.app/*"
+    "https://viewloop.vercel.app/*",
+    "https://identitytoolkit.googleapis.com/*"
   ],
   "content_scripts": [
     {

@@ -85,32 +85,143 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.error("Popup error:", e);
     }
 
+
     // Button Actions
-    els.startWatchBtn.addEventListener('click', () => {
-        // Direct Professional Redirect
-        window.open('https://viewloop.vercel.app/api/direct-watch', '_blank');
+    if (els.startWatchBtn) {
+        els.startWatchBtn.addEventListener('click', () => {
+            window.open('https://viewloop.vercel.app/api/direct-watch', '_blank');
+        });
+    }
+
+    if (els.openDashboardBtn) {
+        els.openDashboardBtn.addEventListener('click', () => {
+            window.open('https://viewloop.vercel.app/dashboard', '_blank');
+        });
+    }
+
+    const openDashboardLink = document.getElementById('openDashboardLink');
+    if (openDashboardLink) {
+        openDashboardLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.open('https://viewloop.vercel.app/dashboard', '_blank');
+        });
+    }
+
+    // AUTH LOGIC
+    const API_KEY = "AIzaSyBDRLk64HrmlsRKn0BqC3kdmvapOoA_u6g";
+    const API_BASE_URL = "https://viewloop.vercel.app";
+
+    let currentTab = 'login';
+    let selectedGender = 'male';
+
+    const tabLogin = document.getElementById('tabLogin');
+    const tabRegister = document.getElementById('tabRegister');
+    const authName = document.getElementById('authName');
+    const genderContainer = document.getElementById('genderContainer');
+    const authSubmitBtn = document.getElementById('authSubmitBtn');
+    const authSubmitText = authSubmitBtn?.querySelector('span');
+    const authLoader = document.getElementById('authLoader');
+
+    if (tabLogin && tabRegister) {
+        tabLogin.addEventListener('click', () => {
+            currentTab = 'login';
+            tabLogin.classList.add('active');
+            tabRegister.classList.remove('active');
+            authName.style.display = 'none';
+            genderContainer.style.display = 'none';
+            if (authSubmitText) authSubmitText.textContent = 'دخول';
+        });
+
+        tabRegister.addEventListener('click', () => {
+            currentTab = 'register';
+            tabRegister.classList.add('active');
+            tabLogin.classList.remove('active');
+            authName.style.display = 'block';
+            genderContainer.style.display = 'grid';
+            if (authSubmitText) authSubmitText.textContent = 'إنشاء حساب';
+        });
+    }
+
+    document.querySelectorAll('.gender-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedGender = btn.dataset.gender;
+        });
     });
 
-    els.openDashboardBtn.addEventListener('click', () => {
-        window.open('https://viewloop.vercel.app/dashboard', '_blank');
-    });
+    if (authSubmitBtn) {
+        authSubmitBtn.addEventListener('click', async () => {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            const name = authName.value.trim();
 
-    els.openLoginBtn.addEventListener('click', () => {
-        window.open('https://viewloop.vercel.app/login', '_blank');
-    });
+            if (!email || !password) return alert('الرجاء تعبئة جميع الحقول');
+            if (currentTab === 'register' && !name) return alert('الرجاء إدخال اسمك الكامل');
+
+            authLoader.style.display = 'block';
+            if (authSubmitText) authSubmitText.style.opacity = '0.5';
+            authSubmitBtn.disabled = true;
+
+            try {
+                const url = currentTab === 'login'
+                    ? `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`
+                    : `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`;
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password, returnSecureToken: true }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await res.json();
+
+                if (data.error) throw new Error(data.error.message);
+
+                const token = data.idToken;
+                const userId = data.localId;
+
+                if (currentTab === 'register') {
+                    await fetch(`${API_BASE_URL}/api/init-profile`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken: token, name, gender: selectedGender })
+                    });
+                }
+
+                await chrome.storage.local.set({
+                    'viewloop_auth_token': token,
+                    'viewloop_user_id': userId,
+                    'auth_synced_at': Date.now()
+                });
+
+                chrome.runtime.sendMessage({
+                    type: 'AUTH_SYNC',
+                    token: token,
+                    userId: userId
+                }, () => window.location.reload());
+
+            } catch (err) {
+                let msg = err.message;
+                if (msg === 'EMAIL_EXISTS') msg = 'البريد الإلكتروني مسجل مسبقاً';
+                else if (msg === 'INVALID_LOGIN_CREDENTIALS' || msg === 'EMAIL_NOT_FOUND' || msg === 'INVALID_PASSWORD') msg = 'خطأ في بيانات الدخول';
+                else if (msg === 'WEAK_PASSWORD') msg = 'كلمة المرور ضعيفة جداً';
+                alert(`خطأ: ${msg}`);
+            } finally {
+                authLoader.style.display = 'none';
+                if (authSubmitText) authSubmitText.style.opacity = '1';
+                authSubmitBtn.disabled = false;
+            }
+        });
+    }
 
     // Refresh Sync logic
     const refreshSyncBtn = document.getElementById('refreshSyncBtn');
     if (refreshSyncBtn) {
         refreshSyncBtn.addEventListener('click', async () => {
-            // 1. Clear storage
             await chrome.storage.local.remove(['viewloop_auth_token', 'viewloop_user_id', 'auth_synced_at']);
-
-            // 2. Visual Feedback
             els.statusText.textContent = 'تم مسح البيانات...';
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
+            setTimeout(() => window.location.reload(), 500);
         });
     }
 
@@ -124,17 +235,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (token && token.length > 20) {
                 await chrome.storage.local.set({
                     'viewloop_auth_token': token,
-                    'viewloop_user_id': 'manual_user', // We don't have the ID, background will fetch profile later or server accepts just token
+                    'viewloop_user_id': 'manual_user',
                     'auth_synced_at': Date.now()
                 });
-                // Send explicit sync message to background
                 chrome.runtime.sendMessage({
                     type: 'AUTH_SYNC',
                     token: token,
                     userId: 'manual_user'
-                }, () => {
-                    window.location.reload(); // Reload popup to show logged in state
-                });
+                }, () => window.location.reload());
             } else {
                 alert('الرمز غير صحيح');
             }
