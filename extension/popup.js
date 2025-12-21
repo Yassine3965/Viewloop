@@ -140,4 +140,75 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
         });
     }
+
+    // === Monitoring UI Logic ===
+    const monitorEls = {
+        section: document.getElementById('progressSection'),
+        barMain: document.getElementById('barMain'),
+        textMain: document.getElementById('progTextMain'),
+        barExtra: document.getElementById('barExtra'),
+        textExtra: document.getElementById('progTextExtra'),
+        durationLabel: document.getElementById('videoDurationLabel')
+    };
+
+    function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateMonitoring() {
+        chrome.runtime.sendMessage({ type: 'GET_SESSIONS' }, (response) => {
+            if (chrome.runtime.lastError) return; // Ignore if background not ready
+
+            if (response && response.success && response.sessions && response.sessions.length > 0) {
+                // Use the most recent session
+                const session = response.sessions[response.sessions.length - 1];
+                const duration = session.duration || 0;
+
+                // Update duration label
+                if (monitorEls.durationLabel && duration > 0) {
+                    monitorEls.durationLabel.textContent = formatTime(duration);
+                }
+
+                // Calculate estimated watch time (Heartbeats * 5s interval)
+                const watchTime = (session.validHeartbeats || 0) * 5;
+
+                monitorEls.section.style.display = 'block';
+
+                // 1. Main Progress (0 -> 100%)
+                let mainPercent = duration > 0 ? (watchTime / duration) * 100 : 0;
+                if (mainPercent > 100) mainPercent = 100;
+
+                monitorEls.barMain.style.width = `${mainPercent}%`;
+                monitorEls.textMain.textContent = `${Math.min(Math.floor(mainPercent), 100)}%`;
+
+                // 2. Extra Progress (Starts after duration)
+                if (duration > 0 && watchTime > duration) {
+                    const extraTime = watchTime - duration;
+                    // We assume the second bar fills up over the SAME duration as the first (1x speed)
+                    let extraPercent = (extraTime / duration) * 100;
+
+                    if (extraPercent > 100) extraPercent = 100;
+
+                    monitorEls.barExtra.style.width = `${extraPercent}%`;
+                    monitorEls.textExtra.textContent = `+${formatTime(extraTime)}`;
+
+                    // Add pulse animation to extra bar when active
+                    monitorEls.barExtra.classList.add('pulse-anim');
+                } else {
+                    monitorEls.barExtra.style.width = '0%';
+                    monitorEls.textExtra.textContent = '0:00';
+                    monitorEls.barExtra.classList.remove('pulse-anim');
+                }
+
+            } else {
+                monitorEls.section.style.display = 'none';
+            }
+        });
+    }
+
+    // Poll every second
+    setInterval(updateMonitoring, 1000);
+    updateMonitoring();
 });

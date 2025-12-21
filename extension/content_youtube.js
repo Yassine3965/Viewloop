@@ -238,6 +238,7 @@ class SimpleYouTubeMonitor {
         // Send metadata to server
         // Send metadata to background to proxy to server
         this.sendToBackground('SEND_VIDEO_META', {
+            sessionId: this.sessionId,
             videoId: videoId,
             duration: duration
         }).then(() => {

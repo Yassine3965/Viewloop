@@ -350,6 +350,13 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
               .then(data => {
                 if (data.success) {
                   console.log("✅ [BG] Session registered on server with User ID:", data.userId || 'unknown');
+
+                  // 🔒 SECURITY: Use Server-Authorized Duration
+                  if (data.video && data.video.duration) {
+                    session.duration = data.video.duration;
+                    console.log(`🔒 [BG] Server Authorized Duration set to: ${session.duration}s`);
+                  }
+
                 } else {
                   console.warn("⚠️ [BG] Server rejected session registration:", data);
                 }
@@ -454,6 +461,26 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     case 'SEND_VIDEO_META':
       try {
         console.log("📊 [BG] Sending video metadata for:", message.videoId);
+
+        // 1. Store duration if not already set by Server (Fallback only)
+        if (message.sessionId) {
+          const session = getSession(message.sessionId);
+          // Only update if duration is missing or 0 (Server authority)
+          if (session && (!session.duration || session.duration === 0)) {
+            // Check if we should allow client duration?
+            // User wants STRICT server authority.
+            // If server returned 0, it means video is not in DB.
+            // If we accept client duration, we allow points for non-DB videos?
+            // No, points calculation is server-side and checks DB.
+            // So this client-side duration is PURELY for the Popup Progress Bar.
+            // It's safe to use client duration for UI visual only if server didn't provide one.
+            session.duration = message.duration;
+            console.log(`⚠️ [BG] Using Client Duration for UI (Server had none): ${message.duration}s`);
+          } else if (session) {
+            console.log(`🔒 [BG] Ignoring Client Duration ${message.duration}s (Server Authority Active: ${session.duration}s)`);
+          }
+        }
+
         chrome.storage.local.get(['viewloop_auth_token'], (result) => {
           const token = result.viewloop_auth_token;
           const metaUrl = ViewLoopConfig.API_BASE_URL + '/api/video-meta';
@@ -462,8 +489,6 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
-              // Add signature if needed, but this endpoint might be public or rely on body token?
-              // Assuming standard public/auth is fine. If it needs auth, we can add it.
             },
             body: JSON.stringify({
               videoId: message.videoId,
@@ -474,8 +499,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           })
             .then(res => res.json())
             .then(data => {
-              console.log("✅ [BG] Video metadata sent:", data);
-              // We don't necessarily need to send response back to content script async here as it's fire-and-forget mostly
+              console.log("✅ [BG] Video metadata sent to server:", data);
             })
             .catch(err => console.error("❌ [BG] Failed to send video metadata:", err));
         });

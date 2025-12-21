@@ -135,12 +135,27 @@ export async function POST(req: Request) {
     console.log(`Created session: ${sessionId}, accepted: ${accepted}`);
 
     // إضافة بيانات الفيديو
+    let videoDuration = 0;
+    let videoTitle = `Video ${videoId}`;
+    let videoThumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+    // 🔒 SECURTY: Fetch duration from DB
+    const videoDoc = await firestore.collection('videos').doc(videoId).get();
+    if (videoDoc.exists) {
+      const vData = videoDoc.data();
+      videoDuration = vData?.duration || 0;
+      videoTitle = vData?.title || videoTitle;
+      videoThumbnail = vData?.thumbnail || videoThumbnail;
+    } else {
+      console.warn(`[START-SESSION] Video ${videoId} not found in DB. Setting duration=0 (No Rewards).`);
+    }
+
     const videoData = {
       id: videoId,
       url: `https://www.youtube.com/watch?v=${videoId}`,
-      duration: 300, // افتراضي
-      title: `Video ${videoId}`,
-      thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      duration: videoDuration,
+      title: videoTitle,
+      thumbnail: videoThumbnail
     };
 
     return addCorsHeaders(NextResponse.json({

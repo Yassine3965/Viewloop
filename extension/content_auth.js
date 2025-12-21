@@ -1,47 +1,12 @@
-// ViewLoop Auth Sync Script - V3.0 Visual Diagnostics
+// ViewLoop Auth Sync Script - Production
 console.log("🔥 [AUTH-SYNC] Script Loaded");
 
-// Create Diagnostic Banner
-const banner = document.createElement('div');
-Object.assign(banner.style, {
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    padding: '12px 16px',
-    background: '#0f172a', // Dark blue
-    color: '#38bdf8', // Sky blue
-    border: '2px solid #38bdf8',
-    borderRadius: '8px',
-    fontFamily: 'sans-serif',
-    fontSize: '14px',
-    zIndex: '2147483647', // Max Z-Index
-    boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-    transition: 'opacity 0.5s',
-    pointerEvents: 'none' // Don't block clicks
-});
-banner.innerText = 'ViewLoop Sync: Initializing...';
-
-function showBanner() {
-    if (document.body) {
-        document.body.appendChild(banner);
-    } else {
-        requestAnimationFrame(showBanner);
-    }
-}
-showBanner();
-
 function updateStatus(msg, type = 'info') {
-    banner.innerText = `ViewLoop Sync: ${msg}`;
-    console.log(`[AUTH-SYNC UI] ${msg}`);
-
-    if (type === 'success') {
-        banner.style.borderColor = '#10b981'; // Green
-        banner.style.color = '#10b981';
-        // Hide after 5 seconds
-        setTimeout(() => banner.style.opacity = '0', 5000);
-    } else if (type === 'error') {
-        banner.style.borderColor = '#ef4444'; // Red
-        banner.style.color = '#ef4444';
+    // Console only for production
+    if (type === 'error') {
+        console.error(`[AUTH-SYNC] ${msg}`);
+    } else {
+        console.log(`[AUTH-SYNC] ${msg}`);
     }
 }
 

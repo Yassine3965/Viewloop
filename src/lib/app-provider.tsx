@@ -240,47 +240,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addVideo = useCallback(async (videoData: Omit<Video, 'id' | 'submissionDate'>): Promise<{ success: boolean, message: string }> => {
     const currentUser = user;
-    if (!currentUser || !db) return { success: false, message: "المستخدم غير مسجل دخوله أو أن قاعدة البيانات غير متاحة." };
-
-    const youtubeVideoId = getYoutubeVideoId(videoData.url);
-    if (!youtubeVideoId) {
-      return { success: false, message: "رابط يوتيوب غير صالح." };
-    }
-
-    // The document ID is the YouTube video ID
-    const videoRef = doc(db, 'videos', youtubeVideoId);
+    if (!currentUser) return { success: false, message: "المستخدم غير مسجل دخوله." };
 
     try {
-      const videoSnap = await getDoc(videoRef);
+      const userAuthToken = await currentUser.getIdToken();
 
-      if (videoSnap.exists()) {
-        return { success: false, message: "هذا الفيديو موجود بالفعل في قائمة المشاهدة." };
+      const response = await fetch('/api/add-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: videoData.url,
+          userAuthToken
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        return { success: true, message: "تمت إضافة الفيديو بنجاح." };
+      } else {
+        return { success: false, message: result.error || result.message || "فشل إضافة الفيديو." };
       }
-
-      // Ensure the videoId field is also set within the document data
-      const newVideoData = {
-        ...videoData,
-        videoId: youtubeVideoId, // Explicitly add the videoId field
-        submissionDate: serverTimestamp(),
-      };
-
-      await setDoc(videoRef, newVideoData)
-        .catch(async (serverError: FirestoreError) => {
-          const permissionError = new FirestorePermissionError({
-            path: videoRef.path,
-            operation: 'create',
-            requestResourceData: newVideoData,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-          throw serverError;
-        });
-
-      return { success: true, message: "تمت إضافة الفيديو بنجاح." };
     } catch (error: any) {
       console.error("Error in addVideo:", error);
-      return { success: false, message: error.message || "فشل إنشاء الحملة." };
+      return { success: false, message: "حدث خطأ في الاتصال بالسيرفر." };
     }
-  }, [user, db]);
+  }, [user]);
 
   const deleteVideo = useCallback(async (video: Video): Promise<{ success: boolean, message: string }> => {
     const currentUser = user;
