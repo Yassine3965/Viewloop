@@ -9,6 +9,11 @@ import '@/firebase/client'; // <-- Import here to ensure early initialization
 export const metadata: Metadata = {
   title: 'ViewLoop',
   description: 'عزز مشاهداتك، دون عناء',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({
@@ -28,11 +33,6 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&family=Outfit:wght@400;600;800&family=Inter:wght@400;600&display=swap"
           rel="stylesheet"
-        />
-        <link
-          rel="icon"
-          href="/logo.png"
-          type="image/png"
         />
         <script
           dangerouslySetInnerHTML={{
