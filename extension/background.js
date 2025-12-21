@@ -224,304 +224,199 @@ chrome.runtime.onMessageExternal.addListener(async (message, sender, sendRespons
   return true;
 });
 
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📨 [BG] Message received:", message.type);
 
-  switch (message.type) {
-    case 'PING':
-      sendResponse({ success: true, config: ViewLoopConfig });
-      break;
+  try {
+    switch (message.type) {
+      case 'PING':
+      case 'GET_CONFIG':
+        sendResponse({ success: true, config: ViewLoopConfig });
+        return false;
 
-    case 'GET_CONFIG':
-      sendResponse({ success: true, config: ViewLoopConfig });
-      break;
+      case 'FETCH_PROFILE':
+        handleFetchProfile(sendResponse);
+        return true;
 
-    case 'FETCH_PROFILE':
-      // Handler for manual/proactive profile refresh
-      chrome.storage.local.get(['viewloop_auth_token'], async (result) => {
-        const token = result.viewloop_auth_token;
-        if (!token) {
-          sendResponse({ success: false, error: 'NO_TOKEN' });
-          return;
-        }
+      case 'AUTH_SYNC':
+        handleAuthSync(message, sendResponse);
+        return true;
 
-        console.log("🔐 [BG] Fetching user profile (manual/proactive)...");
-        const profileUrl = ViewLoopConfig.API_BASE_URL + '/api/user-info';
+      case 'START_WATCHING':
+        handleStartWatching(message, sender, sendResponse);
+        return false;
 
-        try {
-          const res = await fetch(profileUrl, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const data = await res.json();
+      case 'HEARTBEAT':
+        handleHeartbeat(message, sendResponse);
+        return false;
 
-          if (res.ok && data.name) {
-            console.log("✅ [BG] User profile fetched:", data.name);
-            await chrome.storage.local.set({
-              'viewloop_user_name': data.name,
-              'viewloop_user_points': data.points,
-              'viewloop_user_gems': data.gems,
-              'viewloop_user_level': data.level,
-              'viewloop_user_avatar': data.avatar
-            });
-            sendResponse({ success: true, profile: data });
-          } else {
-            console.warn("⚠️ [BG] Failed to fetch profile:", data);
-            sendResponse({ success: false, error: 'FETCH_FAILED' });
-          }
-        } catch (err) {
-          console.error("❌ [BG] Network error fetching profile:", err);
-          sendResponse({ success: false, error: 'NETWORK_ERROR' });
-        }
-      });
-      return true; // Keep channel open for async response
+      case 'STOP_WATCHING':
+        handleStopWatching(message, sendResponse);
+        return false;
 
-    case 'AUTH_SYNC':
-      const { token, userId } = message;
-      if (token) {
-        // 1. Save Token first
+      case 'SEND_VIDEO_META':
+        handleSendVideoMeta(message, sendResponse);
+        return false;
+
+      case 'GET_SESSIONS':
+        sendResponse({ success: true, sessions: Array.from(activeSessions.values()) });
+        return false;
+
+      default:
+        sendResponse({ success: false, error: 'Unknown message type' });
+        return false;
+    }
+  } catch (error) {
+    console.error(`❌ [BG] Error handling message ${message.type}:`, error);
+    sendResponse({ success: false, error: error.message });
+    return false;
+  }
+});
+
+// Helper Functions for Messages
+async function handleFetchProfile(sendResponse) {
+  chrome.storage.local.get(['viewloop_auth_token'], async (result) => {
+    const token = result.viewloop_auth_token;
+    if (!token) {
+      sendResponse({ success: false, error: 'NO_TOKEN' });
+      return;
+    }
+
+    try {
+      const profileUrl = ViewLoopConfig.API_BASE_URL + '/api/user-info';
+      const res = await fetch(profileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+
+      if (res.ok && data.name) {
         await chrome.storage.local.set({
-          'viewloop_auth_token': token,
-          'viewloop_user_id': userId, // Temporary ID if manual
-          'auth_synced_at': Date.now()
+          'viewloop_user_name': data.name,
+          'viewloop_user_points': data.points,
+          'viewloop_user_gems': data.gems,
+          'viewloop_user_level': data.level,
+          'viewloop_user_avatar': data.avatar
         });
-
-        // 2. Fetch Real Profile
-        console.log("🔐 [BG] Fetching user profile for token...");
-        const profileUrl = ViewLoopConfig.API_BASE_URL + '/api/user-info';
-
-        try {
-          const res = await fetch(profileUrl, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const data = await res.json();
-
-          if (res.ok && data.name) {
-            console.log("✅ [BG] User profile fetched:", data.name);
-            await chrome.storage.local.set({
-              'viewloop_user_name': data.name,
-              'viewloop_user_points': data.points,
-              'viewloop_user_gems': data.gems,
-              'viewloop_user_level': data.level,
-              'viewloop_user_avatar': data.avatar
-            });
-            sendResponse({ success: true, profile: data });
-          } else {
-            console.warn("⚠️ [BG] Failed to fetch profile:", data);
-            sendResponse({ success: true, warning: 'PROFILE_FETCH_FAILED' });
-          }
-        } catch (err) {
-          console.error("❌ [BG] Network error fetching profile:", err);
-          sendResponse({ success: true, warning: 'NETWORK_ERROR' });
-        }
+        sendResponse({ success: true, profile: data });
       } else {
-        sendResponse({ success: false, error: 'NO_TOKEN' });
+        sendResponse({ success: false, error: 'FETCH_FAILED' });
       }
-      return true; // Keep channel open for async response
-      break;
+    } catch (err) {
+      sendResponse({ success: false, error: 'NETWORK_ERROR' });
+    }
+  });
+}
 
-    case 'START_WATCHING':
-      try {
-        const session = createSession(message.sessionId, message.videoId, sender.tab.id);
-
-        // 🚀 CRITICAL: Register session with server using Auth Token
-        // Must retrieve token from storage first
-        chrome.storage.local.get(['viewloop_auth_token'], (result) => {
-          const token = result.viewloop_auth_token;
-          if (token) {
-            console.log("🔐 [BG] Found auth token, registering session with server...");
-            const startSessionUrl = ViewLoopConfig.API_BASE_URL + ViewLoopConfig.ENDPOINTS.START_SESSION;
-
-            // Construct SHA-256 signature for INIT if needed or rely on token
-            // Server expects x-signature: 'INIT' for start-session as per my previous view of route.ts
-
-            fetch(startSessionUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-signature': 'INIT'
-              },
-              body: JSON.stringify({
-                videoId: message.videoId,
-                sessionId: message.sessionId,
-                userAuthToken: token,
-                clientType: 'extension'
-              })
-            }).then(res => res.json())
-              .then(data => {
-                if (data.success) {
-                  console.log("✅ [BG] Session registered on server with User ID:", data.userId || 'unknown');
-
-                  // 🔒 SECURITY: Use Server-Authorized Duration
-                  if (data.video && data.video.duration) {
-                    session.duration = data.video.duration;
-                    console.log(`🔒 [BG] Server Authorized Duration set to: ${session.duration}s`);
-                  }
-
-                } else {
-                  console.warn("⚠️ [BG] Server rejected session registration:", data);
-                }
-              })
-              .catch(err => console.error("❌ [BG] Failed to register session:", err));
-          } else {
-            console.log("⚠️ [BG] No auth token found, session will be anonymous");
-          }
-        });
-
-        sendResponse({ success: true, session });
-      } catch (error) {
-        sendResponse({ success: false, error: error.message });
-      }
-      break;
-
-    case 'HEARTBEAT':
-      try {
-        const session = getSession(message.sessionId);
-        if (!session) {
-          sendResponse({ success: false, error: 'SESSION_NOT_FOUND' });
-          return;
-        }
-
-        session.lastHeartbeat = Date.now();
-        session.heartbeats.push(message);
-        session.validHeartbeats++;
-
-        // Store heartbeat in session for batch processing
-        if (!session.pendingHeartbeats) {
-          session.pendingHeartbeats = [];
-        }
-
-        session.pendingHeartbeats.push({
-          t: message.t,    // time
-          p: message.p,    // playing
-          v: message.v,    // visibility
-          f: message.f     // focus
-        });
-
-        // Send batch every 30 seconds or when session ends
-        const shouldSendBatch = session.pendingHeartbeats.length >= 6 || message.isFinal; // 6 heartbeats = 30 seconds
-
-        if (shouldSendBatch) {
-          const batchToSend = [...session.pendingHeartbeats];
-          session.pendingHeartbeats = []; // Clear pending
-
-          // Add isFinal flag if session is ending
-          if (message.isFinal) {
-            batchToSend.push({ ...batchToSend[batchToSend.length - 1], isFinal: true });
-          }
-
-          // Send batch to server
-          sendHeartbeatBatch(session.sessionId, session.videoId, batchToSend).catch(error => {
-            console.error(`❌ [BG] Failed to send heartbeat batch:`, error);
-            // Re-queue failed heartbeats
-            session.pendingHeartbeats.unshift(...batchToSend);
-          });
-        }
-
-        sendResponse({ success: true });
-      } catch (error) {
-        sendResponse({ success: false, error: error.message });
-      }
-      break;
-
-    case 'STOP_WATCHING':
-      try {
-        const session = getSession(message.sessionId);
-        if (session) {
-          console.log(`🛑 [BG] Finalizing session ${session.sessionId}`);
-          // Flush any pending heartbeats with isFinal=true
-          const batchToSend = session.pendingHeartbeats || [];
-
-          // If we have pending heartbeats, use the last one as final.
-          if (batchToSend.length > 0) {
-            batchToSend[batchToSend.length - 1].isFinal = true;
-          } else {
-            // Create a synthetic final heartbeat
-            batchToSend.push({
-              t: Math.floor((Date.now() - session.startTime) / 1000), // Estimate time
-              p: false,
-              v: true,
-              f: true,
-              isFinal: true
-            });
-          }
-
-          // Send to server DO NOT AWAIT (or await if careful)
-          sendHeartbeatBatch(session.sessionId, session.videoId, batchToSend)
-            .then(res => console.log(`🏁 [BG] Session finalized on server: ${res.success}`))
-            .catch(err => console.error(`❌ [BG] Failed to finalize session:`, err));
-        }
-
-        const endedSession = endSession(message.sessionId);
-        sendResponse({ success: true, session: endedSession });
-      } catch (error) {
-        sendResponse({ success: false, error: error.message });
-      }
-      break;
-
-    case 'SEND_VIDEO_META':
-      try {
-        console.log("📊 [BG] Sending video metadata for:", message.videoId);
-
-        // 1. Store duration if not already set by Server (Fallback only)
-        if (message.sessionId) {
-          const session = getSession(message.sessionId);
-          // Only update if duration is missing or 0 (Server authority)
-          if (session && (!session.duration || session.duration === 0)) {
-            // Check if we should allow client duration?
-            // User wants STRICT server authority.
-            // If server returned 0, it means video is not in DB.
-            // If we accept client duration, we allow points for non-DB videos?
-            // No, points calculation is server-side and checks DB.
-            // So this client-side duration is PURELY for the Popup Progress Bar.
-            // It's safe to use client duration for UI visual only if server didn't provide one.
-            session.duration = message.duration;
-            console.log(`⚠️ [BG] Using Client Duration for UI (Server had none): ${message.duration}s`);
-          } else if (session) {
-            console.log(`🔒 [BG] Ignoring Client Duration ${message.duration}s (Server Authority Active: ${session.duration}s)`);
-          }
-        }
-
-        chrome.storage.local.get(['viewloop_auth_token'], (result) => {
-          const token = result.viewloop_auth_token;
-          const metaUrl = ViewLoopConfig.API_BASE_URL + '/api/video-meta';
-
-          fetch(metaUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              videoId: message.videoId,
-              duration: message.duration,
-              clientType: 'extension',
-              userAuthToken: token // Optional if backend uses it
-            })
-          })
-            .then(res => res.json())
-            .then(data => {
-              console.log("✅ [BG] Video metadata sent to server:", data);
-            })
-            .catch(err => console.error("❌ [BG] Failed to send video metadata:", err));
-        });
-        sendResponse({ success: true }); // Ack immediately
-      } catch (error) {
-        sendResponse({ success: false, error: error.message });
-      }
-      break;
-
-    case 'GET_SESSIONS':
-      sendResponse({
-        success: true,
-        sessions: Array.from(activeSessions.values())
-      });
-      break;
-
-    default:
-      sendResponse({ success: false, error: 'Unknown message type' });
+async function handleAuthSync(message, sendResponse) {
+  const { token, userId } = message;
+  if (!token) {
+    sendResponse({ success: false, error: 'NO_TOKEN' });
+    return;
   }
 
-  return true;
-});
+  await chrome.storage.local.set({
+    'viewloop_auth_token': token,
+    'viewloop_user_id': userId,
+    'auth_synced_at': Date.now()
+  });
+
+  try {
+    const profileUrl = ViewLoopConfig.API_BASE_URL + '/api/user-info';
+    const res = await fetch(profileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+
+    if (res.ok && data.name) {
+      await chrome.storage.local.set({
+        'viewloop_user_name': data.name,
+        'viewloop_user_points': data.points,
+        'viewloop_user_gems': data.gems,
+        'viewloop_user_level': data.level,
+        'viewloop_user_avatar': data.avatar
+      });
+      sendResponse({ success: true, profile: data });
+    } else {
+      sendResponse({ success: true, warning: 'PROFILE_FETCH_FAILED' });
+    }
+  } catch (err) {
+    sendResponse({ success: true, warning: 'NETWORK_ERROR' });
+  }
+}
+
+function handleStartWatching(message, sender, sendResponse) {
+  const session = createSession(message.sessionId, message.videoId, sender.tab.id);
+  chrome.storage.local.get(['viewloop_auth_token'], (result) => {
+    const token = result.viewloop_auth_token;
+    if (token) {
+      fetch(ViewLoopConfig.API_BASE_URL + ViewLoopConfig.ENDPOINTS.START_SESSION, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-signature': 'INIT' },
+        body: JSON.stringify({
+          videoId: message.videoId,
+          sessionId: message.sessionId,
+          userAuthToken: token,
+          clientType: 'extension'
+        })
+      }).then(res => res.json())
+        .then(data => {
+          if (data.success && data.video && data.video.duration) {
+            session.duration = data.video.duration;
+            console.log(`🔒 [BG] Server Authorized Duration: ${session.duration}s`);
+          }
+        }).catch(err => console.error("❌ [BG] Failed to register session:", err));
+    }
+  });
+  sendResponse({ success: true, session });
+}
+
+function handleHeartbeat(message, sendResponse) {
+  const session = getSession(message.sessionId);
+  if (!session) {
+    sendResponse({ success: false, error: 'SESSION_NOT_FOUND' });
+    return;
+  }
+
+  session.lastHeartbeat = Date.now();
+  session.heartbeats.push(message);
+  session.validHeartbeats++;
+
+  if (!session.pendingHeartbeats) session.pendingHeartbeats = [];
+  session.pendingHeartbeats.push({ t: message.t, p: message.p, v: message.v, f: message.f });
+
+  if (session.pendingHeartbeats.length >= 6 || message.isFinal) {
+    const batch = [...session.pendingHeartbeats];
+    if (message.isFinal) batch[batch.length - 1].isFinal = true;
+    session.pendingHeartbeats = [];
+    sendHeartbeatBatch(session.sessionId, session.videoId, batch).catch(e => {
+      session.pendingHeartbeats.unshift(...batch);
+    });
+  }
+  sendResponse({ success: true });
+}
+
+function handleStopWatching(message, sendResponse) {
+  const session = getSession(message.sessionId);
+  if (session) {
+    const batch = session.pendingHeartbeats || [];
+    if (batch.length > 0) batch[batch.length - 1].isFinal = true;
+    else batch.push({ t: Math.floor((Date.now() - session.startTime) / 1000), p: false, v: true, f: true, isFinal: true });
+    sendHeartbeatBatch(session.sessionId, session.videoId, batch).catch(e => console.error("❌ [BG] Final Batch Fail:", e));
+  }
+  const endedSession = endSession(message.sessionId);
+  sendResponse({ success: true, session: endedSession });
+}
+
+function handleSendVideoMeta(message, sendResponse) {
+  const session = message.sessionId ? getSession(message.sessionId) : null;
+  if (session && (!session.duration || session.duration === 0)) {
+    session.duration = message.duration;
+  }
+  chrome.storage.local.get(['viewloop_auth_token'], (result) => {
+    fetch(ViewLoopConfig.API_BASE_URL + '/api/video-meta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId: message.videoId, duration: message.duration, clientType: 'extension', userAuthToken: result.viewloop_auth_token })
+    }).catch(e => console.error("❌ [BG] Meta Fail:", e));
+  });
+  sendResponse({ success: true });
+}
 
 console.log("🎯 Service Worker loaded and ready");
 

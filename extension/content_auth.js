@@ -16,8 +16,14 @@ function syncAuth() {
         if (token) {
             updateStatus("Found token! Sending to extension...");
 
-            // Try internal message
-            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+            // Check if context is valid
+            if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+                updateStatus("Extension context invalidated. Stopping sync.", 'error');
+                if (window.retryInterval) clearInterval(window.retryInterval);
+                return;
+            }
+
+            try {
                 chrome.runtime.sendMessage({
                     type: 'AUTH_SYNC',
                     token: token,
@@ -25,18 +31,29 @@ function syncAuth() {
                 }, (response) => {
                     const lastError = chrome.runtime.lastError;
                     if (lastError) {
-                        console.warn("[AUTH-SYNC] Error:", lastError.message);
-                        updateStatus("Extension Error: " + lastError.message, 'error');
+                        const errorMsg = lastError.message;
+                        console.warn("[AUTH-SYNC] Connection Error:", errorMsg);
+
+                        if (errorMsg.includes("context invalidated") || errorMsg.includes("connection. Receiving end does not exist")) {
+                            updateStatus("Context dead. Stopping sync.", 'error');
+                            if (window.retryInterval) clearInterval(window.retryInterval);
+                        } else {
+                            updateStatus("Extension Error: " + errorMsg, 'error');
+                        }
                     } else if (response && response.success) {
                         console.log("[AUTH-SYNC] Success!");
                         updateStatus("SUCCESS! Connected. ✅", 'success');
-                        clearInterval(retryInterval); // Stop retrying
+                        if (window.retryInterval) clearInterval(window.retryInterval);
+                        window.retryInterval = null;
                     } else {
                         updateStatus("No response from extension.", 'error');
                     }
                 });
-            } else {
-                updateStatus("Chrome API not found!", 'error');
+            } catch (sendMessageErr) {
+                if (sendMessageErr.message.includes("context invalidated")) {
+                    updateStatus("Context dead. Stopping sync.", 'error');
+                    if (window.retryInterval) clearInterval(window.retryInterval);
+                }
             }
         } else {
             updateStatus("Waiting for login (No Token)...", 'info');
@@ -48,14 +65,7 @@ function syncAuth() {
 }
 
 // Retry mechanism
-const retryInterval = setInterval(syncAuth, 2000);
-
-// Listen for storage changes
-window.addEventListener('storage', (e) => {
-    if (e.key === 'userAuthToken') {
-        syncAuth();
-    }
-});
+window.retryInterval = setInterval(syncAuth, 5000); // Relaxed to 5s
 
 // Run immediately
 syncAuth();

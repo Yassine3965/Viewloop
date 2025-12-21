@@ -249,17 +249,46 @@ class SimpleYouTubeMonitor {
         });
     }
 
-    sendToBackground(type, data) {
+    async sendToBackground(type, data) {
         return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({ type, ...data }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error(`❌ [CONTENT] Message error:`, chrome.runtime.lastError);
-                    reject(chrome.runtime.lastError);
-                } else {
-                    resolve(response);
+            try {
+                if (!chrome.runtime || !chrome.runtime.id) {
+                    throw new Error("Extension context invalidated.");
                 }
-            });
+
+                chrome.runtime.sendMessage({ type, ...data }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        const error = chrome.runtime.lastError.message;
+                        console.error(`❌ [CONTENT] Message error:`, error);
+
+                        // If context is dead, we must stop everything
+                        if (error.includes("context invalidated") || error.includes("connection. Receiving end does not exist")) {
+                            this.selfDestruct();
+                        }
+                        reject(error);
+                    } else {
+                        resolve(response);
+                    }
+                });
+            } catch (err) {
+                console.error(`❌ [CONTENT] Fatal message error:`, err.message);
+                if (err.message.includes("context invalidated")) {
+                    this.selfDestruct();
+                }
+                reject(err);
+            }
         });
+    }
+
+    selfDestruct() {
+        console.warn("⚠️ [CONTENT] Extension context invalidated! Self-destructing monitor...");
+        this.stopHeartbeats();
+        if (this.pollerInterval) {
+            clearInterval(this.pollerInterval);
+            this.pollerInterval = null;
+        }
+        // Remove monitor from window to prevent further calls
+        window.youtubeMonitor = null;
     }
 
     reset() {
@@ -272,6 +301,32 @@ class SimpleYouTubeMonitor {
         console.log('🔄 [CONTENT] Monitor reset');
     }
 }
+
+// Separate interval storage to allow cleanup
+SimpleYouTubeMonitor.prototype.pollerInterval = null;
+
+SimpleYouTubeMonitor.prototype.startGlobalPoller = function () {
+    // Check every second for playback state
+    if (this.pollerInterval) clearInterval(this.pollerInterval);
+
+    this.pollerInterval = setInterval(() => {
+        try {
+            if (!this.currentVideo) {
+                this.currentVideo = document.querySelector('video.html5-main-video') || document.querySelector('video');
+            }
+
+            if (this.currentVideo && !this.currentVideo.paused && !this.isWatching) {
+                console.log("⚠️ [CONTENT] Playback detected via Global Poller (Event missed) -> Starting Session");
+                this.handlePlay();
+            }
+        } catch (e) {
+            // If context is dead, this might throw
+            if (e.message.includes("context invalidated")) {
+                clearInterval(this.pollerInterval);
+            }
+        }
+    }, 1000);
+};
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
