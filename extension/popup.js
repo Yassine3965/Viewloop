@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Button Actions
     if (els.startWatchBtn) {
         els.startWatchBtn.addEventListener('click', () => {
-            window.open(`${API_BASE_URL}/api/direct-watch`, '_blank');
+            window.open(`${API_BASE_URL}/watch`, '_blank');
         });
     }
 
