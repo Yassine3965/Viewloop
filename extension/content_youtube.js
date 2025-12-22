@@ -102,6 +102,13 @@ class ViewLoopMonitor {
             isEnded: this.video.ended
         };
 
+        // Check if video ended
+        if (this.video.ended) {
+            console.log("🏁 [ViewLoop] Video Ended (detected in heartbeat)");
+            await this.onEnd();
+            return;
+        }
+
         this.heartbeatBatch.push(heartbeat);
 
         // Send batch every 3 heartbeats (24 seconds)

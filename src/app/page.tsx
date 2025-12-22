@@ -75,7 +75,7 @@ export default function HomePage() {
         <div className="container px-4 md:px-6">
           <div className="flex flex-col justify-center space-y-6 text-center">
             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl text-primary font-outfit">
-              Advanced Session Synchronization Protocol
+              بروتوكول متقدم لمزامنة الجلسات
             </h1>
             <p className="max-w-[700px] mx-auto text-muted-foreground md:text-xl leading-relaxed">
               توفر منصة ViewLoop بنية تحتية تقنية لمزامنة تدفق البيانات وتوثيق التفاعلات الرقمية اللحظية، مما يضمن دقة الامتثال للبروتوكولات التشغيلية عبر مختلف المنصات.

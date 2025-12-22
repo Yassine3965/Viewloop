@@ -42,12 +42,12 @@ function UserSection() {
     );
   }
 
-  if (!user) {
+          if (!user) {
     return (
       <Button asChild variant="outline">
         <Link href="/login" prefetch={false}>
           <LogIn className="ml-2 h-4 w-4" />
-          <span>Sign In</span>
+          <span>تسجيل الدخول</span>
         </Link>
       </Button>
     );
@@ -78,12 +78,12 @@ function UserSection() {
           <DropdownMenuItem asChild>
             <Link href="/dashboard" prefetch={false}>
               <LayoutDashboard className="ml-2 h-4 w-4" />
-              <span>Dashboard</span>
+              <span>لوحة التحكم</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="ml-2 h-4 w-4" />
-            <span>Sign Out</span>
+            <span>تسجيل الخروج</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DeleteAccountDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -93,7 +93,7 @@ function UserSection() {
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
               >
                 <Trash2 className="ml-2 h-4 w-4" />
-                <span>Terminate Account</span>
+                <span>إغلاق الحساب</span>
               </DropdownMenuItem>
             </DialogTrigger>
           </DeleteAccountDialog>
@@ -143,11 +143,11 @@ export function Header() {
         {isWatchPage && (
           <div className="flex-1 flex justify-center px-4 lg:px-8">
             <div className="relative w-full max-w-md">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search resources..."
-                className="w-full pr-10"
+                placeholder="بحث في الموارد..."
+                className="w-full pl-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -155,7 +155,7 @@ export function Header() {
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-4" dir="ltr">
+          <div className="flex items-center justify-end gap-4" dir="rtl">
           <nav>
             <UserSection />
           </nav>
