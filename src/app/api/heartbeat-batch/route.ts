@@ -232,7 +232,17 @@ export async function POST(req: Request) {
         validCount++;
       } else {
         invalidCount++;
-        console.log(`🚨 Invalid heartbeat:`, heartbeat);
+        console.log(`🚨 Invalid heartbeat:`, heartbeat, 'Validation details:', {
+          t: typeof heartbeat.t,
+          p: typeof heartbeat.p,
+          v: typeof heartbeat.v,
+          f: typeof heartbeat.f,
+          tValue: heartbeat.t,
+          tValid: typeof heartbeat.t === 'number' && heartbeat.t >= 0 && heartbeat.t <= 36000,
+          pValid: typeof heartbeat.p === 'boolean',
+          vValid: typeof heartbeat.v === 'boolean',
+          fValid: typeof heartbeat.f === 'boolean'
+        });
       }
     });
 

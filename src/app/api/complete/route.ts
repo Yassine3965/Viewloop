@@ -108,16 +108,22 @@ export async function POST(req: Request) {
         }
       }
 
-      const userRef = firestore.collection("users").doc(sessionData.userId);
-      const userSnap = await transaction.get(userRef);
+      let userData: any = null;
+      let currentLevel = 1;
+      let activityMultiplier = ACTIVITY_MULTIPLIERS[1];
 
-      if (!userSnap.exists) {
-        throw new Error(`User with ID ${sessionData.userId} not found during transaction.`);
+      if (sessionData.userId !== 'anonymous') {
+        const userRef = firestore.collection("users").doc(sessionData.userId);
+        const userSnap = await transaction.get(userRef);
+
+        if (!userSnap.exists) {
+          throw new Error(`User with ID ${sessionData.userId} not found during transaction.`);
+        }
+
+        userData = userSnap.data()!;
+        currentLevel = userData.level || 1;
+        activityMultiplier = ACTIVITY_MULTIPLIERS[currentLevel] || ACTIVITY_MULTIPLIERS[1];
       }
-
-      const userData = userSnap.data()!;
-      const currentLevel = userData.level || 1;
-      const activityMultiplier = ACTIVITY_MULTIPLIERS[currentLevel] || ACTIVITY_MULTIPLIERS[1];
 
       // --- ACTIVITY CALCULATION (30s Units Logic) ---
       const validSeconds = sessionData.validSeconds || sessionData.totalWatchedSeconds || 0;
@@ -152,21 +158,22 @@ export async function POST(req: Request) {
       activityPulse = Math.round(activityPulse * 100) / 100;
       systemCapacity = Math.round(systemCapacity * 100) / 100;
 
-      const newReputation = Math.max(0, Math.min(5, (userData.reputation || 4.5) + reputationChange));
-
       // Update user's activity and capacity
       if (activityPulse > 0 || systemCapacity > 0) {
-        transaction.update(userRef, {
-          activityPulse: admin.firestore.FieldValue.increment(activityPulse),
-          systemCapacity: admin.firestore.FieldValue.increment(systemCapacity),
-          reputation: newReputation,
-          lastUpdated: now,
-          lastSessionStatus: {
-            type: 'completion',
-            qualityMessage: qualityMessage,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-          }
-        });
+        if (sessionData.userId !== 'anonymous') {
+          const newReputation = Math.max(0, Math.min(5, (userData!.reputation || 4.5) + reputationChange));
+          transaction.update(firestore.collection("users").doc(sessionData.userId), {
+            activityPulse: admin.firestore.FieldValue.increment(activityPulse),
+            systemCapacity: admin.firestore.FieldValue.increment(systemCapacity),
+            reputation: newReputation,
+            lastUpdated: now,
+            lastSessionStatus: {
+              type: 'completion',
+              qualityMessage: qualityMessage,
+              timestamp: admin.firestore.FieldValue.serverTimestamp()
+            }
+          });
+        }
       }
 
       // Finalize session

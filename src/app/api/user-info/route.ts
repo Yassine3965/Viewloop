@@ -8,6 +8,10 @@ export async function OPTIONS(request: Request) {
     return handleOptions(request);
 }
 
+export async function POST(req: NextRequest) {
+  return GET(req);
+}
+
 export async function GET(req: NextRequest) {
     // Get token from header
     const authHeader = req.headers.get('Authorization');
