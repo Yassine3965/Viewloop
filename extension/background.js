@@ -189,7 +189,7 @@ async function handleCompleteSession(message, sendResponse) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sessionToken: message.sessionToken
+        sessionId: message.sessionId
       })
     });
 

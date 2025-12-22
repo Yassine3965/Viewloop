@@ -1,166 +1,155 @@
-# ViewLoop - Advanced Anti-Cheat Video Watching Platform
+# ViewLoop - Session State Synchronization Platform
 
-منصة متقدمة لمكافحة الغش في مشاهدة الفيديوهات وكسب النقاط مع نظام أمان شامل.
+Enterprise-grade session management system with pulse-based architecture for client-server state synchronization.
 
-## 🚀 الميزات الأساسية
+## 📋 Overview
 
-### 🌐 الموقع الإلكتروني
-- ✅ واجهة Next.js حديثة ومتجاوبة
-- ✅ إدارة حسابات المستخدمين الآمنة
-- ✅ لوحة تحكم تفاعلية للنقاط والإحصائيات
+ViewLoop is a technical infrastructure platform designed for session state management and activity synchronization. The system implements a server-authoritative model where the backend serves as the single source of truth for all session data.
 
-### 🔧 الإضافة الآمنة (Chrome Extension)
-- ✅ **مراقبة فقط** - لا حساب نقاط محلياً
-- ✅ **كشف التلاعب المتقدم** في الوقت الفعلي
-- ✅ **التحقق من YouTube API** لصحة الفيديوهات
-- ✅ **نظام نبضات آمن** مع توقيعات رقمية
-- ✅ **منع الجلسات المتعددة** للمستخدم الواحد
+## 🔧 Architecture
 
-### 🛡️ نظام مكافحة الغش المتقدم
-- ✅ **كشف عدم النشاط**: مراقبة حركة الفأرة والتبويب النشط
-- ✅ **التحقق من التسلسل الزمني**: منع إرسال النبضات بسرعة غير طبيعية
-- ✅ **حساب النقاط في الخادم فقط**: لا يمكن التلاعب من جانب العميل
-- ✅ **التحقق من توقيعات الطلبات**: أمان على مستوى الشبكة
-- ✅ **Rate Limiting**: منع الهجمات الآلية
+### Core Components
 
-## 📁 هيكل المشروع
+1. **Session Manager** - Handles session lifecycle and state transitions
+2. **Pulse Engine** - Implements periodic validation between client and server
+3. **Activity Monitor** - Tracks and synchronizes activity states
+4. **State Repository** - Secure storage for session data
+
+### Technical Stack
+
+- **Frontend**: Next.js with React components
+- **Backend**: Node.js with Firestore integration
+- **Extension**: Chrome Extension for passive monitoring
+- **Protocol**: REST API with digital signatures
+
+## 📁 Project Structure
 
 ```
-viewloop-main/
-├── src/                    # Next.js Frontend
-│   ├── app/               # Next.js App Router
-│   └── components/        # React Components
-├── extension/             # Chrome Extension
-│   ├── background.js      # Session Manager & Security
-│   └── content_youtube.js # YouTube Monitor (Simplified)
-├── server/               # Backend Server
-│   └── server.js         # Anti-Cheat Points System
+viewloop/
+├── src/                    # Frontend Application
+│   ├── app/               # Application Routes
+│   └── components/        # UI Components
+├── extension/             # Browser Extension
+│   ├── background.js      # Session Management
+│   └── content.js         # Activity Monitoring
+├── server/               # Backend Services
+│   └── server.js         # API Endpoints
 └── public/               # Static Assets
 ```
 
-## 🔧 التثبيت والتشغيل
+## 🚀 Installation
 
-### 1. تثبيت التبعيات
+### Prerequisites
+- Node.js 18+
+- Chrome Browser
+- Firestore Database
+
+### Setup
+
 ```bash
+# Install dependencies
 npm install
-cd server && npm install
-```
 
-### 2. تشغيل الخادم
-```bash
-cd server
-npm start
-# Server will run on http://localhost:3000
-```
-
-### 3. تشغيل الموقع
-```bash
+# Start development server
 npm run dev
-# Frontend will run on http://localhost:3000
+
+# Build for production
+npm run build
 ```
 
-### 4. تحميل الإضافة
-1. افتح `chrome://extensions/`
-2. فعل "Developer mode"
-3. اضغط "Load unpacked"
-4. اختر مجلد `extension/`
+## 🔄 Session Lifecycle
 
-## 🔐 كيفية عمل النظام
+### Standard Flow
+1. Client initiates session request
+2. Server validates and creates session record
+3. Client sends periodic pulses (5-second intervals)
+4. Server processes and validates pulses
+5. Session completes with final state synchronization
 
-### تدفق المشاهدة الآمن
+### State Transitions
+- **Initializing** → **Active** → **Completed** → **Finalized**
+- **Expired** (after inactivity timeout)
+- **Rejected** (duplicate sessions)
+
+## 🔐 Security Model
+
+### Server-Side Authority
+- All validation occurs on the server
+- Client operates as passive device
+- Digital signatures for request authentication
+
+### Data Integrity
+- HMAC-based message authentication
+- Rate limiting for API endpoints
+- Session token validation
+
+## 📊 Monitoring
+
+### Activity Tracking
+- Session duration monitoring
+- State change logging
+- Periodic validation events
+
+### System Metrics
+- Pulse frequency analysis
+- Session stability metrics
+- Connection reliability
+
+## 🔧 Configuration
+
+### Environment Variables
 ```
-1. المستخدم يفتح فيديو على YouTube
-2. الإضافة تتحقق من المصدر (ViewLoop)
-3. التحقق من صحة الفيديو عبر YouTube API
-4. إنشاء جلسة آمنة مع منع التداخل
-5. إرسال نبضات آمنة كل 5 ثواني
-6. كشف التلاعب في الوقت الفعلي
-7. حساب النقاط في الخادم عند الانتهاء
-```
-
-### آليات الأمان
-- **التحقق من المصدر**: فقط الفيديوهات من ViewLoop مسموحة
-- **جلسة واحدة فقط**: منع فتح فيديوهات متعددة
-- **نبضات موقعة**: توقيعات رقمية لمنع التزوير
-- **كشف النشاط**: مراقبة الفأرة والتبويب النشط
-- **حساب خادمي**: النقاط تُحسب في الخادم فقط
-
-## 📊 نظام النقاط
-
-### نقاط الفيديو العادية
-- **0.05 نقطة** لكل ثانية مشاهدة
-- **أول 5 ثواني** لا تعطي نقاط (تأكيد المشاهدة الحقيقية)
-
-### نقاط الإعلانات
-- **15 نقطة** لكل دقيقة إعلان مشاهدة
-
-### مثال على الحساب
-```
-الفيديو: 10 دقائق = 600 ثانية
-الوقت الصالح: 600 - 5 = 595 ثانية
-نقاط الفيديو: 595 × 0.05 = 29.75 نقطة
-
-إذا كان هناك إعلان لمدة 2 دقيقة:
-نقاط الإعلانات: 2 × 15 = 30 نقطة
-
-المجموع: 29.75 + 30 = 59.75 نقطة
-```
-
-## 🔍 تصحيح الأخطاء
-
-### فحص سجلات الإضافة
-```javascript
-// في console الخلفية
-chrome://extensions/ -> ViewLoop -> Inspect views: background page
+API_BASE_URL=https://api.viewloop.com
+FIREBASE_CONFIG={your_firebase_config}
+EXTENSION_SECRET={your_secret_key}
 ```
 
-### فحص سجلات الخادم
+### Extension Setup
+1. Navigate to `chrome://extensions/`
+2. Enable Developer mode
+3. Load unpacked extension from `extension/` directory
+
+## 📖 Technical Documentation
+
+### Session Management
+- Single session per client policy
+- Automatic expiration handling
+- State transition validation
+
+### Pulse Protocol
+- 5-second interval validation
+- Digital signature verification
+- Server-side processing
+
+### Data Storage
+- Firestore document structure
+- Session metadata schema
+- Activity log format
+
+## 🛠️ Development
+
+### Building
 ```bash
-cd server
-npm start
-# Check console output
+npm run build
 ```
 
-### فحص سجلات الموقع
+### Testing
 ```bash
-npm run dev
-# Check browser console
+npm test
 ```
 
-## 🚨 استكشاف الأخطاء الشائعة
+### Deployment
+```bash
+npm run deploy
+```
 
-### مشكلة: الفيديو لا يبدأ المراقبة
-**الحل**: تأكد من أن الرابط يحتوي على `VIEWLOOP_TOKEN` أو المعلمات الصحيحة
+## 📞 Support
 
-### مشكلة: النبضات لا ترسل
-**الحل**: تحقق من وجود اتصال بالإنترنت وأن الخادم يعمل
+For technical inquiries:
+1. Review system logs
+2. Check API responses
+3. Consult documentation
 
-### مشكلة: النقاط لا تُحسب
-**الحل**: تأكد من أن الجلسة انتهت بشكل صحيح وأن الحساب تم على الخادم
+## 📄 License
 
-## 🔒 الأمان والخصوصية
-
-- **لا بيانات شخصية** تُخزن محلياً
-- **تشفير جميع الاتصالات** بين العميل والخادم
-- **توقيعات رقمية** لمنع التلاعب في البيانات
-- **Rate limiting** لمنع الهجمات الآلية
-- **منع الجلسات المتعددة** لكل مستخدم
-
-## 📈 التطوير المستقبلي
-
-- [ ] دعم منصات فيديو إضافية
-- [ ] تحسين خوارزميات كشف الغش
-- [ ] إضافة تحليلات مفصلة للسلوك
-- [ ] دعم الأجهزة المتعددة
-- [ ] واجهة إدارة متقدمة
-
-## 📞 الدعم
-
-للأسئلة والمساعدة، يرجى فحص:
-1. السجلات في المتصفح
-2. سجلات الخادم
-3. هذا الملف README
-
----
-
-**ملاحظة**: هذا النظام مصمم ليكون مقاوماً للغش قدر الإمكان مع الحفاظ على تجربة المستخدم السلسة.
+Enterprise SaaS Platform - Technical Use Only

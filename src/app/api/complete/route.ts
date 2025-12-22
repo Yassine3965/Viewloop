@@ -48,16 +48,16 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { sessionToken } = body;
+    const { sessionId } = body;
 
-    console.log('Complete called with sessionToken:', sessionToken);
+    console.log('Complete called with sessionId:', sessionId);
 
-    if (!sessionToken) {
-      const response = NextResponse.json({ error: "MISSING_SESSION_TOKEN" }, { status: 400 });
+    if (!sessionId) {
+      const response = NextResponse.json({ error: "MISSING_SESSION_ID" }, { status: 400 });
       return addCorsHeaders(response, req);
     }
 
-    const sessionRef = firestore.collection("sessions").doc(sessionToken);
+    const sessionRef = firestore.collection("sessions").doc(sessionId);
 
     let activityPulse = 0;
     let systemCapacity = 0;
@@ -188,7 +188,7 @@ export async function POST(req: Request) {
         activityPulse: activityPulse,
         systemCapacity: systemCapacity,
         completedAt: now,
-        sessionToken,
+        sessionId: sessionId,
         behavioralData: {
           inactiveHeartbeats: sessionData.inactiveHeartbeats || 0,
           adHeartbeats: sessionData.adHeartbeats || 0,

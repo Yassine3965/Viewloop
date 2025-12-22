@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ViewLoop Monitor</title>
+    <title>مراقب ViewLoop</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 
@@ -20,8 +20,8 @@
       </div>
       <div id="connectionStatus" class="status-badge">
         <span class="status-dot"></span>
-        <span id="statusText">Session Sync: Active</span>
-        <button id="refreshSyncBtn" title="Refresh Session"
+        <span id="statusText">مزامنة الجلسة: نشطة</span>
+        <button id="refreshSyncBtn" title="تحديث الجلسة"
           style="background:none; border:none; cursor:pointer; padding:0 4px; color:rgba(255,255,255,0.7);">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 4v6h-6"></path>
@@ -36,8 +36,8 @@
     <div id="userCard" class="user-card" style="display: none;">
       <img id="userAvatar" src="icon48.png" alt="Avatar" class="avatar">
       <div class="user-details">
-        <h2 id="userName" class="username">Identity</h2>
-        <span id="userLevel" class="user-level">Tier 1</span>
+        <h2 id="userName" class="username">هوية</h2>
+        <span id="userLevel" class="user-level">مستوى 1</span>
       </div>
     </div>
 
@@ -45,7 +45,7 @@
     <div id="loginPrompt" class="auth-card" style="display: none;">
       <div class="auth-header-card">
         <h3 class="auth-title">ViewLoop</h3>
-        <p class="auth-subtitle">Register state to synchronize activity</p>
+        <p class="auth-subtitle">سجل الحالة لمزامنة النشاط</p>
       </div>
 
       <div class="auth-actions-container">
@@ -64,23 +64,23 @@
               d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C42.022,35.138,44,30.025,44,24C44,22.659,43.862,21.35,43.611,20.083z">
             </path>
           </svg>
-          <span>Identify via Google</span>
+          <span>التحقق عبر جوجل</span>
         </button>
 
         <div class="auth-divider">
-          <span>OR</span>
+          <span>أو</span>
         </div>
 
         <button id="webLoginBtn" class="btn btn-primary">
-          <span>Authenticate</span>
+          <span>تسجيل الدخول</span>
         </button>
 
         <button id="webRegisterBtn" class="btn btn-secondary">
-          <span>Register New Alias</span>
+          <span>إنشاء حساب جديد</span>
         </button>
       </div>
 
-      <p class="auth-footer-help">Secure external authentication required</p>
+      <p class="auth-footer-help">مطلوب مصادقة خارجية آمنة</p>
     </div>
 
     <div class="stats-grid">
@@ -89,20 +89,20 @@
             <circle cx="12" cy="12" r="10" />
           </svg></span>
         <span id="activityPulse" class="stat-value">--</span>
-        <span class="stat-label">Client Activity Pulse</span>
+        <span class="stat-label">نبض نشاط العميل</span>
       </div>
       <div class="stat-item stat-gems">
         <span class="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <rect x="4" y="4" width="16" height="16" rx="2" />
           </svg></span>
         <span id="systemCapacity" class="stat-value">--</span>
-        <span class="stat-label">Priority Capacity</span>
+        <span class="stat-label">سعة الأولوية</span>
       </div>
     </div>
 
-    <p style="text-align: center; font-size: 10px; color: rgba(255,255,255,0.5); margin: -8px 0 10px 0;">
-      Values are synchronized from your account dashboard
-    </p>
+      <p style="text-align: center; font-size: 10px; color: rgba(255,255,255,0.5); margin: -8px 0 10px 0;">
+        القيم متزامنة من لوحة تحكم حسابك
+      </p>
 
     <!-- INVALID SESSION ALERT -->
     <div id="invalidSessionAlert" class="alert-card alert-error" style="display: none;">
@@ -116,12 +116,12 @@
     <!-- PROGRESS BARS (Active Session) -->
     <div id="progressSection" class="progress-section" style="display: none;">
       <div class="progress-header">
-        <span class="badge badge-active">Active Window</span>
-        <span class="video-duration">Span: <span id="videoDurationLabel">0:00</span></span>
+        <span class="badge badge-active">نافذة نشطة</span>
+        <span class="video-duration">المدة: <span id="videoDurationLabel">0:00</span></span>
       </div>
 
       <div class="progress-label">
-        <span>Session Span</span>
+        <span>مدة الجلسة</span>
         <span id="progTextMain">0%</span>
       </div>
       <div class="progress-track">
@@ -129,7 +129,7 @@
       </div>
 
       <div class="progress-label">
-        <span>Extended Span (L2)</span>
+        <span>مدة ممتدة (L2)</span>
         <span id="progTextExtra" style="color:#f59e0b">0%</span>
       </div>
       <div class="progress-track">
@@ -157,7 +157,7 @@
     </div>
 
     <div class="footer">
-      Version 1.0.1 • Secure Channel Established
+      الإصدار 1.0.1 • قناة آمنة مؤمنة
     </div>
   </div>
 
