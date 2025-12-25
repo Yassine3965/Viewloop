@@ -189,7 +189,7 @@ export async function POST(req: Request) {
       // Log activity to watchHistory
       transaction.set(firestore.collection("watchHistory").doc(), {
         userId: sessionData.userId,
-        videoId: sessionData.videoID,
+        videoId: sessionData.videoId,  // Fixed: videoId instead of videoID
         totalWatchedSeconds: sessionData.validSeconds || 0,
         adWatched: sessionData.adWatched || false,
         activityPulse: activityPulse,
