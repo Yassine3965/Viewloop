@@ -1,77 +1,85 @@
-// ViewLoop Secure Monitor - Background Service Worker
-// "Pulse Device" Minimal Implementation
-
-import { io } from './socket.io.esm.min.js';
+// ViewLoop State Relay - Background Service Worker
+// Signal Relay Implementation - No Automation
 
 let ViewLoopConfig = {
-  API_BASE_URL: "https://viewloop.vercel.app", // Next.js Production API
-  WS_URL: null  // WebSocket disabled - Vercel doesn't support WS servers
+  API_BASE_URL: "https://viewloop.vercel.app" // Next.js Production API
 };
 
-let socket = null;
-const activeSessions = new Map();
+// 🔧 IMPROVEMENT: Remove unused socket.io import
 
+// 🔧 IMPROVEMENT: Load config once and cache it to prevent redundant operations
 async function loadConfig() {
+  if (ViewLoopConfig.loaded) return ViewLoopConfig;
   const result = await chrome.storage.local.get(['viewloop_secure_config']);
   if (result.viewloop_secure_config) {
     const customConfig = JSON.parse(result.viewloop_secure_config);
     ViewLoopConfig = { ...ViewLoopConfig, ...customConfig };
   }
+  ViewLoopConfig.loaded = true;
+  return ViewLoopConfig;
 }
 
-function connectWebSocket(sessionId, sessionToken, videoId) {
-  if (!ViewLoopConfig.WS_URL) {
-    console.log('⚠️ [WS] WebSocket disabled - using REST API only');
+// 🔧 IMPROVEMENT: Remove all WebSocket logic as it's unused and not required
+// 🔧 IMPROVEMENT: Add activeSessions with session binding to tabId, videoId, origin for security
+const activeSessions = new Map(); // sessionId -> { sessionId, sessionToken, tabId, videoId, origin, createdAt }
+
+// 🔧 IMPROVEMENT: Add tab close listener for cleanup
+chrome.tabs.onRemoved.addListener((tabId) => {
+  for (const [sessionId, session] of activeSessions.entries()) {
+    if (session.tabId === tabId) {
+      activeSessions.delete(sessionId);
+      console.log(`[CLEANUP] Session ${sessionId} removed due to tab close`);
+    }
+  }
+});
+
+// 🔧 IMPROVEMENT: Add TTL cleanup for stale sessions
+setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, session] of activeSessions.entries()) {
+    if (now - session.createdAt > 3600000) { // 1 hour TTL
+      activeSessions.delete(sessionId);
+      console.log(`[CLEANUP] Session ${sessionId} expired due to TTL`);
+    }
+  }
+}, 300000); // Check every 5 minutes
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // 🔧 IMPROVEMENT: Validate sender origin and tab for security
+  if (!sender.tab || !sender.url) {
+    sendResponse({ success: false, error: 'INVALID_SENDER' });
     return;
   }
 
-  if (socket) socket.disconnect();
+  const origin = new URL(sender.url).origin;
 
-  console.log(`🔌 [WS] Connecting to Pulse Brain: ${ViewLoopConfig.WS_URL}`);
-  socket = io(ViewLoopConfig.WS_URL, {
-    reconnectionAttempts: 10,
-    transports: ['websocket']
-  });
-
-  socket.on('connect', () => {
-    console.log(`✅ [WS] Connected. Authenticating session ${sessionId}`);
-    socket.emit('AUTH', { sessionId, sessionToken, videoId });
-  });
-
-  socket.on('AUTH_SUCCESS', () => {
-    console.log(`✅ [WS] Authenticated: ${sessionId}`);
-  });
-
-  socket.on('PULSE_REQUEST', async (data) => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs.length === 0) return;
-
-    const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_STATE' });
-    if (response) {
-      socket.emit('PULSE_RESPONSE', {
-        sessionId,
-        ...response,
-        timestamp: Date.now()
-      });
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.warn("🔌 [WS] Disconnected from Pulse Brain");
-  });
-}
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'START_WATCHING':
-      handleStart(message, sender, sendResponse);
+      // 🔧 IMPROVEMENT: Prevent multiple sessions per tab
+      for (const session of activeSessions.values()) {
+        if (session.tabId === sender.tab.id) {
+          sendResponse({ success: false, error: 'SESSION_ALREADY_ACTIVE' });
+          return;
+        }
+      }
+      handleStart(message, sender, origin, sendResponse);
       return true;
     case 'STOP_WATCHING':
+      // 🔧 IMPROVEMENT: Validate session belongs to sender tab
+      const sessionToStop = activeSessions.get(message.sessionId);
+      if (!sessionToStop || sessionToStop.tabId !== sender.tab.id) {
+        sendResponse({ success: false, error: 'INVALID_SESSION' });
+        return;
+      }
       activeSessions.delete(message.sessionId);
-      if (socket) socket.disconnect();
       sendResponse({ success: true });
       break;
     case 'AUTH_SYNC':
+      // 🔧 IMPROVEMENT: Validate source for security
+      if (!sender.tab) {
+        sendResponse({ success: false, error: 'INVALID_SOURCE' });
+        return;
+      }
       chrome.storage.local.set({ 'viewloop_auth_token': message.token });
       sendResponse({ success: true });
       break;
@@ -79,9 +87,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true, sessions: Array.from(activeSessions.values()) });
       break;
     case 'SEND_HEARTBEATS':
+      // 🔧 IMPROVEMENT: Validate heartbeat belongs to valid session
+      const session = activeSessions.get(message.sessionId);
+      if (!session || session.tabId !== sender.tab.id || session.videoId !== message.videoId || session.origin !== origin) {
+        sendResponse({ success: false, error: 'INVALID_SESSION' });
+        return;
+      }
       handleHeartbeats(message, sendResponse);
       return true;
     case 'COMPLETE_SESSION':
+      // 🔧 IMPROVEMENT: Validate session belongs to sender tab for consistency
+      const completeSession = activeSessions.get(message.sessionId);
+      if (!completeSession || completeSession.tabId !== sender.tab.id) {
+        sendResponse({ success: false, error: 'INVALID_SESSION' });
+        return;
+      }
       handleCompleteSession(message, sendResponse);
       return true;
     case 'FETCH_PROFILE':
@@ -90,11 +110,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-async function handleStart(message, sender, sendResponse) {
+async function handleStart(message, sender, origin, sendResponse) {
   await loadConfig();
   const token = (await chrome.storage.local.get(['viewloop_auth_token'])).viewloop_auth_token;
 
-  console.log(`🚀 [START] Requesting session for video ${message.videoId}`);
+  console.log(`[START] Requesting session for video ${message.videoId} on tab ${sender.tab.id}`);
 
   try {
     const res = await fetch(`${ViewLoopConfig.API_BASE_URL}/api/start-session`, {
@@ -111,16 +131,23 @@ async function handleStart(message, sender, sendResponse) {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      console.log(`✅ [START] Session created: ${data.sessionId}`);
-      activeSessions.set(data.sessionId, { ...data, tabId: sender.tab.id });
-      connectWebSocket(data.sessionId, data.sessionToken, message.videoId);
+      console.log(`[START] Session created: ${data.sessionId}`);
+      // 🔧 IMPROVEMENT: Bind session to tabId, videoId, origin for security
+      activeSessions.set(data.sessionId, {
+        sessionId: data.sessionId,
+        sessionToken: data.sessionToken,
+        tabId: sender.tab.id,
+        videoId: message.videoId,
+        origin: origin,
+        createdAt: Date.now()
+      });
       sendResponse({ success: true, sessionId: data.sessionId, sessionToken: data.sessionToken });
     } else {
-      console.error(`❌ [START] Rejected:`, data.error);
+      console.error(`[START] Rejected:`, data.error);
       sendResponse({ success: false, error: data.error || 'REJECTED' });
     }
   } catch (e) {
-    console.error(`❌ [START] Network Error:`, e.message);
+    console.error(`[START] Network Error:`, e.message);
     sendResponse({ success: false, error: 'OFFLINE' });
   }
 }
@@ -129,37 +156,17 @@ async function handleHeartbeats(message, sendResponse) {
   await loadConfig();
 
   try {
-    // Generate signature for authentication
-    const EXTENSION_SECRET = "6B65FDC657B5D8CF4D5AB28C92CF2";
+    // 🔧 IMPROVEMENT: Remove all HMAC secrets - rely only on sessionId/sessionToken from server
     const payload = JSON.stringify({
       sessionId: message.sessionId,
       sessionToken: message.sessionToken,
       heartbeats: message.heartbeats
     });
 
-    // Create HMAC signature
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(EXTENSION_SECRET);
-    const messageData = encoder.encode(payload);
-
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-    const signatureHex = Array.from(new Uint8Array(signature))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-
     const res = await fetch(`${ViewLoopConfig.API_BASE_URL}/api/heartbeat-batch`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-signature': signatureHex
+        'Content-Type': 'application/json'
       },
       body: payload
     });
@@ -167,20 +174,26 @@ async function handleHeartbeats(message, sendResponse) {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      console.log(`💓 [HEARTBEAT] Sent ${message.heartbeats.length} heartbeats`);
+      console.log(`[HEARTBEAT] Sent ${message.heartbeats.length} signals`);
       sendResponse({ success: true });
     } else {
-      console.warn(`⚠️ [HEARTBEAT] Failed:`, data.error);
+      console.warn(`[HEARTBEAT] Failed:`, data.error);
       sendResponse({ success: false, error: data.error });
     }
   } catch (e) {
-    console.error(`❌ [HEARTBEAT] Error:`, e.message);
+    console.error(`[HEARTBEAT] Error:`, e.message);
     sendResponse({ success: false, error: 'NETWORK_ERROR' });
   }
 }
 
 async function handleCompleteSession(message, sendResponse) {
   await loadConfig();
+
+  if (!message.sessionId) {
+    console.error("❌ [COMPLETE] Session ID is missing");
+    sendResponse({ success: false, error: "MISSING_SESSION_ID" });
+    return;
+  }
 
   try {
     const res = await fetch(`${ViewLoopConfig.API_BASE_URL}/api/complete`, {
@@ -196,10 +209,11 @@ async function handleCompleteSession(message, sendResponse) {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      console.log(`✅ [COMPLETE] Session completed. Status: ${data.status}`);
+      console.log(`[COMPLETE] Session completed: ${data.status}`);
+      activeSessions.delete(message.sessionId); // 🔧 IMPROVEMENT: Clean up session locally after successful completion
       sendResponse({ success: true, data });
     } else {
-      console.warn(`⚠️ [COMPLETE] Failed:`, data.error);
+      console.warn(`[COMPLETE] Failed:`, data.error);
       sendResponse({ success: false, error: data.error });
     }
   } catch (e) {

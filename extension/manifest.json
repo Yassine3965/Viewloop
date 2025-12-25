@@ -15,8 +15,7 @@
   },
   "permissions": [
     "storage",
-    "tabs",
-    "activeTab"
+    "tabs"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
@@ -41,8 +40,7 @@
     {
       "matches": [
         "http://localhost:3000/*",
-        "https://viewloop.vercel.app/*",
-        "https://*.vercel.app/*"
+        "https://viewloop.vercel.app/*"
       ],
       "js": [
         "content_auth.js"
@@ -63,8 +61,7 @@
   "externally_connectable": {
     "matches": [
       "http://localhost:3000/*",
-      "https://viewloop.vercel.app/*",
-      "https://*.vercel.app/*"
+      "https://viewloop.vercel.app/*"
     ]
   }
 }
