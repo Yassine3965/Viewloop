@@ -64,6 +64,7 @@ function UserSection() {
                 <img src="/logo.png" alt="Logo" className="h-full w-full rounded-full" />
               </AvatarFallback>
             </Avatar>
+            <img className="aspect-square h-6 w-6" alt="loqman" src="/logo.png" />
             <span className="font-semibold text-sm">{user.name}</span>
           </div>
         </DropdownMenuTrigger>
