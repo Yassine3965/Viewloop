@@ -56,6 +56,7 @@ interface AppDispatch {
   deleteVideo: (video: Video) => Promise<{ success: boolean, message: string }>;
   deleteCurrentUserAccount: (reason?: string) => Promise<{ success: boolean, message: string }>;
   improveReputation: () => Promise<{ success: boolean, message: string }>;
+  updateProfile: (avatarFile: File) => Promise<{ success: boolean, message: string }>;
   login: (email: string, password: string) => Promise<boolean>;
   registerAndSendCode: (details: any) => Promise<{ success: boolean; message: string; userId?: string }>;
   verifyRegistrationCodeAndCreateUser: (userId: string, code: string, details: any) => Promise<{ success: boolean; message: string }>;
@@ -369,6 +370,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   }, [user, toast]);
 
+  const updateProfile = useCallback(async (avatarFile: File): Promise<{ success: boolean, message: string }> => {
+    const currentUser = user;
+    if (!currentUser) return { success: false, message: "يجب تسجيل الدخول أولاً." };
+
+    try {
+      const userAuthToken = await currentUser.getIdToken();
+
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+
+      const response = await fetch('/api/update-profile', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${userAuthToken}`,
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "نجاح",
+          description: "تم تحديث الصورة الشخصية بنجاح.",
+        });
+        return { success: true, message: "تم تحديث الصورة الشخصية بنجاح." };
+      } else {
+        toast({
+          title: "فشل",
+          description: result.error || "فشل تحديث الصورة الشخصية.",
+          variant: "destructive",
+        });
+        return { success: false, message: result.error || "فشل تحديث الصورة الشخصية." };
+      }
+    } catch (error: any) {
+      const message = "حدث خطأ في الشبكة.";
+      toast({
+        title: "خطأ",
+        description: message,
+        variant: "destructive",
+      });
+      return { success: false, message };
+    }
+  }, [user, toast]);
+
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     if (!auth || !db) return false;
     try {
@@ -558,13 +604,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteVideo,
     deleteCurrentUserAccount,
     improveReputation,
+    updateProfile,
     login,
     registerAndSendCode,
     verifyRegistrationCodeAndCreateUser,
     loginWithGoogle,
     logout,
     getConnectionToken,
-  }), [addVideo, deleteVideo, deleteCurrentUserAccount, improveReputation, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout, getConnectionToken]);
+  }), [addVideo, deleteVideo, deleteCurrentUserAccount, improveReputation, updateProfile, login, registerAndSendCode, verifyRegistrationCodeAndCreateUser, loginWithGoogle, logout, getConnectionToken]);
 
   return (
     <AppStateContext.Provider value={stateContextValue}>

@@ -74,6 +74,12 @@ export function getFirestore(): admin.firestore.Firestore {
   return app.firestore();
 }
 
+// دالة للحصول على Storage
+export function getStorage(): admin.storage.Storage {
+  const app = initializeFirebaseAdmin();
+  return app.storage();
+}
+
 
 export function verifySignature(req: Request, body: any): boolean {
     const secret = process.env.EXTENSION_SECRET;

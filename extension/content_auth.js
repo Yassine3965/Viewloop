@@ -26,8 +26,7 @@ function syncAuth() {
             try {
                 chrome.runtime.sendMessage({
                     type: 'AUTH_SYNC',
-                    token: token,
-                    userId: 'user_sync_' + Date.now()
+                    token: token
                 }, (response) => {
                     const lastError = chrome.runtime.lastError;
                     if (lastError) {

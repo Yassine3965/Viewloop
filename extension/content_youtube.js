@@ -59,8 +59,7 @@ class ViewLoopMonitor {
         }
 
         console.log("[ViewLoop] Starting session...");
-        this.isWatching = true;
-        this.videoId = vid;
+        this.videoId = vid; // Set videoId before API call
 
         try {
             const res = await chrome.runtime.sendMessage({
@@ -69,16 +68,21 @@ class ViewLoopMonitor {
             });
 
             if (res.success) {
+                this.isWatching = true; // Only set after successful API response
                 this.sessionId = res.sessionId;
                 this.sessionToken = res.sessionToken;
+                this.isFinalized = false; // Reset finalization flag
                 console.log("[ViewLoop] Session active:", this.sessionId);
                 this.startHeartbeats();
             } else {
-                this.isWatching = false;
+                // Handle SESSION_ALREADY_ACTIVE silently
+                if (res.error === 'SESSION_ALREADY_ACTIVE') {
+                    console.log('[ViewLoop] Session already active for this tab, ignoring play');
+                    return;
+                }
                 console.warn("[ViewLoop] Session rejected:", res.error);
             }
         } catch (e) {
-            this.isWatching = false;
             console.error("[ViewLoop] Session error:", e);
         }
     }
@@ -119,6 +123,9 @@ class ViewLoopMonitor {
     async sendHeartbeat() {
         // 🔧 IMPROVEMENT: Additional video validation to prevent errors
         if (!this.isWatching || !this.video || this.video.readyState < 1) return;
+
+        // 🔧 IMPROVEMENT: Don't send heartbeats if session is invalid
+        if (!this.sessionId || !this.sessionToken) return;
 
         const heartbeat = {
             sessionId: this.sessionId,
@@ -220,10 +227,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // Navigation support
-// 🔧 IMPROVEMENT: Safe navigation handling - finalize current session before creating new monitor
-window.addEventListener('yt-navigate-finish', async () => {
+// 🔧 IMPROVEMENT: Don't finalize session on navigation - just stop signals
+window.addEventListener('yt-navigate-finish', () => {
     if (window.vLoop) {
-        await window.vLoop.onEnd();
+        window.vLoop.stopHeartbeats();
     }
     window.vLoop = new ViewLoopMonitor();
 });

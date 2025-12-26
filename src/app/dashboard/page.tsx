@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useApp } from '@/lib/app-provider';
 import { useRouter } from 'next/navigation';
-import { Mail, Calendar, Clock, MapPin, Loader2, PlayCircle, PlusCircle, Star, Sparkles, Gem, ArrowUp, Waves, HeartPulse, Zap, Flame } from 'lucide-react';
+import { Mail, Calendar, Clock, MapPin, Loader2, PlayCircle, PlusCircle, Star, Sparkles, Gem, ArrowUp, Waves, HeartPulse, Zap, Flame, Camera, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -175,14 +175,45 @@ function ExtensionConnectButton() {
 }
 
 export default function DashboardPage() {
-    const { user, isUserLoading, logout, improveReputation } = useApp();
+    const { user, isUserLoading, logout, improveReputation, updateProfile } = useApp();
     const router = useRouter();
     const [isImproving, setIsImproving] = useState(false);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleImproveReputation = async () => {
         setIsImproving(true);
         await improveReputation();
         setIsImproving(false);
+    }
+
+    const handleAvatarUpload = () => {
+        fileInputRef.current?.click();
+    }
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('يرجى اختيار ملف صورة صحيح.');
+            return;
+        }
+
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('حجم الملف يجب أن يكون أقل من 5 ميجابايت.');
+            return;
+        }
+
+        setIsUploadingAvatar(true);
+        const result = await updateProfile(file);
+        setIsUploadingAvatar(false);
+
+        if (!result.success) {
+            alert('فشل في تحديث الصورة الشخصية.');
+        }
     }
 
     useEffect(() => {
@@ -242,6 +273,26 @@ export default function DashboardPage() {
                                                 <img src="/logo.png" alt="Logo" className="h-full w-full rounded-full" />
                                             </AvatarFallback>
                                         </Avatar>
+                                        <Button
+                                            size="icon"
+                                            variant="secondary"
+                                            className="absolute bottom-0 right-0 h-8 w-8 rounded-full shadow-lg"
+                                            onClick={handleAvatarUpload}
+                                            disabled={isUploadingAvatar}
+                                        >
+                                            {isUploadingAvatar ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Camera className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileChange}
+                                            accept="image/*"
+                                            className="hidden"
+                                        />
                                     </div>
                                     <div className="flex flex-col gap-2 items-center sm:items-start text-center sm:text-right">
                                         <div className="flex items-center gap-3">
