@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search, PlayCircle, Gem, Eye, EyeOff } from 'lucide-react';
+import { Moon, Sun, LogIn, LogOut, LayoutDashboard, Star, Trash2, Search, PlayCircle, Gem, Eye, EyeOff, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -79,6 +79,12 @@ function UserSection() {
             <Link href="/dashboard" prefetch={false}>
               <LayoutDashboard className="ml-2 h-4 w-4" />
               <span>لوحة التحكم</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/account" prefetch={false}>
+              <User className="ml-2 h-4 w-4" />
+              <span>حسابي</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleLogout}>
